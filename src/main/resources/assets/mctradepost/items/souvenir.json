@@ -1,0 +1,9 @@
+{
+  "model": {
+    "type": "minecraft:special",
+    "base": "mctradepost:item/souvenir_default",
+    "model": {
+      "type": "mctradepost:souvenir"
+    }
+  }
+}

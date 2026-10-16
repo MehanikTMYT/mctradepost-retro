@@ -2,34 +2,15 @@
   "type": "minecraft:crafting_shapeless",
   "category": "building",
   "ingredients": [
-    {
-      "item": "mctradepost:prismarine_mortar"
-    },
-    {
-      "item": "mctradepost:prismarine_mortar"
-    },
-    {
-      "item": "mctradepost:prismarine_mortar"
-    },
-    {
-      "item": "mctradepost:prismarine_mortar"
-    },
-    {
-      "item": "minecraft:lapis_lazuli"
-    },
-    {
-      "item": "minecraft:lapis_lazuli"
-    },
-    {
-      "item": "minecraft:lapis_lazuli"
-    },
-    {
-      "item": "minecraft:lapis_lazuli"
-    },
-    {
-      "item": "minecraft:lapis_lazuli"
-    }
-
+    "mctradepost:prismarine_mortar",
+    "mctradepost:prismarine_mortar",
+    "mctradepost:prismarine_mortar",
+    "mctradepost:prismarine_mortar",
+    "minecraft:lapis_lazuli",
+    "minecraft:lapis_lazuli",
+    "minecraft:lapis_lazuli",
+    "minecraft:lapis_lazuli",
+    "minecraft:lapis_lazuli"
   ],
   "result": {
     "count": 8,

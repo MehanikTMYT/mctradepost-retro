@@ -1,22 +1,12 @@
 {
-  "type": "minecraft:crafting_shapeless",
+  "type": "mctradepost:durable_tool_shapeless",
   "category": "misc",
   "ingredients": [
-    {
-      "item": "minecolonies:mint"
-    },
-    {
-      "item": "minecraft:carrot"
-    },
-    {
-      "item": "minecraft:beetroot_seeds"
-    },
-    {
-      "tag": "mctradepost:vegetable"
-    },
-    {
-      "item": "mctradepost:immersion_blender"
-    }
+    "minecolonies:mint",
+    "minecraft:carrot",
+    "minecraft:beetroot_seeds",
+    "#mctradepost:vegetable",
+    "mctradepost:immersion_blender"
   ],
   "result": {
     "count": 8,

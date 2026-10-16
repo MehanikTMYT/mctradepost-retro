@@ -59,18 +59,18 @@ public class OutpostExportModule extends ItemListModule implements ITickingModul
         outpostInventory.clear();
 
         List<ItemStorage> possibleItems = new ArrayList<ItemStorage>();
-        ListTag filterableList = compound.getList("possibleItemList", 10);
+        ListTag filterableList = compound.getListOrEmpty("possibleItemList");
 
         for (int i = 0; i < filterableList.size(); ++i)
         {
-            CompoundTag itemTag = filterableList.getCompound(i);
+            CompoundTag itemTag = filterableList.getCompoundOrEmpty(i);
 
             if (itemTag.isEmpty())
             {
                 continue;
             }
             
-            possibleItems.add(new ItemStorage(ItemStack.parseOptional(NullnessBridge.assumeNonnull(provider), itemTag)));
+            possibleItems.add(new ItemStorage(Utils.parseOptionalItemStack(NullnessBridge.assumeNonnull(provider), itemTag)));
         }
 
         this.outpostInventory.addAll(possibleItems);
@@ -94,7 +94,7 @@ public class OutpostExportModule extends ItemListModule implements ITickingModul
         while (itemIterator.hasNext())
         {
             ItemStorage item = (ItemStorage) itemIterator.next();
-            filteredItems.add(item.getItemStack().saveOptional(NullnessBridge.assumeNonnull(provider)));
+            filteredItems.add(Utils.saveOptionalItemStack(NullnessBridge.assumeNonnull(provider), item.getItemStack()));
         }
 
         compound.put("possibleItemList", filteredItems);

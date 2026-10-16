@@ -5,7 +5,7 @@ import javax.annotation.Nonnull;
 import com.deathfrog.mctradepost.MCTradePostMod;
 import com.deathfrog.mctradepost.api.colony.buildings.jobs.MCTPModJobs;
 import com.minecolonies.api.items.ModTags;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.tags.ItemTags;
 
 /* Sets up crafting information for this mod's Minecolonies crafters.
@@ -59,11 +59,11 @@ public class MCTPCraftingSetup
     @SuppressWarnings("null")
     public static void initCrafterRules(@Nonnull String modID, @Nonnull final String crafterName)
     {
-        final ResourceLocation products = ResourceLocation.fromNamespaceAndPath(modID, crafterName.concat(PRODUCT));
-        final ResourceLocation ingredients = ResourceLocation.fromNamespaceAndPath(modID, crafterName.concat(INGREDIENT));
-        final ResourceLocation productsExcluded = ResourceLocation.fromNamespaceAndPath(modID, crafterName.concat(PRODUCT_EXCLUDED));
-        final ResourceLocation ingredientsExcluded = ResourceLocation.fromNamespaceAndPath(modID, crafterName.concat(INGREDIENT_EXCLUDED));
-        final ResourceLocation doIngredients = ResourceLocation.fromNamespaceAndPath(modID, crafterName.concat(DO_INGREDIENT));
+        final Identifier products = Identifier.fromNamespaceAndPath(modID, crafterName.concat(PRODUCT));
+        final Identifier ingredients = Identifier.fromNamespaceAndPath(modID, crafterName.concat(INGREDIENT));
+        final Identifier productsExcluded = Identifier.fromNamespaceAndPath(modID, crafterName.concat(PRODUCT_EXCLUDED));
+        final Identifier ingredientsExcluded = Identifier.fromNamespaceAndPath(modID, crafterName.concat(INGREDIENT_EXCLUDED));
+        final Identifier doIngredients = Identifier.fromNamespaceAndPath(modID, crafterName.concat(DO_INGREDIENT));
 
         ModTags.crafterProduct.put(crafterName, ItemTags.create(products));
         ModTags.crafterProductExclusions.put(crafterName, ItemTags.create(productsExcluded));

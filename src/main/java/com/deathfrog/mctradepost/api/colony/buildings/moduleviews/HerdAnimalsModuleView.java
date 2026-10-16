@@ -2,7 +2,7 @@ package com.deathfrog.mctradepost.api.colony.buildings.moduleviews;
 
 import com.deathfrog.mctradepost.MCTradePostMod;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 import javax.annotation.Nullable;
 
@@ -30,9 +30,9 @@ public class HerdAnimalsModuleView extends PetTrainingItemsModuleView
     }
 
     @Override
-    public ResourceLocation getIconResourceLocation()
+    public Identifier getIconResourceLocation()
     {
-        return ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "textures/gui/modules/herdanimals.png");
+        return Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "textures/gui/modules/herdanimals.png");
     }
 
     @Override

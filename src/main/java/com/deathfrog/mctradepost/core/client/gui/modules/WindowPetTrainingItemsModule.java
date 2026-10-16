@@ -20,8 +20,9 @@ import com.minecolonies.core.client.gui.AbstractModuleWindow;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.item.ItemStack;
 
 import org.jetbrains.annotations.NotNull;
@@ -69,7 +70,7 @@ public class WindowPetTrainingItemsModule extends AbstractModuleWindow<PetTraini
      */
     public WindowPetTrainingItemsModule(final PetTrainingItemsModuleView moduleView)
     {
-        super(moduleView, ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, RESOURCE_STRING));
+        super(moduleView, Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, RESOURCE_STRING));
         husbandryResearch = (int) moduleView.getColony().getResearchManager().getResearchEffects().getEffectStrength(MCTPResearchConstants.HUSBANDRY);  
         exoticLevelResearch = (int) moduleView.getColony().getResearchManager().getResearchEffects().getEffectStrength(MCTPResearchConstants.EXOTIC); 
 
@@ -175,11 +176,11 @@ public class WindowPetTrainingItemsModule extends AbstractModuleWindow<PetTraini
                 // randomizes its variant when constructed, so recreating it on every list
                 // refresh caused the displayed coat to flash rapidly between variants.
                 Entity previewEntity = previewEntities.computeIfAbsent(petTypeEntry,
-                    type -> type.getEntityType().create(level));
-                
+                    type -> type.getEntityType().create(level, EntitySpawnReason.LOAD));
+
                 if (previewEntity != null)
                 {
-                    entityIcon.setEntity(previewEntity);
+                    entityIcon.setEntityState(new EntityIcon.DynamicState<>(previewEntity, null));
                     final AbstractTextBuilder.TooltipBuilder hoverPaneBuilder = PaneBuilders.tooltipBuilder().hoverPane(entityIcon);
                     hoverPaneBuilder.append(previewEntity.getName());
                     hoverPaneBuilder.build();

@@ -25,7 +25,7 @@ import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 public class WindowGuestListModule extends AbstractModuleWindow<ResortGuestListModuleView>
 {
@@ -55,7 +55,7 @@ public class WindowGuestListModule extends AbstractModuleWindow<ResortGuestListM
      */
     public WindowGuestListModule(final ResortGuestListModuleView moduleView)
     {
-        super(moduleView, ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, RESOURCE_STRING));
+        super(moduleView, Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, RESOURCE_STRING));
         registerButton(BUTTON_SUMMONGUEST, this::summonGuest);
         guestList = this.window.findPaneOfTypeByID(LABEL_GUESTLIST, ScrollingList.class);
 
@@ -122,7 +122,7 @@ public class WindowGuestListModule extends AbstractModuleWindow<ResortGuestListM
                 }
                 else
                 {
-                    name.setText(Component.literal("Unknown"));
+                    name.setText(Component.translatable("com.mctradepost.gui.guestlist.unknown"));
                 }
 
                 final ButtonImage summonGuestButton = rowPane.findPaneOfTypeByID(BUTTON_SUMMONGUEST, ButtonImage.class);

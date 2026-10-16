@@ -5,9 +5,7 @@
     "###"
   ],
   "key": {
-    "#": {
-      "item": "mctradepost:woven_kelp"
-    }
+    "#": "mctradepost:woven_kelp"
   },
   "result": {
     "id": "mctradepost:woven_kelp_slab",

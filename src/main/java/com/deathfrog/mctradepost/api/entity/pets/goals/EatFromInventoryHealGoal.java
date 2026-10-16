@@ -211,7 +211,7 @@ public class EatFromInventoryHealGoal<P extends Animal & ITradePostPet> extends 
             pet.level()
                 .playSound(null,
                     pos,
-                    Objects.requireNonNull(SoundEvents.GENERIC_EAT),
+                    Objects.requireNonNull(SoundEvents.GENERIC_EAT).value(),
                     SoundSource.NEUTRAL,
                     0.8F,
                     pet.getRandom().nextFloat() * 0.2F + 0.9F);

@@ -10,11 +10,9 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
@@ -34,7 +32,7 @@ public record PetForagingJeiSyncPacket(List<PetForagingJeiEntry> entries) implem
      */
     @SuppressWarnings("null")
     public static final CustomPacketPayload.Type<PetForagingJeiSyncPacket> TYPE =
-        new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "sync_pet_foraging_jei"));
+        new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "sync_pet_foraging_jei"));
 
     /**
      * Packet codec for the full synced entry list.
@@ -62,12 +60,11 @@ public record PetForagingJeiSyncPacket(List<PetForagingJeiEntry> entries) implem
      *
      * @param ctx network payload context
      */
-    @OnlyIn(Dist.CLIENT)
     public void handleDataInClientOnMain(final IPayloadContext ctx)
     {
         PetForagingJeiCache.setEntries(entries);
         MCTradePostMod.LOGGER.info("Received {} pet foraging JEI entries on client", entries.size());
-        CompatHooks.refreshPetForagingJei();
+        CompatHooks.refreshPetForagingEmi();
     }
 
     /**
@@ -81,7 +78,7 @@ public record PetForagingJeiSyncPacket(List<PetForagingJeiEntry> entries) implem
 
         try
         {
-            PacketDistributor.sendToPlayer(player, new PetForagingJeiSyncPacket(PetForagingJeiDataBuilder.build(player.server)));
+            PacketDistributor.sendToPlayer(player, new PetForagingJeiSyncPacket(PetForagingJeiDataBuilder.build(player.level().getServer())));
         }
         catch (Exception e)
         {

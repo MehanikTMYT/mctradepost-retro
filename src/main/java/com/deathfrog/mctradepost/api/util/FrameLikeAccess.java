@@ -2,7 +2,7 @@ package com.deathfrog.mctradepost.api.util;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.Entity;
@@ -25,7 +25,7 @@ public final class FrameLikeAccess
     // FastItemFrames exposes a block tag "fastitemframes:item_frames"
     @SuppressWarnings("null")
     private static final TagKey<Block> FAST_ITEM_FRAMES_BLOCK_TAG =
-        TagKey.create(Registries.BLOCK, ResourceLocation.fromNamespaceAndPath("fastitemframes", "item_frames"));
+        TagKey.create(Registries.BLOCK, Identifier.fromNamespaceAndPath("fastitemframes", "item_frames"));
 
     /**
      * Represents either a vanilla ItemFrame entity or a "frame-like" block (e.g., Fast Item Frames).

@@ -63,7 +63,7 @@ public final class TaggedItemPicker
      */
     public static ItemStack rollFromTag(ServerLevel level, RandomSource rand, @Nonnull TagKey<Item> tag)
     {
-        if (level == null || level.isClientSide) return ItemStack.EMPTY;
+        if (level == null || level.isClientSide()) return ItemStack.EMPTY;
 
         List<Item> items = CACHE.computeIfAbsent(tag, t -> t != null ? buildList(level, t) : List.of());
         if (items.isEmpty()) return ItemStack.EMPTY;

@@ -5,7 +5,7 @@ import javax.annotation.Nonnull;
 import com.deathfrog.mctradepost.MCTradePostMod;
 
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.tags.TagKey;
@@ -18,31 +18,35 @@ public class ModTags
     /* Block Tags */
     public static final class BLOCKS
     {
-        public static final ResourceLocation TRACK_TAG_KEY = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "track");
+        public static final Identifier TRACK_TAG_KEY = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "track");
         @SuppressWarnings("null")
         public @Nonnull static final TagKey<Block> TRACK_TAG = BlockTags.create(TRACK_TAG_KEY);
 
-        public static final ResourceLocation FRUIT_TAG_KEY = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "scavenge_fruit");
+        public static final Identifier TRADE_ROADS_TAG_KEY = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "trade_roads");
+        @SuppressWarnings("null")
+        public @Nonnull static final TagKey<Block> TRADE_ROADS_TAG = BlockTags.create(TRADE_ROADS_TAG_KEY);
+
+        public static final Identifier FRUIT_TAG_KEY = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "scavenge_fruit");
         @SuppressWarnings("null")
         public @Nonnull static final TagKey<Block> TAG_FRUIT = BlockTags.create(FRUIT_TAG_KEY);
 
-        public static final ResourceLocation SCAVENGE_LEAVES_TAG_KEY = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "scavenge_leaves");
+        public static final Identifier SCAVENGE_LEAVES_TAG_KEY = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "scavenge_leaves");
         @SuppressWarnings("null")
         public @Nonnull static final TagKey<Block> TAG_SCAVENGE_LEAVES = BlockTags.create(SCAVENGE_LEAVES_TAG_KEY);
     
-        public static final ResourceLocation GROUNDCOVER_KEY = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "scavenge_groundcover");
+        public static final Identifier GROUNDCOVER_KEY = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "scavenge_groundcover");
         @SuppressWarnings("null")
         public @Nonnull static final TagKey<Block> TAG_GROUNDCOVER = BlockTags.create(GROUNDCOVER_KEY);   
 
-        public static final ResourceLocation WATER_SCAVENGE_TAG_KEY = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "amphibious_scavenge");
+        public static final Identifier WATER_SCAVENGE_TAG_KEY = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "amphibious_scavenge");
         @SuppressWarnings("null")
         public static final TagKey<Block> WATER_SCAVENGE_BLOCK_TAG = BlockTags.create(WATER_SCAVENGE_TAG_KEY);
 
-        public static final ResourceLocation MUSHROOM_SCAVENGE_TAG_KEY = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "mushroom_scavenge");
+        public static final Identifier MUSHROOM_SCAVENGE_TAG_KEY = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "mushroom_scavenge");
         @SuppressWarnings("null")
         public static final TagKey<Block> MUSHROOM_SCAVENGE_BLOCK_TAG = BlockTags.create(MUSHROOM_SCAVENGE_TAG_KEY);
 
-        public static final ResourceLocation LAMP_BASE_TAG_KEY = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "lamp_bases");
+        public static final Identifier LAMP_BASE_TAG_KEY = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "lamp_bases");
         @SuppressWarnings("null")
         public static final TagKey<Block> LAMP_BASES = BlockTags.create(LAMP_BASE_TAG_KEY);
     }
@@ -50,45 +54,59 @@ public class ModTags
     /* Item Tags */
     public static final class ITEMS
     {
-        public static final ResourceLocation STEW_INGREDIENTS_TAG_KEY = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "stew_ingredients");
+        public static final Identifier STEW_INGREDIENTS_TAG_KEY = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "stew_ingredients");
         @SuppressWarnings("null")
         public @Nonnull static final TagKey<Item> STEW_INGREDIENTS_TAG = ItemTags.create(STEW_INGREDIENTS_TAG_KEY);
 
-        public static final ResourceLocation RARE_FINDS_BLACKLIST_TAG_KEY = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "rarefinds_blacklist");
+        public static final Identifier PROTEIN_TAG_KEY = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "protein");
+        @SuppressWarnings("null")
+        public @Nonnull static final TagKey<Item> PROTEIN_TAG = ItemTags.create(PROTEIN_TAG_KEY);
+
+        public static final Identifier VEGETABLE_TAG_KEY = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "vegetable");
+        @SuppressWarnings("null")
+        public @Nonnull static final TagKey<Item> VEGETABLE_TAG = ItemTags.create(VEGETABLE_TAG_KEY);
+
+        public static final Identifier RARE_FINDS_BLACKLIST_TAG_KEY = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "rarefinds_blacklist");
         @SuppressWarnings("null")
         public @Nonnull static final TagKey<Item> RARE_FINDS_BLACKLIST_TAG = ItemTags.create(RARE_FINDS_BLACKLIST_TAG_KEY);
 
-        public static final ResourceLocation RARE_FINDS_UNIQUE_PURCHASE_TAG_KEY = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "rarefinds_unique_purchase");
+        public static final Identifier RARE_FINDS_UNIQUE_PURCHASE_TAG_KEY = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "rarefinds_unique_purchase");
         @SuppressWarnings("null")
         public @Nonnull static final TagKey<Item> RARE_FINDS_UNIQUE_PURCHASE_TAG = ItemTags.create(RARE_FINDS_UNIQUE_PURCHASE_TAG_KEY);
 
-        public static final ResourceLocation RARE_FINDS_TIER0_TAG_KEY = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "rarefinds_tier0");
+        public static final Identifier RARE_FINDS_TIER0_TAG_KEY = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "rarefinds_tier0");
         @SuppressWarnings("null")
         public @Nonnull static final TagKey<Item> RARE_FINDS_TIER0_TAG = ItemTags.create(RARE_FINDS_TIER0_TAG_KEY);
 
-        public static final ResourceLocation RARE_FINDS_TIER1_TAG_KEY = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "rarefinds_tier1");
+        public static final Identifier RARE_FINDS_TIER1_TAG_KEY = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "rarefinds_tier1");
         @SuppressWarnings("null")
         public @Nonnull static final TagKey<Item> RARE_FINDS_TIER1_TAG = ItemTags.create(RARE_FINDS_TIER1_TAG_KEY);
 
-        public static final ResourceLocation RARE_FINDS_TIER2_TAG_KEY = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "rarefinds_tier2");
+        public static final Identifier RARE_FINDS_TIER2_TAG_KEY = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "rarefinds_tier2");
         @SuppressWarnings("null")
         public @Nonnull static final TagKey<Item> RARE_FINDS_TIER2_TAG = ItemTags.create(RARE_FINDS_TIER2_TAG_KEY);
 
-        public static final ResourceLocation RARE_FINDS_TIER3_TAG_KEY = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "rarefinds_tier3");
+        public static final Identifier RARE_FINDS_TIER3_TAG_KEY = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "rarefinds_tier3");
         @SuppressWarnings("null")
         public @Nonnull static final TagKey<Item> RARE_FINDS_TIER3_TAG = ItemTags.create(RARE_FINDS_TIER3_TAG_KEY);
 
-        public static final ResourceLocation RARE_FINDS_TIER4_TAG_KEY = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "rarefinds_tier4");
+        public static final Identifier RARE_FINDS_TIER4_TAG_KEY = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "rarefinds_tier4");
         @SuppressWarnings("null")
         public @Nonnull static final TagKey<Item> RARE_FINDS_TIER4_TAG = ItemTags.create(RARE_FINDS_TIER4_TAG_KEY);
 
-        public static final ResourceLocation OUTPOST_CROPS_KEY = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "outpost_crops");
+        public static final Identifier OUTPOST_CROPS_KEY = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "outpost_crops");
         @SuppressWarnings("null")
         public @Nonnull static final TagKey<Item> OUTPOST_CROPS_TAG = ItemTags.create(OUTPOST_CROPS_KEY);
 
-        public static final ResourceLocation BASE_CURRENCY_KEY = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "base_currency");
+        public static final Identifier BASE_CURRENCY_KEY = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "base_currency");
         @SuppressWarnings("null")
         public @Nonnull static final TagKey<Item> BASE_CURRENCY_TAG = ItemTags.create(BASE_CURRENCY_KEY);
+
+        // Since 26.1, ArmorMaterial#repairIngredient() is a TagKey<Item> rather than an Ingredient
+        // supplier (see com.minecolonies.api.items.ModEquipmentAssets for the same convention).
+        public static final Identifier REINFORCED_LEATHER_REPAIR_KEY = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "reinforced_leather_repair");
+        @SuppressWarnings("null")
+        public @Nonnull static final TagKey<Item> REINFORCED_LEATHER_REPAIR_TAG = ItemTags.create(REINFORCED_LEATHER_REPAIR_KEY);
     }
 
     public static final class ENTITIES
@@ -96,12 +114,12 @@ public class ModTags
         @SuppressWarnings("null")
         @Nonnull public static final TagKey<EntityType<?>> TRAINED_PETS =
             TagKey.create(Registries.ENTITY_TYPE,
-                ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "trained_pets"));
+                Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "trained_pets"));
 
 
         @SuppressWarnings("null")
         @Nonnull public static final TagKey<EntityType<?>> COINDROPPERS =
             TagKey.create(Registries.ENTITY_TYPE,
-                ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "coindroppers"));
+                Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "coindroppers"));
     }
 }

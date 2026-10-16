@@ -7,7 +7,7 @@ import com.minecolonies.core.colony.buildings.modules.BuildingModules;
 
 import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.registries.DeferredHolder;
@@ -65,7 +65,7 @@ public final class ModBuildingsInitializer
             marketBuilder.setBuildingBlock(MCTradePostMod.blockHutMarketplace.get());
             marketBuilder.setBuildingProducer(BuildingMarketplace::new);
             marketBuilder.setBuildingViewProducer(() -> MarketplaceView::new);
-            marketBuilder.setRegistryName(ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, ModBuildings.MARKETPLACE_ID));
+            marketBuilder.setRegistryName(Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, ModBuildings.MARKETPLACE_ID));
             marketBuilder.addBuildingModuleProducer(MCTPBuildingModules.SHOPKEEPER_WORK);
             marketBuilder.addBuildingModuleProducer(MCTPBuildingModules.ITEMLIST_SELLABLE);
             marketBuilder.addBuildingModuleProducer(MCTPBuildingModules.ECON_MODULE);
@@ -83,7 +83,7 @@ public final class ModBuildingsInitializer
             resortBuilder.setBuildingBlock(MCTradePostMod.blockHutResort.get());
             resortBuilder.setBuildingProducer(BuildingResort::new);
             resortBuilder.setBuildingViewProducer(() -> ResortView::new);
-            resortBuilder.setRegistryName(ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, ModBuildings.RESORT_ID));
+            resortBuilder.setRegistryName(Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, ModBuildings.RESORT_ID));
             resortBuilder.addBuildingModuleProducer(MCTPBuildingModules.GUESTSERVICES_WORK);
             resortBuilder.addBuildingModuleProducer(MCTPBuildingModules.BARTENDER_WORK);
             resortBuilder.addBuildingModuleProducer(MCTPBuildingModules.GUEST_LIST);
@@ -100,7 +100,7 @@ public final class ModBuildingsInitializer
             recyclingBuilder.setBuildingBlock(MCTradePostMod.blockHutRecycling.get());
             recyclingBuilder.setBuildingProducer(BuildingRecycling::new);
             recyclingBuilder.setBuildingViewProducer(() -> RecyclingView::new);
-            recyclingBuilder.setRegistryName(ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, ModBuildings.RECYCLING_ID));
+            recyclingBuilder.setRegistryName(Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, ModBuildings.RECYCLING_ID));
             recyclingBuilder.addBuildingModuleProducer(MCTPBuildingModules.RECYCLINGENGINEER_WORK);
             recyclingBuilder.addBuildingModuleProducer(MCTPBuildingModules.ITEMLIST_RECYCLABLE);
             recyclingBuilder.addBuildingModuleProducer(MCTPBuildingModules.RECYCLING_PROGRESS);
@@ -115,7 +115,7 @@ public final class ModBuildingsInitializer
             stationBuilder.setBuildingBlock(MCTradePostMod.blockHutStation.get());
             stationBuilder.setBuildingProducer(BuildingStation::new);
             stationBuilder.setBuildingViewProducer(() -> StationView::new);
-            stationBuilder.setRegistryName(ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, ModBuildings.STATION_ID));
+            stationBuilder.setRegistryName(Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, ModBuildings.STATION_ID));
             stationBuilder.addBuildingModuleProducer(MCTPBuildingModules.STATIONMASTER_WORK);
             stationBuilder.addBuildingModuleProducer(BuildingModules.MIN_STOCK);
             stationBuilder.addBuildingModuleProducer(MCTPBuildingModules.STATION_CONNECTION);
@@ -132,7 +132,7 @@ public final class ModBuildingsInitializer
             petShopBuilder.setBuildingBlock(MCTradePostMod.blockHutPetShop.get());
             petShopBuilder.setBuildingProducer(BuildingPetshop::new);
             petShopBuilder.setBuildingViewProducer(() -> PetshopView::new);
-            petShopBuilder.setRegistryName(ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, ModBuildings.PETSHOP_ID));
+            petShopBuilder.setRegistryName(Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, ModBuildings.PETSHOP_ID));
             petShopBuilder.addBuildingModuleProducer(MCTPBuildingModules.ANIMALTRAINER_WORK);
             petShopBuilder.addBuildingModuleProducer(MCTPBuildingModules.PET_TRAINING);
             petShopBuilder.addBuildingModuleProducer(MCTPBuildingModules.HERD_ANIMALS);
@@ -147,7 +147,7 @@ public final class ModBuildingsInitializer
             outpostBuilder.setBuildingBlock(MCTradePostMod.blockHutOutpost.get());
             outpostBuilder.setBuildingProducer((colony, blockPos) -> new BuildingOutpost(colony, blockPos, ModBuildings.OUTPOST_ID, 5));
             outpostBuilder.setBuildingViewProducer(() -> OutpostView::new);
-            outpostBuilder.setRegistryName(ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, ModBuildings.OUTPOST_ID));
+            outpostBuilder.setRegistryName(Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, ModBuildings.OUTPOST_ID));
             outpostBuilder.addBuildingModuleProducer(MCTPBuildingModules.SCOUT_WORK);
             outpostBuilder.addBuildingModuleProducer(MCTPBuildingModules.OUTPOST_LIVING);
             outpostBuilder.addBuildingModuleProducer(BuildingModules.BED);
@@ -176,7 +176,7 @@ public final class ModBuildingsInitializer
                 throw new IllegalStateException("Building registry is null while attempting to register Trade Post buildings.");
             }
 
-            ResourceLocation registryName = buildingEntry.getRegistryName();
+            Identifier registryName = buildingEntry.getRegistryName();
 
             if (registryName == null)
             {
@@ -194,6 +194,8 @@ public final class ModBuildingsInitializer
      */
     public static void injectBuildingModules()
     {
+        injectModuleToBuilding(MCTPBuildingModules.CITIZEN_INCENTIVES, com.minecolonies.api.colony.buildings.ModBuildings.townHall);
+
         // Get the existing entry to extend
         final DeferredHolder<BuildingEntry,BuildingEntry> cowboy = com.minecolonies.api.colony.buildings.ModBuildings.cowboy;
 

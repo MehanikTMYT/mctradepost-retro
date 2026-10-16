@@ -1,8 +1,6 @@
 {
   "type": "mctradepost:unique_tag_shapeless",
-  "base": {
-    "item": "mctradepost:napkin"
-  },
+  "base": "mctradepost:napkin",
   "tag": "mctradepost:bar_nut_seeds",
   "count": 4,
   "result": {

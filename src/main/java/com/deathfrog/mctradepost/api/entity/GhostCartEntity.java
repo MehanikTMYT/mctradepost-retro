@@ -17,6 +17,7 @@ import com.ldtteam.blockui.mod.Log;
 import com.minecolonies.api.entity.ai.statemachine.tickratestatemachine.TickRateConstants;
 import com.mojang.logging.LogUtils;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Registry;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -24,7 +25,7 @@ import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.TicketType;
@@ -34,10 +35,10 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.entity.vehicle.AbstractMinecart;
+import net.minecraft.world.entity.vehicle.minecart.AbstractMinecart;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ChunkPos;
@@ -54,8 +55,10 @@ public class GhostCartEntity extends AbstractMinecart implements IEntityWithComp
     private static final int PARTICLE_PERIOD = 3;   // every 3 game-ticks
     private static final int SOUND_PERIOD = 40;  // once every 2 seconds
 
-    private static final TicketType<GhostCartEntity> CART_TICKET =
-        TicketType.create("ghost_cart_follow", NullnessBridge.assumeNonnull(Comparator.comparingInt(System::identityHashCode)), 3);
+    // TicketType lost its per-entity comparator/lifespan constructor in 26.1.2: it is now a plain
+    // flags record (see net.minecraft.server.level.TicketType), shared rather than per-entity, and
+    // registered through MCTradePostMod.TICKET_TYPES (see there for why a DeferredRegister is used
+    // instead of a bare Registry.register() call here).
 
     private ChunkPos lastTicketPos;
     private boolean spawnPosFixed = false;
@@ -66,7 +69,8 @@ public class GhostCartEntity extends AbstractMinecart implements IEntityWithComp
     private int desiredIdx = 0;     // latest segment requested by the driver
     private long strideStartTick;       // gameTime when current stride began
     private double strideLength;         // total polyline length for this stride (blocks)
-    private final int COLONY_T = TickRateConstants.MAX_TICKRATE; // e.g. 500 ticks
+    public static final int DEFAULT_STRIDE_TICKS = TickRateConstants.MAX_TICKRATE; // e.g. 500 ticks
+    private int strideDurationTicks = DEFAULT_STRIDE_TICKS;
     protected boolean reversed = false;
 
     // --- NEW: fractional start support (smooth mid-stride retiming) ---
@@ -176,7 +180,15 @@ public class GhostCartEntity extends AbstractMinecart implements IEntityWithComp
      * @param reverse whether the path should be followed in reverse order
      * @return the spawned entity, or null if spawning failed
      */
+    @SuppressWarnings("null")
     public static GhostCartEntity spawn(@Nonnull ServerLevel level, @Nonnull List<BlockPos> path, boolean reverse)
+    {
+        return spawnTyped(level, path, reverse, MCTradePostMod.GHOST_CART.get());
+    }
+
+    /** Shared visual-vehicle spawn path used by rail carts, boats, and wagons. */
+    public static <T extends GhostCartEntity> T spawnTyped(@Nonnull ServerLevel level, @Nonnull List<BlockPos> path, boolean reverse,
+        @Nonnull EntityType<T> entityType)
     {
         if (path == null || path.isEmpty())
         {
@@ -191,8 +203,8 @@ public class GhostCartEntity extends AbstractMinecart implements IEntityWithComp
             LOGGER.error("Invalid path for GhostCartEntity - null starting position.");
             return null;
         }
-        
-        GhostCartEntity e = MCTradePostMod.GHOST_CART.get().create(level, null, start, MobSpawnType.EVENT, false, false);
+
+        T e = entityType.create(level, null, start, EntitySpawnReason.EVENT, false, false);
         if (e == null)
         {
             LOGGER.error("Failed to spawn GhostCartEntity.");
@@ -217,6 +229,12 @@ public class GhostCartEntity extends AbstractMinecart implements IEntityWithComp
      */
     public void setSegment(int segment)
     {
+        setSegment(segment, DEFAULT_STRIDE_TICKS);
+    }
+
+    /** Requests movement with an explicit duration, used when one trade stride crosses modal boundaries. */
+    public void setSegment(int segment, int durationTicks)
+    {
         if (path == null || path.isEmpty()) return;
 
         int clamped = Mth.clamp(segment, 0, path.size() - 1);
@@ -226,6 +244,7 @@ public class GhostCartEntity extends AbstractMinecart implements IEntityWithComp
         }
 
         desiredIdx = clamped;
+        strideDurationTicks = Math.max(1, durationTicks);
 
         // --- Rebase the stride to our *current* fractional position ---
         // If we have a valid last-edge cache (from tick), start from there.
@@ -262,11 +281,11 @@ public class GhostCartEntity extends AbstractMinecart implements IEntityWithComp
     {
         super.tick();
 
-        if (level().isClientSide) return;
+        if (level().isClientSide()) return;
 
         if (path == null || path.isEmpty())
         {
-            if (ticksWithNoPath++ > MAX_TICKS_WITH_NO_PATH)
+            if (discardWhenPathless() && ticksWithNoPath++ > MAX_TICKS_WITH_NO_PATH)
             {   
                 discard();
             }
@@ -299,7 +318,7 @@ public class GhostCartEntity extends AbstractMinecart implements IEntityWithComp
         }
 
         BlockPos targetPos = path.get(targetIdx);
-        Vec3 centerTarget = Vec3.atCenterOf(targetPos);
+        Vec3 centerTarget = pathPosition(targetPos);
 
         if (strideLength <= 1e-9)
         {
@@ -313,7 +332,7 @@ public class GhostCartEntity extends AbstractMinecart implements IEntityWithComp
 
         // --- Smooth pacing: always COLONY_T ticks per stride ---
         long dt = level().getGameTime() - strideStartTick;
-        double u = Mth.clamp(dt / (double) COLONY_T, 0.0, 1.0);
+        double u = Mth.clamp(dt / (double) strideDurationTicks, 0.0, 1.0);
         double travelled = u * strideLength;
 
         // Walk along the polyline from (startIdx + startT) toward targetIdx
@@ -323,8 +342,8 @@ public class GhostCartEntity extends AbstractMinecart implements IEntityWithComp
         // distance from current fractional point to end of edge i -> i+1
         while (i < targetIdx)
         {
-            Vec3 pa = Vec3.atCenterOf(path.get(i));
-            Vec3 pb = Vec3.atCenterOf(path.get(i + 1));
+            Vec3 pa = pathPosition(path.get(i));
+            Vec3 pb = pathPosition(path.get(i + 1));
 
             Vec3 edgeStart = pa.lerp(pb, t);
             double edgeLen = edgeStart.distanceTo(pb);
@@ -350,7 +369,7 @@ public class GhostCartEntity extends AbstractMinecart implements IEntityWithComp
 
                 Vec3 dir = pb.subtract(pa).normalize();
                 setYRot((float) (Math.atan2(dir.z, dir.x) * 180 / Math.PI) - 90);
-                setDeltaMovement(dir.scale(strideLength / Math.max(1.0, COLONY_T))); // interpolation hint
+                setDeltaMovement(dir.scale(strideLength / Math.max(1.0, strideDurationTicks))); // interpolation hint
 
                 // cache fractional edge for mid-stride rebasing
                 lastEdgeA = i;
@@ -392,6 +411,15 @@ public class GhostCartEntity extends AbstractMinecart implements IEntityWithComp
     }
 
     /**
+     * Whether this visual vehicle should remove itself after waiting without a route path.
+     * Subclasses that are useful as standalone entities may opt out.
+     */
+    protected boolean discardWhenPathless()
+    {
+        return true;
+    }
+
+    /**
      * Length from a fractional point (a, tA) to node b along the path. a must be <= b, and tA in [0,1]. If a == b, returns 0.
      */
     @SuppressWarnings("null")
@@ -403,8 +431,8 @@ public class GhostCartEntity extends AbstractMinecart implements IEntityWithComp
 
         // partial first edge: from lerp(a->a+1, tA) to (a+1)
         {
-            Vec3 pa = Vec3.atCenterOf(path.get(a));
-            Vec3 pb = Vec3.atCenterOf(path.get(a + 1));
+            Vec3 pa = pathPosition(path.get(a));
+            Vec3 pb = pathPosition(path.get(a + 1));
             Vec3 p0 = pa.lerp(pb, Mth.clamp(tA, 0.0, 1.0));
             sum += p0.distanceTo(pb);
         }
@@ -412,8 +440,8 @@ public class GhostCartEntity extends AbstractMinecart implements IEntityWithComp
         // full edges in between
         for (int i = a + 1; i < b; i++)
         {
-            Vec3 p = Vec3.atCenterOf(path.get(i));
-            Vec3 q = Vec3.atCenterOf(path.get(i + 1));
+            Vec3 p = pathPosition(path.get(i));
+            Vec3 q = pathPosition(path.get(i + 1));
             sum += p.distanceTo(q);
         }
 
@@ -424,21 +452,28 @@ public class GhostCartEntity extends AbstractMinecart implements IEntityWithComp
      * Spawns a single campfire smoke particle at the position of the cart minus a small offset in the direction of
      * travel. This is used to create a trail of smoke particles when the cart is rolling.
      */
-    private void spawnTrailParticle()
+    protected void spawnTrailParticle()
     {
         if (level() == null) return;
 
         Vec3 offset = NullnessBridge.assumeNonnull(getForward().scale(0.9));
         Vec3 behind = position().subtract(offset);
         ((ServerLevel) level())
-            .sendParticles(NullnessBridge.assumeNonnull(ParticleTypes.CAMPFIRE_COSY_SMOKE), behind.x(), behind.y() + 0.1, behind.z(), 1, 0.1, 0.1, 0.1, 0.0);
+            .sendParticles(NullnessBridge.assumeNonnull(ParticleTypes.CAMPFIRE_COSY_SMOKE), behind.x(),
+                behind.y() + getTrailParticleYOffset(), behind.z(), 1, 0.1, 0.1, 0.1, 0.0);
+    }
+
+    /** Vertical offset of the trail emitter from the vehicle origin. */
+    protected double getTrailParticleYOffset()
+    {
+        return 0.1D;
     }
 
     /**
      * Play a rolling sound effect at the position of the cart.
      * This is used to create the sound of the cart rolling along the path.
      */
-    private void playRollingSound()
+    protected void playRollingSound()
     {
         level().playSound(null,
             getX(),
@@ -505,14 +540,7 @@ public class GhostCartEntity extends AbstractMinecart implements IEntityWithComp
 
         if (pos == null) return;
 
-        ChunkPos here = new ChunkPos(pos);
-        TicketType<GhostCartEntity> ticket = CART_TICKET;
-
-        if (ticket == null) 
-        {
-            Log.getLogger().error("Cart ticket is null! This shoudn't happen. Report to devs.");
-            return;
-        }
+        ChunkPos here = ChunkPos.containing(pos);
 
         if (!here.equals(lastTicketPos))
         {
@@ -520,9 +548,9 @@ public class GhostCartEntity extends AbstractMinecart implements IEntityWithComp
 
             if (localLastTicketPos != null)
             {
-                ((ServerLevel) level()).getChunkSource().removeRegionTicket(ticket, localLastTicketPos, 3, this);
+                ((ServerLevel) level()).getChunkSource().removeTicketWithRadius(MCTradePostMod.GHOST_CART_TICKET.get(), localLastTicketPos, 3);
             }
-            ((ServerLevel) level()).getChunkSource().addRegionTicket(ticket, here, 3, this); // radius 3 chunks
+            ((ServerLevel) level()).getChunkSource().addTicketWithRadius(MCTradePostMod.GHOST_CART_TICKET.get(), here, 3); // radius 3 chunks
             lastTicketPos = here;
         }
     }
@@ -552,11 +580,11 @@ public class GhostCartEntity extends AbstractMinecart implements IEntityWithComp
     public void push(@Nonnull Entity e)
     { /* NO-OP */ }
 
-    @Override
-    public boolean canBeCollidedWith()
-    {
-        return false;
-    }
+    // Entity#canBeCollidedWith() lost its no-arg form in 26.1.2; the new canBeCollidedWith(Entity)
+    // already defaults to false on the base Entity class and neither VehicleEntity nor
+    // AbstractMinecart override it back to true (real minecart pushing goes through
+    // isPushable()/canCollideWith() instead) - so the old "never collidable" behaviour here is
+    // already the inherited default and needs no override.
 
     @Override
     public boolean canAddPassenger(@Nonnull Entity e)
@@ -564,28 +592,37 @@ public class GhostCartEntity extends AbstractMinecart implements IEntityWithComp
         return false;
     }
 
-    @Override
-    public boolean hurt(@Nonnull DamageSource s, float f)
-    {
-        return false;
-    }
+    // Entity#hurt(DamageSource, float) is `final` as of 26.1.2 and dispatches to hurtServer(...);
+    // it can no longer be overridden. VehicleEntity#hurtServer (inherited via AbstractMinecart)
+    // already returns false for invulnerable entities via isInvulnerableToBase(source), and this
+    // entity calls setInvulnerable(true) in its constructor above - so "damage always rejected"
+    // (the old behaviour here) is already reproduced without needing an override.
 
     @Override
-    public InteractionResult interact(@Nonnull Player p, @Nonnull InteractionHand h)
+    public InteractionResult interact(@Nonnull Player p, @Nonnull InteractionHand h, @Nonnull Vec3 location)
     {
         return InteractionResult.FAIL;
     }
 
-    @Override
-    public Type getMinecartType()
-    {
-        return Type.RIDEABLE;
-    }
+    // AbstractMinecart#getMinecartType()/the Type enum were removed in 26.1.2; vanilla's own plain
+    // rideable Minecart (the closest analogue) no longer overrides this either, so there is nothing
+    // left to reproduce here.
 
     @Override
     protected Item getDropItem()
     {
         return null;
+    }
+
+    /**
+     * AbstractMinecart#getPickResult() became abstract in 26.1.2. Never actually invoked in
+     * practice since {@link #isPickable()} returns false above, but must still be implemented.
+     */
+    @Override
+    @Nonnull
+    public ItemStack getPickResult()
+    {
+        return NullnessBridge.assumeNonnull(ItemStack.EMPTY);
     }
 
     /**
@@ -648,7 +685,7 @@ public class GhostCartEntity extends AbstractMinecart implements IEntityWithComp
     public void recreateFromPacket(@Nonnull ClientboundAddEntityPacket pkt)
     {
         super.recreateFromPacket(pkt);
-        if (level().isClientSide)
+        if (level().isClientSide())
         {
             // Align previous and current so first-frame interpolation is valid
             this.xo = this.getX();
@@ -672,7 +709,7 @@ public class GhostCartEntity extends AbstractMinecart implements IEntityWithComp
     public void onAddedToLevel()
     {
         super.onAddedToLevel();
-        if (!level().isClientSide && !spawnPosFixed)
+        if (!level().isClientSide() && !spawnPosFixed)
         {
             // If we somehow came in with a bad Y, snap to the first path node now.
             if (path != null && !path.isEmpty())
@@ -683,7 +720,7 @@ public class GhostCartEntity extends AbstractMinecart implements IEntityWithComp
 
                 if (startPos != null)
                 {
-                    Vec3 startVec = Vec3.atCenterOf(startPos);
+                    Vec3 startVec = pathPosition(startPos);
 
                     setPos(NullnessBridge.assumeNonnull(startVec));
                     setRot(0, 0);
@@ -697,7 +734,7 @@ public class GhostCartEntity extends AbstractMinecart implements IEntityWithComp
         }
 
         // Client nicety (prevents first-frame interpolation glitches)
-        if (level().isClientSide)
+        if (level().isClientSide())
         {
             this.xo = getX();
             this.yo = getY();
@@ -707,12 +744,16 @@ public class GhostCartEntity extends AbstractMinecart implements IEntityWithComp
         }
     }
 
-
-    @Override
-    public net.minecraft.world.phys.AABB getBoundingBoxForCulling() 
+    /** Visual center for a route node; subclasses offset road and water vehicles. */
+    protected Vec3 pathPosition(@Nonnull BlockPos pos)
     {
-        return super.getBoundingBoxForCulling().inflate(0.25);
+        return NullnessBridge.assumeNonnull(Vec3.atCenterOf(pos));
     }
+
+    // Entity#getBoundingBoxForCulling() was removed in 26.1.2; render culling is now driven purely by
+    // the renderer (EntityRenderer#getBoundingBoxForCulling(T entity)), so the 0.25 inflate that used
+    // to live here was moved to GhostCartRenderer#getBoundingBoxForCulling to keep the same culling
+    // volume.
 
     /**
      * Writes the spawn data of this entity to the given buffer.
@@ -733,7 +774,7 @@ public class GhostCartEntity extends AbstractMinecart implements IEntityWithComp
             return;
         }
 
-        final ResourceLocation id = BuiltInRegistries.ITEM.getKey(item);
+        final Identifier id = BuiltInRegistries.ITEM.getKey(item);
         buf.writeUtf(NullnessBridge.assumeNonnull(id.toString()));
         buf.writeVarInt(this.desiredIdx);
     }
@@ -763,10 +804,10 @@ public class GhostCartEntity extends AbstractMinecart implements IEntityWithComp
         String id = buf.readUtf();
         if (!id.isEmpty())
         {
-            ResourceLocation rl = ResourceLocation.tryParse(id);
+            Identifier rl = Identifier.tryParse(id);
             if (rl != null && BuiltInRegistries.ITEM.containsKey(rl))
             {
-                this.setTradeItem(new ItemStack(BuiltInRegistries.ITEM.get(rl)));
+                this.setTradeItem(new ItemStack(BuiltInRegistries.ITEM.getValue(rl)));
             }
             else
             {
@@ -802,7 +843,7 @@ public class GhostCartEntity extends AbstractMinecart implements IEntityWithComp
             "[GhostCart {}] DISCARD at dim={} pos=({}, {}, {}) " +
                 "reason={} startIdx={} targetIdx={} desiredIdx={} pathSize={} gameTime={}\n{}",
             this.getId(),
-            level().dimension().location(),
+            level().dimension().identifier(),
             String.format("%.2f", getX()),
             String.format("%.2f", getY()),
             String.format("%.2f", getZ()),
@@ -826,7 +867,7 @@ public class GhostCartEntity extends AbstractMinecart implements IEntityWithComp
             "[GhostCart {}] CREATE at dim={} pos=({}, {}, {}) " +
                 "startIdx={} targetIdx={} desiredIdx={} pathSize={} gameTime={}\n{}",
             this.getId(),
-            level().dimension().location(),
+            level().dimension().identifier(),
             String.format("%.2f", getX()),
             String.format("%.2f", getY()),
             String.format("%.2f", getZ()),

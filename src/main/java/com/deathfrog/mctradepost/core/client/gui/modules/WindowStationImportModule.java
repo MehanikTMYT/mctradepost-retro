@@ -14,7 +14,7 @@ import com.minecolonies.api.colony.buildings.views.IBuildingView;
 import com.minecolonies.api.util.constant.Constants;
 import com.minecolonies.core.client.gui.AbstractModuleWindow;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.NotNull;
 import static com.minecolonies.api.util.constant.WindowConstants.*;
@@ -63,7 +63,7 @@ public class WindowStationImportModule extends AbstractModuleWindow<BuildingStat
      */
     public WindowStationImportModule(final IBuildingView buildingView, final BuildingStationImportModuleView moduleView)
     {
-        super(moduleView, ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, RESOURCE_STRING));
+        super(moduleView, Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, RESOURCE_STRING));
         this.buildingView = buildingView;
         resourceList = this.window.findPaneOfTypeByID("resourcesstock", ScrollingList.class);
 
@@ -73,7 +73,7 @@ public class WindowStationImportModule extends AbstractModuleWindow<BuildingStat
             final ButtonImage button = findPaneOfTypeByID(STOCK_ADD, ButtonImage.class);
             button.setText(Component.translatableEscape(LABEL_LIMIT_REACHED));
             button.setImage(
-                ResourceLocation.fromNamespaceAndPath(Constants.MOD_ID, "textures/gui/builderhut/builder_button_medium_disabled.png"));
+                Identifier.fromNamespaceAndPath(Constants.MOD_ID, "textures/gui/builderhut/builder_button_medium_disabled.png"));
         }
 
         registerButton(STOCK_REMOVE, this::removeStock);

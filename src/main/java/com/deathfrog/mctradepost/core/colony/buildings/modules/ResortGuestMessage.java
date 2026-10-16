@@ -68,7 +68,7 @@ public class ResortGuestMessage extends AbstractBuildingServerMessage<IBuilding>
     {
         ServerLevel level = (ServerLevel) colony.getWorld();
 
-        if (level == null || level.isClientSide)
+        if (level == null || level.isClientSide())
         {
             return;
         }

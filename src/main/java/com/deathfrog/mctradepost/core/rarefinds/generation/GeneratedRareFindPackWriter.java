@@ -6,7 +6,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.SharedConstants;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.packs.PackType;
@@ -66,12 +66,12 @@ public final class GeneratedRareFindPackWriter
      * @param ids item IDs to include
      * @throws Exception when the file cannot be written
      */
-    private static void writeTag(final Path file, final Set<ResourceLocation> ids) throws Exception
+    private static void writeTag(final Path file, final Set<Identifier> ids) throws Exception
     {
         final JsonObject root = new JsonObject();
         root.addProperty("replace", false);
         final JsonArray values = new JsonArray();
-        ids.stream().sorted(Comparator.comparing(ResourceLocation::toString)).forEach(id -> {
+        ids.stream().sorted(Comparator.comparing(Identifier::toString)).forEach(id -> {
             final JsonObject entry = new JsonObject();
             entry.addProperty("id", id.toString());
             entry.addProperty("required", false);
@@ -115,17 +115,17 @@ public final class GeneratedRareFindPackWriter
         root.add("namespace_tier_floors", namespaceTierFloors);
 
         final JsonArray generatedBlacklist = new JsonArray();
-        report.generatedBlacklist().stream().sorted(Comparator.comparing(ResourceLocation::toString))
+        report.generatedBlacklist().stream().sorted(Comparator.comparing(Identifier::toString))
             .forEach(id -> generatedBlacklist.add(id.toString()));
         root.add("generated_blacklist", generatedBlacklist);
 
         final JsonArray spawnEggs = new JsonArray();
-        report.spawnEggs().stream().sorted(Comparator.comparing(ResourceLocation::toString))
+        report.spawnEggs().stream().sorted(Comparator.comparing(Identifier::toString))
             .forEach(id -> spawnEggs.add(id.toString()));
         root.add("spawn_eggs", spawnEggs);
 
         final JsonArray undefined = new JsonArray();
-        report.undefinedStructures().stream().sorted(Comparator.comparing(ResourceLocation::toString))
+        report.undefinedStructures().stream().sorted(Comparator.comparing(Identifier::toString))
             .forEach(id -> undefined.add(id.toString()));
         root.add("undefined_structures", undefined);
 
@@ -190,7 +190,7 @@ public final class GeneratedRareFindPackWriter
         final Path file = packRoot.resolve("pack.mcmeta");
         final JsonObject root = new JsonObject();
         final JsonObject pack = new JsonObject();
-        pack.addProperty("pack_format", SharedConstants.getCurrentVersion().getPackVersion(PackType.SERVER_DATA));
+        pack.addProperty("pack_format", SharedConstants.getCurrentVersion().packVersion(PackType.SERVER_DATA).major());
         pack.addProperty("description", "MC Trade Post - Generated Data");
         root.add("pack", pack);
         writeJson(file, root);

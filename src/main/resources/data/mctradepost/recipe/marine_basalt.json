@@ -2,30 +2,14 @@
   "type": "minecraft:crafting_shapeless",
   "category": "building",
   "ingredients": [
-    {
-      "item": "mctradepost:prismarine_mortar"
-    },
-    {
-      "item": "mctradepost:prismarine_mortar"
-    },
-    {
-      "item": "mctradepost:prismarine_mortar"
-    },
-    {
-      "item": "mctradepost:prismarine_mortar"
-    },
-    {
-      "item": "minecraft:basalt"
-    },
-    {
-      "item": "minecraft:basalt"
-    },
-    {
-      "item": "minecraft:basalt"
-    },
-    {
-      "item": "minecraft:basalt"
-    }
+    "mctradepost:prismarine_mortar",
+    "mctradepost:prismarine_mortar",
+    "mctradepost:prismarine_mortar",
+    "mctradepost:prismarine_mortar",
+    "minecraft:basalt",
+    "minecraft:basalt",
+    "minecraft:basalt",
+    "minecraft:basalt"
   ],
   "result": {
     "count": 8,

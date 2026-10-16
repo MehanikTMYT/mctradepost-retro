@@ -26,10 +26,9 @@ import com.mojang.logging.LogUtils;
 import net.minecraft.util.Tuple;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.core.NonNullList;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.ComponentSerialization;
 import net.minecraft.world.ContainerHelper;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.Entity;
@@ -39,8 +38,11 @@ import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.RandomizableContainerBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 
 public class PetWorkingBlockEntity extends RandomizableContainerBlockEntity
 {
@@ -135,75 +137,60 @@ public class PetWorkingBlockEntity extends RandomizableContainerBlockEntity
     }
 
     /**
-     * Saves additional data to the given CompoundTag, including the custom name of the TE and its inventory.
-     * If the TE has a custom name, it is stored in the tag under the key TAG_PWB_CUSTOM_NAME.
-     * If the TE has a loot table, it is saved in the tag under the key "LootTable"; otherwise, the inventory is
-     * saved in the tag under the key "Items".
-     * @param tag the CompoundTag to save the data to.
-     * @param registries the HolderLookup.Provider containing the registries of items and blocks.
+     * Saves additional data, including the custom name of the TE and its inventory.
+     * If the TE has a custom name, it is stored under the key TAG_PWB_CUSTOM_NAME.
+     * If the TE has a loot table, it is saved under the key "LootTable"; otherwise, the inventory is
+     * saved under the key "Items".
+     * @param output the ValueOutput to save the data to.
      */
     @Override
-    protected void saveAdditional(@Nonnull CompoundTag tag, @Nonnull HolderLookup.Provider registries)
+    protected void saveAdditional(@Nonnull ValueOutput output)
     {
-        super.saveAdditional(tag, registries);
+        super.saveAdditional(output);
 
         // Save inventory unless a loot table is in use
-        if (!this.trySaveLootTable(tag) && this.items != null)
+        if (!this.trySaveLootTable(output) && this.items != null)
         {
-            ContainerHelper.saveAllItems(tag, this.items, registries);
+            ContainerHelper.saveAllItems(output, this.items);
         }
 
-        final CompoundTag focusTag = new CompoundTag();
         final NonNullList<ItemStack> focusItems = NonNullList.withSize(1, NullnessBridge.assumeNonnull(ItemStack.EMPTY));
         focusItems.set(0, focusContainer.getItem(0));
-        ContainerHelper.saveAllItems(focusTag, focusItems, registries);
-        tag.put("FocusedForaging", focusTag);
+        ContainerHelper.saveAllItems(output.child("FocusedForaging"), focusItems);
 
-        if (this.customName != null)
-        {
-            String customString = Component.Serializer.toJson(this.customName, registries);
-            if (customString != null)
-            {
-                tag.putString(TAG_PWB_CUSTOM_NAME, customString);
-            }
-        }
+        output.storeNullable(TAG_PWB_CUSTOM_NAME, ComponentSerialization.CODEC, this.customName);
     }
 
     /**
-     * Loads additional data from the given CompoundTag, including the custom name of the TE and its inventory.
-     * If the TE has a loot table, it is loaded in the tag under the key "LootTable"; otherwise, the inventory is
-     * loaded in the tag under the key "Items". The custom name is loaded from the tag under the key TAG_PWB_CUSTOM_NAME.
-     * @param tag the CompoundTag to load the data from.
-     * @param registries the HolderLookup.Provider containing the registries of items and blocks.
+     * Loads additional data, including the custom name of the TE and its inventory.
+     * If the TE has a loot table, it is loaded from the key "LootTable"; otherwise, the inventory is
+     * loaded from the key "Items". The custom name is loaded from the key TAG_PWB_CUSTOM_NAME.
+     * @param input the ValueInput to load the data from.
      */
     @SuppressWarnings("null")
     @Override
-    public void loadAdditional(@Nonnull CompoundTag tag, @Nonnull HolderLookup.Provider registries)
+    public void loadAdditional(@Nonnull ValueInput input)
     {
-        super.loadAdditional(tag, registries);
+        super.loadAdditional(input);
 
         // Ensure list has the correct size before loading
         this.items = NonNullList.withSize(getContainerSize(), NullnessBridge.assumeNonnull(ItemStack.EMPTY));
 
         // Load inventory unless a loot table is in use
-        if (!this.tryLoadLootTable(tag) && this.items != null)
+        if (!this.tryLoadLootTable(input) && this.items != null)
         {
-            ContainerHelper.loadAllItems(tag, this.items, registries);
+            ContainerHelper.loadAllItems(input, this.items);
         }
 
         final NonNullList<ItemStack> focusItems = NonNullList.withSize(1, NullnessBridge.assumeNonnull(ItemStack.EMPTY));
-        if (tag.contains("FocusedForaging"))
-        {
-            ContainerHelper.loadAllItems(tag.getCompound("FocusedForaging"), focusItems, registries);
-        }
+        ContainerHelper.loadAllItems(input.childOrEmpty("FocusedForaging"), focusItems);
         focusContainer.setItem(0, focusItems.get(0));
         focusedTargets.clear();
         nextFocusedFullScanTime = 0L;
 
-        if (tag.contains(TAG_PWB_CUSTOM_NAME))
+        Component raw = BlockEntity.parseCustomNameSafe(input, TAG_PWB_CUSTOM_NAME);
+        if (raw != null)
         {
-            String customString = tag.getString(TAG_PWB_CUSTOM_NAME);
-            Component raw = Component.Serializer.fromJson(NullnessBridge.assumeNonnull(customString), registries);
             setCustomName(raw);
         }
 
@@ -253,6 +240,21 @@ public class PetWorkingBlockEntity extends RandomizableContainerBlockEntity
     }
 
     /**
+     * Drops the separately stored focus item alongside the main inventory (which {@link BlockEntity#preRemoveSideEffects}
+     * already drops automatically, since this block entity is itself a {@link net.minecraft.world.Container}) when the
+     * block is actually removed.
+     */
+    @Override
+    public void preRemoveSideEffects(@Nonnull BlockPos pos, @Nonnull BlockState state)
+    {
+        super.preRemoveSideEffects(pos, state);
+        if (this.level != null)
+        {
+            net.minecraft.world.Containers.dropContents(this.level, pos, focusContainer);
+        }
+    }
+
+    /**
      * Returns the item currently selected as the preferred forage output.
      *
      * @return focus item, or an empty stack when no focus is configured
@@ -273,7 +275,7 @@ public class PetWorkingBlockEntity extends RandomizableContainerBlockEntity
     {
         final Level localLevel = level;
 
-        if (stack.isEmpty() || localLevel == null || localLevel.isClientSide) return !stack.isEmpty();
+        if (stack.isEmpty() || localLevel == null || localLevel.isClientSide()) return !stack.isEmpty();
         final PetRoles role = getBlockState().getBlock() instanceof BlockFeeder
             ? PetRoles.SCAVENGE_VEGETATION : PetRoles.SCAVENGE_WATER;
         return !FocusedForagingIndex.sourcesFor(localLevel.getServer(), role, stack.getItem()).isEmpty();
@@ -406,15 +408,15 @@ public class PetWorkingBlockEntity extends RandomizableContainerBlockEntity
     private Component getAssignedPetName()
     {
         Level level = getLevel();
-        if (level == null || level.isClientSide)
+        if (level == null || level.isClientSide())
         {
-            return Component.literal("No Pet Assigned");
+            return Component.translatable("com.mctradepost.gui.petworkinglocation.no_pet_assigned");
         }
 
         IColony colony = IColonyManager.getInstance().getColonyByPosFromWorld(level, worldPosition);
         if (colony == null)
         {
-            return Component.literal("No Pet Assigned");
+            return Component.translatable("com.mctradepost.gui.petworkinglocation.no_pet_assigned");
         }
 
         int petCount = 0;
@@ -444,7 +446,7 @@ public class PetWorkingBlockEntity extends RandomizableContainerBlockEntity
 
         if (petCount == 0)
         {
-            return Component.literal("None");
+            return Component.translatable("com.mctradepost.gui.petworkinglocation.none");
         }
         else if (petCount == 1)
         {
@@ -452,7 +454,7 @@ public class PetWorkingBlockEntity extends RandomizableContainerBlockEntity
         }
         else
         {
-            return Component.literal(petCount + " Pets");
+            return Component.translatable("com.mctradepost.gui.petworkinglocation.pet_count", petCount);
         }
     }
 
@@ -466,7 +468,7 @@ public class PetWorkingBlockEntity extends RandomizableContainerBlockEntity
         super.onLoad();
 
         Level localLevel = level;
-        if (localLevel == null || localLevel.isClientSide) return;
+        if (localLevel == null || localLevel.isClientSide()) return;
 
         // Still register the work location:
         IColony colony = IColonyManager.getInstance().getColonyByPosFromWorld(localLevel, worldPosition);
@@ -501,7 +503,7 @@ public class PetWorkingBlockEntity extends RandomizableContainerBlockEntity
      */
     public static void serverTick(Level level, BlockPos pos, BlockState state, PetWorkingBlockEntity be) 
     {
-        if (level.isClientSide) return;
+        if (level.isClientSide()) return;
         if (!be.needsBuildingName || be.hasCustomName() || be.derivedName != null) return;
 
         long now = level.getGameTime();
@@ -559,7 +561,7 @@ public class PetWorkingBlockEntity extends RandomizableContainerBlockEntity
         }
 
         Level level = getLevel();
-        if (level == null || level.isClientSide)
+        if (level == null || level.isClientSide())
         {
             return false;
         }
@@ -614,7 +616,10 @@ public class PetWorkingBlockEntity extends RandomizableContainerBlockEntity
         }
 
         String dispName = selected.getBuildingDisplayName();
-        Component name = Component.literal("Herd: " + Component.translatable(dispName + "").getString());
+        // Restricted to BlockTrough above, so the localized trough shortname ("Herd" in en_us) is
+        // always the right prefix here - was previously hardcoded in English regardless of locale.
+        String shortName = Component.translatable("block.mctradepost.trough.shortname").getString();
+        Component name = Component.literal(shortName + ": " + Component.translatable(dispName + "").getString());
 
         // LOGGER.info("Setting derived name {} at position {} ", name, worldPosition.toShortString());
 

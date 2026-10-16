@@ -12,6 +12,7 @@ import com.deathfrog.mctradepost.api.util.SoundUtils;
 import com.deathfrog.mctradepost.api.util.TraceUtils;
 import com.deathfrog.mctradepost.apiimp.initializer.MCTPInteractionInitializer;
 import com.deathfrog.mctradepost.core.client.gui.modules.WindowEconModule;
+import com.deathfrog.mctradepost.api.util.EconomicConstants;
 import com.deathfrog.mctradepost.core.colony.buildings.modules.BuildingEconModule;
 import com.deathfrog.mctradepost.core.colony.buildings.modules.MCTPBuildingModules;
 import com.deathfrog.mctradepost.core.colony.buildings.modules.MarketplaceItemListModule;
@@ -44,7 +45,7 @@ import com.minecolonies.api.util.constant.Constants;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
@@ -53,6 +54,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.items.IItemHandler;
+import net.neoforged.neoforge.transfer.ResourceHandler;
+import net.neoforged.neoforge.transfer.item.ItemResource;
 
 import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
@@ -110,7 +113,7 @@ public class EntityAIWorkShopkeeper extends AbstractEntityAIInteract<JobShopkeep
     /**
      * Number of ticks that the AI should wait after completing a task
      */
-    private static final int AFTER_TASK_DELAY = 3;
+    private static final int AFTER_TASK_DELAY = 5;
 
     // The base sell time for selling displayed items.
     // private static final int SELLTIME = MCTPConfig.baseSelltime.get();;
@@ -132,11 +135,11 @@ public class EntityAIWorkShopkeeper extends AbstractEntityAIInteract<JobShopkeep
      * Worker status icon
      */
     private final static VisibleCitizenStatus SELLING =
-        new VisibleCitizenStatus(ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "textures/icons/work/shopkeeper.png"),
+        new VisibleCitizenStatus(Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "textures/icons/work/shopkeeper.png"),
             "com.mctradepost.gui.visiblestatus.shopkeeper");
 
     private final static VisibleCitizenStatus COMMUTING = new VisibleCitizenStatus(
-        ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "textures/icons/work/shopkeeper_commute.png"),
+        Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "textures/icons/work/shopkeeper_commute.png"),
         "com.mctradepost.gui.visiblestatus.shopkeeper");
 
     /*
@@ -250,7 +253,7 @@ public class EntityAIWorkShopkeeper extends AbstractEntityAIInteract<JobShopkeep
         // Current balance
         building.getColony()
             .getStatisticsManager()
-            .incrementBy(WindowEconModule.CURRENT_BALANCE, sellvalue, building.getColony().getDay());
+            .incrementBy(EconomicConstants.CURRENT_BALANCE, sellvalue, building.getColony().getDay());
     }
 
     /**
@@ -723,7 +726,13 @@ public class EntityAIWorkShopkeeper extends AbstractEntityAIInteract<JobShopkeep
                 continue;
             }
 
-            if (handle.getItem().isEmpty())
+            ItemStack displayedItem = handle.getItem();
+
+            if (displayedItem == null) continue;
+
+            building.reconcileDisplayCase(displayCase, displayedItem);
+
+            if (displayedItem.isEmpty())
             {
                 TraceUtils.dynamicTrace(TRACE_SHOPKEEPER, () -> LOGGER.info("Colony {}: Shopkeeper - found empty frame for filling at {}", building.getColony().getID(), displayLocation));
 
@@ -782,11 +791,19 @@ public class EntityAIWorkShopkeeper extends AbstractEntityAIInteract<JobShopkeep
                 continue;
             }
 
-            if (!handle.getItem().isEmpty())
+            ItemStack displayedItem = handle.getItem();
+
+            if (displayedItem == null) continue;
+
+            building.reconcileDisplayCase(displayCase, displayedItem);
+
+            if (!displayedItem.isEmpty())
             {
                 BlockPos pos = displayLocation.immutable();
                 int ticks = displayCase.getTickcount();
-                displayCase.setTickcount(ticks + 1);        // Purely informational now. May be used in a future iteration.
+
+                // Purely informational now. May be used in a future iteration.
+                displayCase.setTickcount(ticks + 1);
 
                 if (displayCase.getSaleState() == SaleState.ORDER_PLACED)
                 {
@@ -913,14 +930,16 @@ public class EntityAIWorkShopkeeper extends AbstractEntityAIInteract<JobShopkeep
      *
      * @return the next IAIState after doing this
      */
+    @SuppressWarnings("null")
     private IAIState fillDisplays()
     {
         // Acquire an item in hand if empty.
-        if (worker.getItemInHand(InteractionHand.MAIN_HAND) == ItemStack.EMPTY)
+        if (worker.getItemInHand(InteractionHand.MAIN_HAND).isEmpty())
         {
             final int slot = MCTPInventoryUtils.findRandomSlotInItemHandlerWith(worker.getInventoryCitizen(),
-                stack -> building.getModule(MarketplaceItemListModule.class, m -> m.getId().equals(SELLABLE_LIST))
-                    .isItemInList(new ItemStorage(stack)));
+                stack -> stack != null && building.getModule(MarketplaceItemListModule.class, m -> m.getId().equals(SELLABLE_LIST))
+                    .getList().stream()
+                    .anyMatch(candidate -> ItemStack.isSameItem(stack, candidate.getItemStack())));
 
             if (slot >= 0)
             {
@@ -963,6 +982,13 @@ public class EntityAIWorkShopkeeper extends AbstractEntityAIInteract<JobShopkeep
         // Insert the item into the display, replacing what's there
         ItemStack heldItem = worker.getItemInHand(InteractionHand.MAIN_HAND);
 
+        // The hand may have been cleared while walking or by inventory synchronization.
+        // Re-enter material acquisition instead of repeatedly selecting the same empty frame.
+        if (heldItem.isEmpty())
+        {
+            return GET_MATERIALS;
+        }
+
         // Only fill if empty
         if (handle.getItem().isEmpty())
         {
@@ -989,13 +1015,23 @@ public class EntityAIWorkShopkeeper extends AbstractEntityAIInteract<JobShopkeep
 
                 final ItemStack souvenirFinal = souvenir.copy();
 
-                TraceUtils.dynamicTrace(TRACE_SHOPKEEPER,
-                    () -> LOGGER.info("Colony {} Shopkeeper: Placing souvenir {} in display at {}",
+                TraceUtils.dynamicTrace(TRACE_SHOPKEEPER, () -> LOGGER.info("Colony {} Shopkeeper: Placing souvenir {} in display at {}",
                         building.getColony().getID(),
                         SouvenirItem.toString(souvenirFinal),
                         currentTarget));
 
-                handle.setItem(souvenir);   
+                if (!handle.setItem(souvenir))
+                {
+                    // split(1) removed the original stock item from the hand; put it back and
+                    // leave the display record untouched when the physical write fails.
+                    heldItem.grow(placed.getCount());
+                    TraceUtils.dynamicTrace(TRACE_SHOPKEEPER, () -> LOGGER.info("Colony {} Shopkeeper: Could not place an item in display at {}.",
+                        building.getColony().getID(), localCurrentTarget));
+
+                    setDelay(AFTER_TASK_DELAY);
+
+                    return START_WORKING;
+                }
 
                 displayCase.setStack(souvenir);
                 displayCase.setTickcount(0);
@@ -1041,10 +1077,11 @@ public class EntityAIWorkShopkeeper extends AbstractEntityAIInteract<JobShopkeep
             MarketplaceItemListModule itemModule = building.getModule(MarketplaceItemListModule.class);
 
             @SuppressWarnings("null")
-            final IItemHandler inventoryBoxHandler = world.getCapability(NullnessBridge.assumeNonnull(Capabilities.ItemHandler.BLOCK), localInvContainer, null);
+            final ResourceHandler<ItemResource> inventoryBoxCapability = world.getCapability(NullnessBridge.assumeNonnull(Capabilities.Item.BLOCK), localInvContainer, null);
 
-            if (inventoryBoxHandler != null)
+            if (inventoryBoxCapability != null)
             {
+                final IItemHandler inventoryBoxHandler = IItemHandler.of(inventoryBoxCapability);
                 for (int i = 0; i < inventoryBoxHandler.getSlots(); i++)
                 {
                     ItemStack stackInSlot = inventoryBoxHandler.getStackInSlot(i);

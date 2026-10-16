@@ -74,7 +74,7 @@ public class MarketplaceSourcingMessage extends AbstractBuildingServerMessage<IB
 
         if (!building.hasModule(MCTPBuildingModules.MARKETPLACE_SOURCING)) return;
         MarketplaceSourcingModule module = building.getModule(MCTPBuildingModules.MARKETPLACE_SOURCING);
-        long day = colony.getWorld().getDayTime() / MarketDailyRoller.TICKS_PER_DAY;
+        long day = colony.getWorld().getOverworldClockTime() / MarketDailyRoller.TICKS_PER_DAY;
         switch (action)
         {
             case ADD_SEARCH -> module.addSearch(localStack);

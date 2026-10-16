@@ -2,11 +2,11 @@
   "type": "minecraft:crafting_shaped",
   "category": "equipment",
   "key": {
-    "C": { "item": "minecraft:chest" },
-    "G": { "item": "minecraft:glass" },
-    "P": { "item": "mctradepost:plaster" },
-    "S": { "item": "minecraft:stick" },
-    "B": { "item": "mctradepost:rough_brick" }
+    "C": "minecraft:chest",
+    "G": "minecraft:glass",
+    "P": "mctradepost:plaster",
+    "S": "minecraft:stick",
+    "B": "mctradepost:rough_brick"
   },
   "pattern": [
     "SPS",

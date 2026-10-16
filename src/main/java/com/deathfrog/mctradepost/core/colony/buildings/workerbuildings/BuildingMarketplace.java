@@ -29,7 +29,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.decoration.ItemFrame;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
@@ -57,6 +57,7 @@ import com.deathfrog.mctradepost.core.colony.jobs.JobShopkeeper;
 import com.deathfrog.mctradepost.core.entity.ai.workers.minimal.EntityAIShoppingTask;
 import com.deathfrog.mctradepost.core.event.wishingwell.WellLocations;
 import com.deathfrog.mctradepost.item.CoinItem;
+import com.deathfrog.mctradepost.item.SouvenirItem;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -115,13 +116,13 @@ public class BuildingMarketplace extends AbstractBuilding
      * Key for min remainder at warehouse.
      */
     public static final ISettingKey<IntSetting> MIN =
-        new SettingKey<>(IntSetting.class, ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "warehousemin"));
+        new SettingKey<>(IntSetting.class, Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "warehousemin"));
 
     /**
      * Key for autominting setting.
      */
     public static final ISettingKey<BoolSetting> AUTOMINT =
-        new SettingKey<>(BoolSetting.class, ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "automint"));
+        new SettingKey<>(BoolSetting.class, Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "automint"));
 
     public BuildingMarketplace(@NotNull IColony colony, BlockPos pos)
     {
@@ -152,7 +153,7 @@ public class BuildingMarketplace extends AbstractBuilding
             return defaultCurrency;
         }
 
-        ResourceLocation coinLookup = ResourceLocation.tryParse(tradeCurrency);
+        Identifier coinLookup = Identifier.tryParse(tradeCurrency);
 
         if (coinLookup == null)
         {
@@ -203,6 +204,32 @@ public class BuildingMarketplace extends AbstractBuilding
     }
 
     /**
+     * Repairs a display record whose physical frame contains shopkeeper merchandise but whose
+     * recorded state no longer advertises it.  This is intentionally limited to the neutral
+     * state so that an order already being processed is never reset behind a visitor's back.
+     *
+     * @param display the persisted display record
+     * @param physicalStack the item currently visible in the frame
+     * @return true when the record was repaired
+     */
+    public boolean reconcileDisplayCase(@Nonnull DisplayCase display, @Nonnull ItemStack physicalStack)
+    {
+        if (display.getSaleState() != SaleState.NONE
+            || physicalStack.isEmpty()
+            || !(physicalStack.getItem() instanceof SouvenirItem))
+        {
+            return false;
+        }
+
+        display.setStack(physicalStack.copy());
+        display.setTickcount(Math.max(0, display.getTickcount()));
+        display.setSaleState(SaleState.FOR_SALE);
+        TraceUtils.dynamicTrace(TRACE_SHOPKEEPER,
+            () -> LOGGER.info("Colony {}: Reconciled stocked display at {} as for sale.", getColony().getID(), display.getPos()));
+        return true;
+    }
+
+    /**
      * Returns a list of display shelves that have items for sale.
      * 
      * @return a list of display shelves with items for sale
@@ -220,6 +247,7 @@ public class BuildingMarketplace extends AbstractBuilding
 
         return result;
     }
+
 
     /**
      * Returns the map of display shelf positions to their contents. The positions are the BlockPos of the block that the item frame is
@@ -400,13 +428,13 @@ public class BuildingMarketplace extends AbstractBuilding
         {
             final ItemFrame frame = frames.get(0);
 
-            // Preserve whatever item we were tracking
-            displayShelfContents.put(pos, new DisplayCase(pos, frame.getUUID(), existing.getStack(), 0));
+            // Only the entity identity changed. Preserve merchandise and order state.
+            existing.setFrameId(frame.getUUID());
             return;
         }
 
-        // 4) Frame-like exists but no entity (Fast Item Frames case): keep the shelf, clear UUID
-        displayShelfContents.put(pos, new DisplayCase(pos, null, existing.getStack(), 0));
+        // 4) Frame-like exists but no entity (Fast Item Frames case): keep the shelf and its state, clear UUID.
+        existing.setFrameId(null);
 
         // update to reflect current items in the display shelf contents
         ItemStack stored = existing.getStack();
@@ -501,10 +529,10 @@ public class BuildingMarketplace extends AbstractBuilding
         super.deserializeNBT(provider, compound);
 
         // Fill in display shelf locations with the saved items.
-        ListTag shelfTagList = compound.getList(TAG_DISPLAYSHELVES, Tag.TAG_COMPOUND);
+        ListTag shelfTagList = compound.getListOrEmpty(TAG_DISPLAYSHELVES);
         for (int i = 0; i < shelfTagList.size(); ++i)
         {
-            CompoundTag shelfTag = shelfTagList.getCompound(i);
+            CompoundTag shelfTag = shelfTagList.getCompoundOrEmpty(i);
             DisplayCase contents = DisplayCase.fromNBT(shelfTag, provider);
             displayShelfContents.put(contents.getPos(), contents);
         }

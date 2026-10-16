@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
@@ -167,15 +168,15 @@ public class BuildingOutpost extends AbstractBuilding implements ITradeCapable, 
         Level level = getColony().getWorld();
         BlockPos pos = getPosition();
 
-        if (level == null || pos == null || level.isClientSide) return;
+        if (level == null || pos == null || level.isClientSide()) return;
 
         if (load)
         {
-            ChunkUtil.ensureChunkLoadedByTicket((ServerLevel)level, pos, 1, ChunkUtil.OUTPOST_TICKET);
+            ChunkUtil.ensureChunkLoadedByTicket((ServerLevel)level, pos, 1, ChunkUtil.outpostTicket());
         }
         else
         {
-            ChunkUtil.releaseChunkTicket((ServerLevel) level, pos, 1, ChunkUtil.OUTPOST_TICKET);
+            ChunkUtil.releaseChunkTicket((ServerLevel) level, pos, 1, ChunkUtil.outpostTicket());
         }
     }
 
@@ -332,21 +333,21 @@ public class BuildingOutpost extends AbstractBuilding implements ITradeCapable, 
             }
         }
         
-        if (compound.contains(NBT_OUTPOST_TOKEN)) 
+        if (compound.contains(NBT_OUTPOST_TOKEN))
         {
-            outpostResolverToken = StandardFactoryController.getInstance().deserializeTag(provider, compound.getCompound(NBT_OUTPOST_TOKEN));
+            outpostResolverToken = StandardFactoryController.getInstance().deserializeTag(provider, compound.getCompoundOrEmpty(NBT_OUTPOST_TOKEN));
         }
 
         readRequestTrackingFromNbt(provider, compound);
 
-        childBootstrapComplete = compound.getBoolean(TAG_CHILD_BOOTSTRAP_COMPLETE);
+        childBootstrapComplete = compound.getBooleanOr(TAG_CHILD_BOOTSTRAP_COMPLETE, false);
         bootstrappedChildren.clear();
-        if (compound.contains(TAG_BOOTSTRAPPED_CHILDREN, net.minecraft.nbt.Tag.TAG_LIST))
+        if (compound.getList(TAG_BOOTSTRAPPED_CHILDREN).isPresent())
         {
-            final ListTag children = compound.getList(TAG_BOOTSTRAPPED_CHILDREN, net.minecraft.nbt.Tag.TAG_COMPOUND);
+            final ListTag children = compound.getListOrEmpty(TAG_BOOTSTRAPPED_CHILDREN);
             for (int i = 0; i < children.size(); i++)
             {
-                final BlockPos child = BlockPosUtil.read(children.getCompound(i), TAG_BOOTSTRAPPED_CHILD_POS);
+                final BlockPos child = BlockPosUtil.read(children.getCompoundOrEmpty(i), TAG_BOOTSTRAPPED_CHILD_POS);
                 if (!BlockPos.ZERO.equals(child))
                 {
                     bootstrappedChildren.add(child);
@@ -415,25 +416,26 @@ public class BuildingOutpost extends AbstractBuilding implements ITradeCapable, 
     {
         requestTracking.clear();
 
-        if (!compound.contains(TAG_REQUEST_TRACKING, net.minecraft.nbt.Tag.TAG_LIST))
+        if (compound.getList(TAG_REQUEST_TRACKING).isEmpty())
         {
             return;
         }
 
-        final ListTag list = compound.getList(TAG_REQUEST_TRACKING, net.minecraft.nbt.Tag.TAG_COMPOUND);
+        final ListTag list = compound.getListOrEmpty(TAG_REQUEST_TRACKING);
 
         for (int i = 0; i < list.size(); i++)
         {
-            final CompoundTag entry = list.getCompound(i);
+            final CompoundTag entry = list.getCompoundOrEmpty(i);
 
             // --- Token ---
-            if (!entry.contains(TAG_REQUEST_TOKEN, net.minecraft.nbt.Tag.TAG_COMPOUND))
+            final Optional<CompoundTag> tokenTagOpt = entry.getCompound(TAG_REQUEST_TOKEN);
+            if (tokenTagOpt.isEmpty())
             {
                 LOGGER.warn("RequestTracking[{}]: missing or wrong-type token; skipping.", i);
                 continue;
             }
 
-            final CompoundTag tokenTag = entry.getCompound(TAG_REQUEST_TOKEN);
+            final CompoundTag tokenTag = tokenTagOpt.get();
             IToken<?> token = null;
             try
             {
@@ -484,9 +486,9 @@ public class BuildingOutpost extends AbstractBuilding implements ITradeCapable, 
             // --- State ---
             OutpostOrderState state = OutpostOrderState.NEEDED; // default/fallback
 
-            if (entry.contains(TAG_REQUEST_STATE, net.minecraft.nbt.Tag.TAG_STRING))
+            if (entry.getString(TAG_REQUEST_STATE).isPresent())
             {
-                final String name = entry.getString(TAG_REQUEST_STATE);
+                final String name = entry.getStringOr(TAG_REQUEST_STATE, "");
                 try
                 {
                     state = OutpostOrderState.valueOf(name);
@@ -677,7 +679,7 @@ public class BuildingOutpost extends AbstractBuilding implements ITradeCapable, 
 
     /**
      * Iterates through all buildings in the colony and checks if any of them are
-     * BuildingStations that are connected to this outpost by tracks.
+     * BuildingStations that are connected to this outpost by a supported trade route.
      * 
      * If a connected station is found, it is stored in the connectedStation field.
      */
@@ -698,7 +700,9 @@ public class BuildingOutpost extends AbstractBuilding implements ITradeCapable, 
 
                 StationData stationData = new StationData(station);
                 boolean hasNoCachedResult = connectionresults.get(stationData) == null;
-                TrackConnectionResult result = TrackRouteConnection.findRoute(station, new StationData(this), hasNoCachedResult);
+                // Search in the same direction this outpost's Scout ships products. The route finder supports rail, road,
+                // and (when researched) dock-to-dock water legs, so an outpost does not require a rail-only connection.
+                TrackConnectionResult result = TrackRouteConnection.findRoute(this, stationData, hasNoCachedResult);
                 connectionresults.put(stationData, result);
                 
                 if (result.isConnected())

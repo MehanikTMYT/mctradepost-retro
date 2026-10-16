@@ -1,16 +1,26 @@
 package com.deathfrog.mctradepost.core.colony.buildings.modules;
 
+import com.deathfrog.mctradepost.MCTradePostMod;
+import com.deathfrog.mctradepost.MCTPConfig;
+
 import static com.deathfrog.mctradepost.api.util.TraceUtils.TRACE_CART;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Predicate;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import org.slf4j.Logger;
 
+import com.deathfrog.mctradepost.api.entity.GhostBoatEntity;
+import com.deathfrog.mctradepost.api.entity.AirshipEntity;
 import com.deathfrog.mctradepost.api.entity.GhostCartEntity;
+import com.deathfrog.mctradepost.api.entity.WagonEntity;
 import com.deathfrog.mctradepost.api.util.ChunkUtil;
 import com.deathfrog.mctradepost.api.util.ItemHandlerHelpers;
 import com.deathfrog.mctradepost.api.util.NullnessBridge;
@@ -29,6 +39,7 @@ import com.minecolonies.core.util.DomumOrnamentumUtils;
 import com.mojang.logging.LogUtils;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
@@ -45,7 +56,7 @@ public class ExportData
     };
 
     private final @Nullable ITradeCapable sourceStation;
-    private final StationData destinationStationData;
+    private final @Nonnull StationData destinationStationData;
     private final ItemStorage tradeItem;
     private final int cost;
 
@@ -60,10 +71,12 @@ public class ExportData
     private GhostCartEntity cart = null;
     private TrackRoute activeRoute = null;
     private int activeRouteSegmentIndex = -1;
+    private final Deque<VisualLeg> pendingVisualLegs = new ArrayDeque<>();
+    private long nextVisualTransitionTick = Long.MAX_VALUE;
 
+    private record VisualLeg(int segmentIndex, TrackRoute.Segment segment, int targetIndex, int durationTicks) { }
 
-
-    public ExportData(@Nullable ITradeCapable sourceStation, StationData destinationStationData, ItemStorage tradeItem, int cost, boolean reverse)
+    public ExportData(@Nullable ITradeCapable sourceStation, @Nonnull StationData destinationStationData, ItemStorage tradeItem, int cost, boolean reverse)
     {
         this.sourceStation = sourceStation;
         this.destinationStationData = destinationStationData;
@@ -77,12 +90,12 @@ public class ExportData
         this.reverse = reverse;
     }
 
-    public ExportData(ITradeCapable sourceStation, StationData destinationStationData, ItemStorage tradeItem, int cost)
+    public ExportData(ITradeCapable sourceStation, @Nonnull StationData destinationStationData, ItemStorage tradeItem, int cost)
     {
         this(sourceStation, destinationStationData, tradeItem, cost, false);
     }
 
-    public StationData getDestinationStationData()
+    public @Nonnull StationData getDestinationStationData()
     {
         return destinationStationData;
     }
@@ -132,6 +145,13 @@ public class ExportData
         return requestToken;
     }
 
+    /** @return whether the active shipment route uses an airship leg */
+    public boolean usesAirship()
+    {
+        return activeRoute != null && activeRoute.segments().stream()
+            .anyMatch(segment -> segment.type() == TrackRoute.SegmentType.AIR);
+    }
+
     /**
      * Spawns a GhostCartEntity for trade if one does not already exist. The cart is initialized with the current export's trade item
      * and set on this export data.
@@ -147,7 +167,26 @@ public class ExportData
 
     public @Nullable GhostCartEntity spawnCartForTrade(ServerLevel level, List<BlockPos> path)
     {
-        if (path == null || path.isEmpty()) 
+        return spawnVehicleForTrade(level, path, TrackRoute.SegmentType.RAIL, isReverse());
+    }
+
+    /**
+     * Spawns or replaces the shipment's visual vehicle for one modal segment.
+     * <p>
+     * The vehicle entity type is chosen by segment mode: {@link WagonEntity} for road segments, {@link GhostBoatEntity} for water
+     * segments, and the base {@link GhostCartEntity} (rail visual) for everything else, matching this mod's existing rail-cart
+     * behavior.
+     *
+     * @param level level containing the segment
+     * @param path ordered segment path
+     * @param mode transport mode of the segment being visualized
+     * @param reverse whether the path should be followed in reverse order
+     * @return the spawned or existing vehicle entity, or null when spawning failed
+     */
+    @SuppressWarnings("null")
+    private @Nullable GhostCartEntity spawnVehicleForTrade(ServerLevel level, List<BlockPos> path, TrackRoute.SegmentType mode, boolean reverse)
+    {
+        if (path == null || path.isEmpty())
         {
             TraceUtils.dynamicTrace(TRACE_CART, () -> LOGGER.warn("Null or empty path while spawning cart: {}", this));
             return null;
@@ -161,16 +200,22 @@ public class ExportData
 
         BlockPos startPos = path.getFirst();
 
-        if (startPos == null || startPos.equals(BlockPos.ZERO)) 
+        if (startPos == null || startPos.equals(BlockPos.ZERO))
         {
             TraceUtils.dynamicTrace(TRACE_CART, () -> LOGGER.warn("Null or ZERO start position for path while spawning cart: {}", this));
             return null;
         }
 
-        ChunkUtil.ensureChunkLoadedByTicket(level, startPos, TrackPathConnection.RAIL_CHUNK_RADIUS, ChunkUtil.RAIL_TICKET);
+        ChunkUtil.ensureChunkLoadedByTicket(level, startPos, TrackPathConnection.RAIL_CHUNK_RADIUS, ChunkUtil.railTicket());
 
-        GhostCartEntity newCart =
-            GhostCartEntity.spawn(level, NullnessBridge.assumeNonnull(ImmutableList.copyOf(path)), isReverse());
+        List<BlockPos> immutablePath = NullnessBridge.assumeNonnull(ImmutableList.copyOf(path));
+        GhostCartEntity newCart = switch (mode)
+        {
+            case WATER -> GhostCartEntity.spawnTyped(level, immutablePath, reverse, MCTradePostMod.GHOST_BOAT.get());
+            case ROAD -> GhostCartEntity.spawnTyped(level, immutablePath, reverse, MCTradePostMod.WAGON.get());
+            case AIR -> GhostCartEntity.spawnTyped(level, immutablePath, reverse, MCTradePostMod.AIRSHIP.get());
+            default -> GhostCartEntity.spawn(level, immutablePath, reverse);
+        };
 
         if (newCart == null)
         {
@@ -189,7 +234,7 @@ public class ExportData
         newCart.setTradeItem(tradeItem);
         this.setCart(newCart);
 
-        ChunkUtil.releaseChunkTicket(level, startPos, TrackPathConnection.RAIL_CHUNK_RADIUS, ChunkUtil.RAIL_TICKET);
+        ChunkUtil.releaseChunkTicket(level, startPos, TrackPathConnection.RAIL_CHUNK_RADIUS, ChunkUtil.railTicket());
 
         return newCart;
     }
@@ -278,6 +323,7 @@ public class ExportData
      */
     public void setShipDistance(int shipDistance)
     {
+        int previousDistance = this.shipDistance;
         this.shipDistance = shipDistance;
 
         if (shipDistance < 0)
@@ -285,12 +331,21 @@ public class ExportData
             discardCart();
             activeRoute = null;
             activeRouteSegmentIndex = -1;
+            pendingVisualLegs.clear();
+            TradeRouteVisualTicker.deactivate(this);
             return;
         }
 
         if (activeRoute != null)
         {
-            updateCartForRouteDistance(shipDistance);
+            if (previousDistance >= 0 && shipDistance > previousDistance)
+            {
+                beginVisualStride(previousDistance, shipDistance);
+            }
+            else
+            {
+                updateCartForRouteDistance(shipDistance);
+            }
             return;
         }
 
@@ -298,6 +353,187 @@ public class ExportData
         {
             cart.setSegment(shipDistance);
         }
+    }
+
+    /** Calculates the next physical route position using the configured speed of every segment crossed. */
+    public int advanceShipDistance(int baseMovement)
+    {
+        if (activeRoute == null)
+        {
+            return shipDistance + baseMovement;
+        }
+        return activeRoute.advanceDistance(shipDistance, baseMovement, MCTPConfig::getTradeSpeedMultiplier);
+    }
+
+    /** Splits one colony-tick movement request across every modal segment it crosses. */
+    @SuppressWarnings("null")
+    private void beginVisualStride(int fromDistance, int toDistance)
+    {
+        pendingVisualLegs.clear();
+        int target = Math.min(toDistance, activeRoute.totalDistance());
+        int cursor = 0;
+        List<VisualLegDraft> drafts = new ArrayList<>();
+        List<TrackRoute.Segment> routeSegments = activeRoute.segments();
+        for (int segmentIndex = 0; segmentIndex < routeSegments.size(); segmentIndex++)
+        {
+            TrackRoute.Segment segment = routeSegments.get(segmentIndex);
+            int distance = segment.distance();
+            if (distance == 0) continue;
+            int overlapStart = Math.max(fromDistance, cursor);
+            int overlapEnd = Math.min(target, cursor + distance);
+            if (overlapEnd > overlapStart)
+            {
+                int amount = overlapEnd - overlapStart;
+                int localTarget = segment.type() == TrackRoute.SegmentType.TRANSFER || segment.type() == TrackRoute.SegmentType.AIR_TRANSIT
+                    ? 0 : Math.min(segment.path().size() - 1, overlapEnd - cursor);
+                drafts.add(new VisualLegDraft(segmentIndex, segment, localTarget, amount));
+            }
+            cursor += distance;
+        }
+
+        double totalTravelCost = drafts.stream()
+            .mapToDouble(draft -> draft.distance() / MCTPConfig.getTradeSpeedMultiplier(draft.segment().type()))
+            .sum();
+        int assignedTicks = 0;
+        for (int i = 0; i < drafts.size(); i++)
+        {
+            VisualLegDraft draft = drafts.get(i);
+            int duration = i == drafts.size() - 1
+                ? Math.max(1, GhostCartEntity.DEFAULT_STRIDE_TICKS - assignedTicks)
+                : Math.max(1, (int) Math.round(GhostCartEntity.DEFAULT_STRIDE_TICKS *
+                    (draft.distance() / MCTPConfig.getTradeSpeedMultiplier(draft.segment().type())) / totalTravelCost));
+            assignedTicks += duration;
+            pendingVisualLegs.addLast(new VisualLeg(draft.segmentIndex(), draft.segment(), draft.targetIndex(), duration));
+        }
+
+        startNextVisualLeg();
+        if (!pendingVisualLegs.isEmpty()) TradeRouteVisualTicker.activate(this);
+    }
+
+    private record VisualLegDraft(int segmentIndex, TrackRoute.Segment segment, int targetIndex, int distance) { }
+
+    /** Starts the next timed modal leg; zero-distance handoffs are implicit between consecutive legs. */
+    @SuppressWarnings("null")
+    private void startNextVisualLeg()
+    {
+        VisualLeg leg = pendingVisualLegs.pollFirst();
+        if (leg == null)
+        {
+            nextVisualTransitionTick = Long.MAX_VALUE;
+            return;
+        }
+
+        ITradeCapable localSourceStation = sourceStation;
+
+        TrackRoute.Segment segment = leg.segment();
+
+        MinecraftServer server = localSourceStation == null || localSourceStation.getColony() == null || localSourceStation.getColony().getWorld() == null
+            ? null : localSourceStation.getColony().getWorld().getServer();
+
+        if (server == null) return;
+
+        TraceUtils.dynamicTrace(TRACE_CART, () -> LOGGER.warn(
+            "Starting trade visual leg index={} mode={} target={} durationTicks={} remainingLegs={}",
+            leg.segmentIndex(), segment.type(), leg.targetIndex(), leg.durationTicks(), pendingVisualLegs.size()));
+
+        if (segment.type() == TrackRoute.SegmentType.TRANSFER || segment.type() == TrackRoute.SegmentType.AIR_TRANSIT)
+        {
+            if (cart != null && segment.type() == TrackRoute.SegmentType.TRANSFER) cart.playTransferEffects();
+            discardCart();
+            activeRouteSegmentIndex = leg.segmentIndex();
+        }
+        else
+        {
+            ServerLevel level = server.getLevel(segment.dimension());
+            if (level == null) return;
+            int segmentIndex = leg.segmentIndex();
+            if (cart == null || !cart.hasPath() || activeRouteSegmentIndex != segmentIndex || !vehicleMatches(segment.type()))
+            {
+                emitVehicleHandoff(level, activeRouteSegmentIndex, segmentIndex, segment.type());
+                discardCart();
+                cart = spawnVehicleForTrade(level, segment.path(), segment.type(), false);
+                activeRouteSegmentIndex = segmentIndex;
+            }
+            if (cart != null) cart.setSegment(leg.targetIndex(), leg.durationTicks());
+        }
+        nextVisualTransitionTick = server.overworld().getGameTime() + leg.durationTicks();
+    }
+
+    /** Emits one restrained, mode-aware particle burst at a dock or interchange vehicle handoff. */
+    @SuppressWarnings("null")
+    private void emitVehicleHandoff(ServerLevel level, int previousIndex, int nextIndex, TrackRoute.SegmentType nextType)
+    {
+        if (activeRoute == null || previousIndex < 0 || previousIndex >= activeRoute.segments().size() || previousIndex == nextIndex)
+        {
+            return;
+        }
+
+        TrackRoute.SegmentType previousType = activeRoute.segments().get(previousIndex).type();
+        if (!isVehicleMode(previousType) || !isVehicleMode(nextType) || previousType == nextType)
+        {
+            return;
+        }
+
+        BlockPos handoff = null;
+        int step = previousIndex < nextIndex ? 1 : -1;
+        for (int index = previousIndex + step; index != nextIndex; index += step)
+        {
+            TrackRoute.Segment between = activeRoute.segments().get(index);
+            if ((between.type() == TrackRoute.SegmentType.DOCK || between.type() == TrackRoute.SegmentType.INTERCHANGE ||
+                between.type() == TrackRoute.SegmentType.MOORING)
+                && between.dimension().equals(level.dimension()) && !between.path().isEmpty())
+            {
+                handoff = between.path().getFirst();
+                break;
+            }
+        }
+        if (handoff == null)
+        {
+            TrackRoute.Segment arriving = activeRoute.segments().get(nextIndex);
+            if (arriving.path().isEmpty()) return;
+            handoff = arriving.path().getFirst();
+        }
+
+        double x = handoff.getX() + 0.5D;
+        double y = handoff.getY() + 0.55D;
+        double z = handoff.getZ() + 0.5D;
+        boolean waterHandoff = previousType == TrackRoute.SegmentType.WATER || nextType == TrackRoute.SegmentType.WATER;
+        level.sendParticles(waterHandoff ? ParticleTypes.SPLASH : ParticleTypes.POOF,
+            x, y, z, waterHandoff ? 6 : 7, 0.28D, 0.2D, 0.28D, 0.025D);
+        level.sendParticles(ParticleTypes.WAX_ON, x, y + 0.1D, z, 4, 0.24D, 0.22D, 0.24D, 0.015D);
+    }
+
+    private static boolean isVehicleMode(TrackRoute.SegmentType type)
+    {
+        return type == TrackRoute.SegmentType.RAIL || type == TrackRoute.SegmentType.ROAD ||
+            type == TrackRoute.SegmentType.WATER || type == TrackRoute.SegmentType.AIR;
+    }
+
+    private boolean vehicleMatches(TrackRoute.SegmentType type)
+    {
+        return switch (type)
+        {
+            case ROAD -> cart instanceof WagonEntity;
+            case WATER -> cart instanceof GhostBoatEntity;
+            case AIR -> cart instanceof AirshipEntity;
+            case RAIL -> !(cart instanceof WagonEntity) && !(cart instanceof GhostBoatEntity) && !(cart instanceof AirshipEntity);
+            default -> true;
+        };
+    }
+
+    /** @return true while another server tick is needed for this visual stride */
+    boolean tickRouteVisualization()
+    {
+        if (pendingVisualLegs.isEmpty()) return false;
+
+        ITradeCapable localSourceStation = sourceStation;
+
+        MinecraftServer server = localSourceStation == null || localSourceStation.getColony() == null || localSourceStation.getColony().getWorld() == null
+            ? null : localSourceStation.getColony().getWorld().getServer();
+
+        if (server == null) return false;
+        if (server.overworld().getGameTime() >= nextVisualTransitionTick) startNextVisualLeg();
+        return !pendingVisualLegs.isEmpty();
     }
 
     /**
@@ -321,17 +557,18 @@ public class ExportData
         for (int i = 0; i < segments.size(); i++)
         {
             TrackRoute.Segment segment = segments.get(i);
-            int segmentDistance = Math.max(1, segment.distance());
-            boolean inSegment = routeDistance <= cursor + segmentDistance || i == segments.size() - 1;
+            int segmentDistance = segment.distance();
+            if (segmentDistance == 0) continue;
+            boolean inSegment = routeDistance < cursor + segmentDistance || i == segments.size() - 1;
             if (!inSegment)
             {
                 cursor += segmentDistance;
                 continue;
             }
 
-            if (segment.type() == TrackRoute.SegmentType.TRANSFER)
+            if (segment.type() == TrackRoute.SegmentType.TRANSFER || segment.type() == TrackRoute.SegmentType.AIR_TRANSIT)
             {
-                if (cart != null)
+                if (cart != null && segment.type() == TrackRoute.SegmentType.TRANSFER)
                 {
                     cart.playTransferEffects();
                 }
@@ -365,7 +602,7 @@ public class ExportData
             if (cart == null || !cart.hasPath() || activeRouteSegmentIndex != i)
             {
                 discardCart();
-                cart = spawnCartForTrade(level, segment.path());
+                cart = spawnVehicleForTrade(level, segment.path(), segment.type(), false);
                 activeRouteSegmentIndex = i;
             }
 

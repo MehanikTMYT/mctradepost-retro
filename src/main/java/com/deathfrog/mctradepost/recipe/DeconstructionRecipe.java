@@ -6,11 +6,11 @@ import com.deathfrog.mctradepost.MCTradePostMod;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ItemStackTemplate;
 import net.minecraft.world.item.crafting.*;
 import net.minecraft.world.level.Level;
 
@@ -18,19 +18,33 @@ public class DeconstructionRecipe implements Recipe<SingleRecipeInput>
 {
     public static final String DECON_RECIPE_KEY = "deconstruction";
 
-    public record Output(ItemStack stack, float chance)
+    /**
+     * Uses {@link ItemStackTemplate} rather than a raw {@link ItemStack} for the output: as of 26.1.2,
+     * {@code ItemStack.CODEC}'s "id" field goes through {@code Item.CODEC_WITH_BOUND_COMPONENTS}, which
+     * validates that the item's default component map is already bound -- that isn't true yet at the
+     * point recipe JSON gets parsed during a datapack reload, so any recipe using it (even for plain
+     * vanilla items) fails with "Item X does not have components yet". {@code ItemStackTemplate} (the
+     * same type this mod's other recipe results already use) only needs the item's registry id at parse
+     * time and materializes lazily via {@link ItemStackTemplate#create()}, sidestepping the problem.
+     */
+    public record Output(ItemStackTemplate template, float chance)
     {
+        public ItemStack stack()
+        {
+            return template.create();
+        }
+
         @SuppressWarnings("null")
         public static final MapCodec<Output> CODEC =
             RecordCodecBuilder.mapCodec(i -> i
-                .group(ItemStack.CODEC.fieldOf("item").forGetter(Output::stack),
+                .group(ItemStackTemplate.CODEC.fieldOf("item").forGetter(Output::template),
                     com.mojang.serialization.Codec.FLOAT.optionalFieldOf("chance", 1.0f).forGetter(Output::chance))
                 .apply(i, Output::new));
 
         @SuppressWarnings("null")
         public static final StreamCodec<RegistryFriendlyByteBuf, Output> STREAM_CODEC =
             StreamCodec.composite(
-                ItemStack.STREAM_CODEC, Output::stack,
+                ItemStackTemplate.STREAM_CODEC, Output::template,
                 ByteBufCodecs.FLOAT, Output::chance,
                 Output::new
             );
@@ -53,33 +67,48 @@ public class DeconstructionRecipe implements Recipe<SingleRecipeInput>
     }
 
     @Override
-    public ItemStack assemble(@Nonnull SingleRecipeInput in, @Nonnull HolderLookup.Provider regs)
+    public ItemStack assemble(@Nonnull SingleRecipeInput in)
     {
         return ItemStack.EMPTY; // your machine reads outputs directly
     }
 
     @Override
-    public boolean canCraftInDimensions(int w, int h)
+    public boolean showNotification()
     {
         return true;
     }
 
+    @Nonnull
     @Override
-    public ItemStack getResultItem(@Nonnull HolderLookup.Provider regs)
+    public String group()
     {
-        return ItemStack.EMPTY;
+        return "";
     }
 
     @Override
-    public RecipeSerializer<?> getSerializer()
+    public PlacementInfo placementInfo()
+    {
+        return PlacementInfo.create(input);
+    }
+
+    @Override
+    public RecipeSerializer<? extends Recipe<SingleRecipeInput>> getSerializer()
     {
         return MCTradePostMod.DECON_RECIPE_SERIALIZER.get();
     }
 
     @Override
-    public RecipeType<?> getType()
+    public RecipeType<? extends Recipe<SingleRecipeInput>> getType()
     {
         return MCTradePostMod.DECON_RECIPE_TYPE.get();
+    }
+
+    @Override
+    public RecipeBookCategory recipeBookCategory()
+    {
+        // Not a player-facing crafting-table recipe (a custom machine reads the outputs directly);
+        // mirrors com.minecolonies.api.crafting.CompostRecipe's use of CRAFTING_MISC as a generic fallback.
+        return RecipeBookCategories.CRAFTING_MISC;
     }
 
     public Ingredient getInput()
@@ -92,13 +121,13 @@ public class DeconstructionRecipe implements Recipe<SingleRecipeInput>
         return outputs;
     }
 
-    /** Serializer for 1.21.x (MapCodec + StreamCodec) */
-    public static class Serializer implements RecipeSerializer<DeconstructionRecipe>
+    /** RecipeSerializer is a record (MapCodec + StreamCodec) as of Minecraft 26.1.2; this holds the shared instance. */
+    public static final class Serializer
     {
         @SuppressWarnings("null")
         public static final MapCodec<DeconstructionRecipe> CODEC = RecordCodecBuilder.mapCodec(
             i -> i
-                .group(Ingredient.CODEC_NONEMPTY.fieldOf("input").forGetter(DeconstructionRecipe::getInput),
+                .group(Ingredient.CODEC.fieldOf("input").forGetter(DeconstructionRecipe::getInput),
                     Output.CODEC.codec()
                         .listOf()
                         .fieldOf("results")
@@ -114,16 +143,8 @@ public class DeconstructionRecipe implements Recipe<SingleRecipeInput>
                 DeconstructionRecipe::new
             );
 
-        @Override
-        public MapCodec<DeconstructionRecipe> codec()
-        {
-            return CODEC;
-        }
+        public static final RecipeSerializer<DeconstructionRecipe> INSTANCE = new RecipeSerializer<>(CODEC, STREAM_CODEC);
 
-        @Override
-        public StreamCodec<RegistryFriendlyByteBuf, DeconstructionRecipe> streamCodec()
-        {
-            return STREAM_CODEC;
-        }
+        private Serializer() {}
     }
 }

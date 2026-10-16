@@ -1,0 +1,14 @@
+{
+  "layers": {
+    "humanoid": [
+      {
+        "texture": "mctradepost:reinforced_leather"
+      }
+    ],
+    "humanoid_leggings": [
+      {
+        "texture": "mctradepost:reinforced_leather"
+      }
+    ]
+  }
+}

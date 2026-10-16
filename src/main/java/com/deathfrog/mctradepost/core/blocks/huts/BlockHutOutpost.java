@@ -140,10 +140,8 @@ public class BlockHutOutpost extends MCTPBaseBlockHut
         {
             if (player != null) 
             {
-                player.displayClientMessage(NullnessBridge.assumeNonnull(
-                    Component.translatable("com.mctradepost.outpost.disallowed")),
-                    true
-                );
+                player.sendOverlayMessage(NullnessBridge.assumeNonnull(
+                    Component.translatable("com.mctradepost.outpost.disallowed")));
             }
             return false;
         }
@@ -171,7 +169,7 @@ public class BlockHutOutpost extends MCTPBaseBlockHut
         {
             Log.getLogger().info("Placing outpost.");
             final boolean placed = super.setup(player, world, pos, blueprint, rotationMirror, fancyPlacement, pack, path);
-            if (placed && !world.isClientSide)
+            if (placed && !world.isClientSide())
             {
                 final IBuilding building = IColonyManager.getInstance().getBuilding(world, pos);
                 if (building instanceof BuildingOutpost outpost)
@@ -184,10 +182,8 @@ public class BlockHutOutpost extends MCTPBaseBlockHut
 
         if (player != null) 
         {
-            player.displayClientMessage(NullnessBridge.assumeNonnull(
-                Component.translatable("com.mctradepost.outpost.buildfailure")),
-                true
-            );
+            player.sendOverlayMessage(NullnessBridge.assumeNonnull(
+                Component.translatable("com.mctradepost.outpost.buildfailure")));
         }
         
         Log.getLogger().info("Outpost placement not allowed here.");
@@ -203,7 +199,7 @@ public class BlockHutOutpost extends MCTPBaseBlockHut
      * @return a list of MutableComponent representing the requirements
      */
     @Override
-    public List<MutableComponent> getRequirements(final ClientLevel level, final BlockPos pos, final LocalPlayer player)
+    public List<MutableComponent> getRequirements(final Level level, final BlockPos pos, final Player player)
     {
         List<MutableComponent> requirements = super.getRequirements(level, pos, player);
         requirements.add(Component.translatable("com.mctradepost.outpost.requirements"));

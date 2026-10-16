@@ -32,6 +32,9 @@ import com.minecolonies.api.util.StatsUtil;
 import com.minecolonies.core.entity.ai.workers.AbstractEntityAIInteract;
 import com.minecolonies.core.entity.pathfinding.navigation.EntityNavigationUtils;
 import com.minecolonies.core.util.AdvancementUtils;
+import com.minecolonies.core.colony.buildings.modules.BuildingModules;
+import com.minecolonies.core.colony.interactionhandling.StandardInteraction;
+import com.minecolonies.api.colony.interactionhandling.ChatPriority;
 import com.mojang.logging.LogUtils;
 
 import net.minecraft.core.BlockPos;
@@ -39,12 +42,10 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import static com.minecolonies.api.entity.ai.statemachine.states.AIWorkerState.*;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
 import static com.deathfrog.mctradepost.api.util.TraceUtils.TRACE_STATION;
 
 public class EntityAIWorkStationMaster extends AbstractEntityAIInteract<JobStationMaster, BuildingStation>
@@ -55,19 +56,24 @@ public class EntityAIWorkStationMaster extends AbstractEntityAIInteract<JobStati
 
     public static final String TRACK_VALIDATIONS = "tracks_validated";
 
+    /** Amount of Lifting Gas consumed by successfully launched shipments. */
+    public static final String LIFTING_GAS_USED = "lifting_gas_used";
+
     public static final int BASE_XP_NEW_TRACK = 5;
     public static final int BASE_XP_EXISTING_TRACK = 1;
     public static final int BASE_XP_SEND_SHIPMENT = 2;
 
+    private static final int TRACK_WALK_SELECTION_RANGE = 50;
 
     protected static final int OUTPOST_COOLDOWN_TIMER = 10;
-    protected static int outpostCooldown = OUTPOST_COOLDOWN_TIMER;
+    protected int outpostCooldown = OUTPOST_COOLDOWN_TIMER;
 
     protected static final int VALIDATION_COOLDOWN_TIMER = 60;
-    protected static int validationCooldown = VALIDATION_COOLDOWN_TIMER;
+    protected int validationCooldown = VALIDATION_COOLDOWN_TIMER;
+    private long lastWaterBreakWarning = Long.MIN_VALUE;
 
     protected static final int MATCHING_COOLDOWN_TIMER = 5;
-    protected static int matchingCooldown = MATCHING_COOLDOWN_TIMER;
+    protected int matchingCooldown = MATCHING_COOLDOWN_TIMER;
 
     public static final Map<StationData, Integer> remoteStationMessageCooldown = new HashMap<>();
 
@@ -92,7 +98,6 @@ public class EntityAIWorkStationMaster extends AbstractEntityAIInteract<JobStati
     private ExportData currentExport = null;
     private Integer currentFundRequest = null;
     private BlockPos currentTargetWalkingPosition = null;
-    Queue<BlockPos> currentCheckingTrack = new ArrayDeque<>();
 
     @SuppressWarnings("unchecked")
     public EntityAIWorkStationMaster(@NotNull JobStationMaster job)
@@ -109,7 +114,7 @@ public class EntityAIWorkStationMaster extends AbstractEntityAIInteract<JobStati
           new AITarget<IAIState>(StationMasterStates.CHECK_CONNECTION, this::checkConnection, 50),
           new AITarget<IAIState>(StationMasterStates.REQUEST_FUNDS, this::requestFunds, 50),
           new AITarget<IAIState>(StationMasterStates.SEND_SHIPMENT, this::sendShipment, 50),
-          new AITarget<IAIState>(StationMasterStates.WALK_THE_TRACK, this::walkTheTrack, 1)
+          new AITarget<IAIState>(StationMasterStates.WALK_THE_TRACK, this::walkTheTrack, 10)
         );
         worker.setCanPickUpLoot(true);
     }
@@ -128,7 +133,10 @@ public class EntityAIWorkStationMaster extends AbstractEntityAIInteract<JobStati
         if (outpostCooldown <= 0)
         {
             outpostCooldown = OUTPOST_COOLDOWN_TIMER;
-            return StationMasterStates.HANDLE_OUTPOST_REQUESTS;
+            if (!building.findConnectedOutposts().isEmpty())
+            {
+                return StationMasterStates.HANDLE_OUTPOST_REQUESTS;
+            }
         }
 
         currentFundRequest = building.removePaymentRequest();
@@ -169,7 +177,6 @@ public class EntityAIWorkStationMaster extends AbstractEntityAIInteract<JobStati
     {
         if (!walkToBuilding())
         {
-            setDelay(2);
             return getState();
         }
 
@@ -254,11 +261,22 @@ public class EntityAIWorkStationMaster extends AbstractEntityAIInteract<JobStati
             }
 
             // Skip if already shipping or already shipped today
-            if (isAlreadyShippingToday(exportData)) continue;
+            if (isAlreadyShippingToday(exportData))
+            {
+                continue;
+            }
+
+            if (!building.shouldAttemptConnection(exportData.getDestinationStationData()))
+            {
+                continue;
+            }
 
             // 1) Destination must exist or we eliminate the order
             IAIState state = resolveDestinationOrEliminate(exportData);
-            if (state != null) return state;
+            if (state != null)
+            {
+                return state;
+            }
 
             // From here on, these are safe to dereference
             final StationData dest = exportData.getDestinationStationData();
@@ -267,20 +285,29 @@ public class EntityAIWorkStationMaster extends AbstractEntityAIInteract<JobStati
             // 2) Connection lookup or check
             final TrackConnectionResult conn = building.getTrackConnectionResult(dest);
             state = getConnectionOrCheck(conn, dest, exportData);
-            if (state != null) return state;
+            if (state != null)
+            {
+                return state;
+            }
 
             final boolean stationConnected = conn.isConnected();
 
             // 3) If not an outpost, the remote must still offer the trade.
             state = validateRemoteImportOrEliminate(dest, exportData);
-            if (state != null) return state;
+            if (state != null)
+            {
+                return state;
+            }
 
             // 4) Do we have the goods locally?
             final boolean hasExports = hasLocalSupply(exportData);
 
             // 5) Remote must be staffed, else eliminate
             state = ensureRemoteStaffedOrEliminate(remote, exportData);
-            if (state != null) return state;
+            if (state != null)
+            {
+                return state;
+            }
 
             // 6) Remote funds check
             final boolean remoteHasFunds = remoteHasFunds(remote, exportData);
@@ -527,17 +554,36 @@ public class EntityAIWorkStationMaster extends AbstractEntityAIInteract<JobStati
         if (currentExport != null && currentExport.getTradeItem() != null && !currentExport.getTradeItem().getItemStack().isEmpty())
         {   
             TrackConnectionResult tcr = ((BuildingStation) building).getTrackConnectionResult(currentExport.getDestinationStationData());
-            if (tcr == null)
+            if (tcr == null || !tcr.isConnected())
             {
                 currentRemoteStation = currentExport.getDestinationStationData();
                 return StationMasterStates.CHECK_CONNECTION;
             }
 
-
             int trackDistance = tcr.getRouteDistance();
-            currentExport.setShipDistance(0);
-            currentExport.setTrackDistance(trackDistance);
-            currentExport.setLastShipDay(building.getColony().getDay());
+            ITradeCapable destinationBuilding = currentExport.getDestinationStationData().getStation();
+            if (!AirRouteConnection.canLaunch(building, destinationBuilding, tcr.getRoute()))
+            {
+                job.clearGasShortage();
+                currentRemoteStation = currentExport.getDestinationStationData();
+                tcr.setConnected(false);
+                building.putTrackConnectionResult(currentRemoteStation, tcr);
+                return StationMasterStates.CHECK_CONNECTION;
+            }
+
+            int gasCost = AirRouteConnection.liftingGasCost(tcr.getRoute());
+            com.deathfrog.mctradepost.core.blocks.blockentity.MooringBayBlockEntity departureBay =
+                AirRouteConnection.departureBay((net.minecraft.server.level.ServerLevel) world, tcr.getRoute());
+            if (gasCost > 0 && (departureBay == null || departureBay.drainGas(gasCost, true) < gasCost))
+            {
+                if (job.noteGasShortage(MCTPConfig.gasComplaintAttempts.get()))
+                    worker.getCitizenData().triggerInteraction(new StandardInteraction(
+                        net.minecraft.network.chat.Component.translatable(com.deathfrog.mctradepost.apiimp.initializer.MCTPInteractionInitializer.NO_LIFTING_GAS), ChatPriority.BLOCKING));
+                currentExport = null;
+                incrementActionsDoneAndDecSaturation();
+                return AIWorkerState.DECIDE;
+            }
+            job.clearGasShortage();
 
             final ItemStack cargoCopy = currentExport.getTradeItem().getItemStack().copy();
             ItemStorage removeFromStorage = new ItemStorage(cargoCopy.copy(), currentExport.getQuantity());
@@ -556,6 +602,21 @@ public class EntityAIWorkStationMaster extends AbstractEntityAIInteract<JobStati
                     incrementActionsDoneAndDecSaturation();
                     return AIWorkerState.DECIDE;
                 } 
+
+                int gasDebited = gasCost > 0 && departureBay != null ? departureBay.drainGas(gasCost, false) : 0;
+                if (gasCost > 0 && gasDebited < gasCost)
+                {
+                    MCTPInventoryUtils.insertOrDropByQuantity(building, refundIfNeeded);
+                    MCTPInventoryUtils.insertOrDropByQuantity(currentExport.getDestinationStationData().getStation(),
+                        new ItemStorage(BuildingMarketplace.tradeCurrency(), currentExport.getCost()));
+                    currentExport = null;
+                    incrementActionsDoneAndDecSaturation();
+                    return AIWorkerState.DECIDE;
+                }
+                if (gasDebited > 0)
+                {
+                    building.getModule(BuildingModules.STATS_MODULE).incrementBy(LIFTING_GAS_USED, gasDebited);
+                }
             }
             else
             {
@@ -563,6 +624,12 @@ public class EntityAIWorkStationMaster extends AbstractEntityAIInteract<JobStati
                 currentExport = null;
                 return AIWorkerState.DECIDE;
             }
+
+            // Commit the departure only after both sides of the inventory transaction succeed. A failed attempt must remain eligible
+            // to retry later the same day and must never look like a shipment that is permanently in transit.
+            currentExport.setTrackDistance(trackDistance);
+            currentExport.setShipDistance(0);
+            currentExport.setLastShipDay(building.getColony().getDay());
 
             worker.getCitizenExperienceHandler().addExperience(BASE_XP_EXISTING_TRACK);
             GhostCartEntity cart = currentExport.spawnCartForTrade(tcr.getRoute());
@@ -605,7 +672,14 @@ public class EntityAIWorkStationMaster extends AbstractEntityAIInteract<JobStati
             for (IBuilding checkbuilding : colony.getServerBuildingManager().getBuildings().values())
             {
                 // Disregard if it's not a station/outpost, or if it is the current station.
-                if (!(checkbuilding instanceof ITradeCapable tradeCapableBuilding) || tradeCapableBuilding.getPosition().equals(worker.getCitizenData().getWorkBuilding().getPosition()))
+                if (!(checkbuilding instanceof ITradeCapable tradeCapableBuilding))
+                {
+                    continue;
+                }
+
+                StationData candidate = new StationData(tradeCapableBuilding);
+                StationData localStation = new StationData(building);
+                if (candidate.equals(localStation))
                 {
                     continue;
                 }
@@ -629,14 +703,14 @@ public class EntityAIWorkStationMaster extends AbstractEntityAIInteract<JobStati
                     continue;
                 }
 
-                if (this.building.hasStationAt(tcBuildingPos))
+                if (this.building.hasStationAt(candidate))
                 {
                     checklist.add(checkbuilding);
                 }
                 else
                 {
                     // Add the newly discovered station.
-                    currentRemoteStation = new StationData(tradeCapableBuilding);
+                    currentRemoteStation = candidate;
                     this.building.addStation(currentRemoteStation);
                     checklist.add(checkbuilding);
                 }
@@ -646,10 +720,8 @@ public class EntityAIWorkStationMaster extends AbstractEntityAIInteract<JobStati
         final long now = world.getGameTime();
         checklist.sort((firstBuilding, secondBuilding) ->
         {
-            @SuppressWarnings("null")
-            StationData firstStation = this.building.getStationAt(firstBuilding.getPosition());
-            @SuppressWarnings("null")
-            StationData secondStation = this.building.getStationAt(secondBuilding.getPosition());
+            StationData firstStation = this.building.getStationAt(new StationData((ITradeCapable) firstBuilding).getDimensionalPosition());
+            StationData secondStation = this.building.getStationAt(new StationData((ITradeCapable) secondBuilding).getDimensionalPosition());
             TrackConnectionResult firstResult = building.getTrackConnectionResult(firstStation);
             TrackConnectionResult secondResult = building.getTrackConnectionResult(secondStation);
 
@@ -673,9 +745,17 @@ public class EntityAIWorkStationMaster extends AbstractEntityAIInteract<JobStati
         {
             BlockPos tcBuildingPos = checkThisBuilding.getPosition();
 
-            if (tcBuildingPos == null) continue;
+            if (tcBuildingPos == null)
+            {
+                continue;
+            }
 
-            StationData stationData = this.building.getStationAt(tcBuildingPos);
+            StationData stationData = this.building.getStationAt(new StationData((ITradeCapable) checkThisBuilding).getDimensionalPosition());
+
+            if (stationData == null || !building.shouldAttemptConnection(stationData))
+            {
+                continue;
+            }
 
             TraceUtils.dynamicTrace(TRACE_STATION, () -> LOGGER.info("Colony {}: Determining if trade capable building at {} should be checked: {}", building.getColony().getID(), tcBuildingPos, stationData));
 
@@ -712,8 +792,15 @@ public class EntityAIWorkStationMaster extends AbstractEntityAIInteract<JobStati
      */
     protected IAIState checkConnection()
     {
+        currentTargetWalkingPosition = null;
+
         if (currentRemoteStation != null)
         {
+            if (!building.shouldAttemptConnection(currentRemoteStation))
+            {
+                currentRemoteStation = null;
+                return AIWorkerState.DECIDE;
+            }
             TrackConnectionResult connectionResult = building.getTrackConnectionResult(currentRemoteStation);
 
             if (connectionResult == null || !connectionResult.connected)
@@ -735,8 +822,18 @@ public class EntityAIWorkStationMaster extends AbstractEntityAIInteract<JobStati
                 boolean isValid = connectionResult.route == null
                     ? TrackPathConnection.validateExistingPath(world, connectionResult)
                     : TrackRouteConnection.validateExistingRoute(world.getServer(), connectionResult);
+                isValid = isValid && AirRouteConnection.validateCachedRoute(building,
+                    currentRemoteStation.getStation(), connectionResult.getRoute());
 
-                currentCheckingTrack.addAll(connectionResult.path);
+                if (!isValid)
+                {
+                    warnAboutBrokenWaterRoute(connectionResult.getRoute());
+                }
+
+                if (isValid)
+                {
+                    selectTrackWalkingTarget(connectionResult);
+                }
 
                 connectionResult.setConnected(isValid);
                 building.putTrackConnectionResult(currentRemoteStation, connectionResult);
@@ -768,46 +865,112 @@ public class EntityAIWorkStationMaster extends AbstractEntityAIInteract<JobStati
         return StationMasterStates.WALK_THE_TRACK;
     }
 
-
-    /**
-     * Walks the station master along the track to simulate verifying the connection.
-     * If there is no track to check, transitions to the DECIDE state.
-     * Otherwise, the station master moves to the next target position on the track.
-     * If the target position is outside the colony borders, the process is stopped 
-     * and transitions to the DECIDE state. Otherwise, continues walking the track.
-     *
-     * @return the next AI state to transition to, either continuing to walk the track
-     *         or deciding the next action if the track is complete or invalid.
-     */
-    private IAIState walkTheTrack()
+    /** Raises a rate-limited citizen interaction with the saved break interval of a surveyed shipping lane. */
+    private void warnAboutBrokenWaterRoute(final TrackRoute route)
     {
-        if (currentCheckingTrack == null || currentCheckingTrack.isEmpty())
+        if (route == null || !(world instanceof net.minecraft.server.level.ServerLevel serverLevel)) return;
+        long now = world.getGameTime();
+        if (lastWaterBreakWarning != Long.MIN_VALUE && now - lastWaterBreakWarning < 24000L) return;
+        WaterRouteRegistry registry = WaterRouteRegistry.get(serverLevel);
+        for (TrackRoute.Segment segment : route.segments())
         {
-            return DECIDE;
+            if (segment.type() != TrackRoute.SegmentType.WATER) continue;
+            WaterRouteRegistry.WaterLink link = registry.matchingPath(segment.path()).orElse(null);
+            if (link == null) continue;
+            link = registry.validate(serverLevel, link);
+            if (link.usable()) continue;
+            BlockPos from = link.breakStart() == null ? link.firstDock() : link.breakStart();
+            BlockPos to = link.breakEnd() == null ? link.secondDock() : link.breakEnd();
+            worker.getCitizenData().triggerInteraction(new StandardInteraction(
+                net.minecraft.network.chat.Component.translatable("entity.stationmaster.water_route_broken",
+                    link.firstDock().toShortString(), link.secondDock().toShortString(), from.toShortString(), to.toShortString()),
+                ChatPriority.BLOCKING));
+            lastWaterBreakWarning = now;
+            return;
+        }
+    }
+
+
+    /** Selects one nearby local rail or road position for the station master's cosmetic validation walk. */
+    private void selectTrackWalkingTarget(final TrackConnectionResult connectionResult)
+    {
+        currentTargetWalkingPosition = null;
+        List<BlockPos> path = null;
+
+        if (connectionResult.route == null)
+        {
+            path = connectionResult.path;
         }
         else
         {
-            if (currentTargetWalkingPosition == null)
+            for (TrackRoute.Segment segment : connectionResult.route.segments())
             {
-                currentTargetWalkingPosition = currentCheckingTrack.poll();
-            }
-
-            if (this.walkToSafePos(currentTargetWalkingPosition)) 
-            {
-
-                // Station master will only walk to the colony border while checking tracks.
-                IColony colony = IColonyManager.getInstance().getColonyByPosFromWorld(building.getColony().getWorld(), currentTargetWalkingPosition);
-                if (colony == null || !colony.equals(building.getColony()))
+                if (segment.type() == TrackRoute.SegmentType.TRANSFER)
                 {
-                    currentTargetWalkingPosition = null;
-                    currentCheckingTrack.clear();
-                    return DECIDE;
+                    break;
+                }
+                if (segment.type() == TrackRoute.SegmentType.DOCK || segment.type() == TrackRoute.SegmentType.INTERCHANGE)
+                {
+                    continue;
                 }
 
-                currentTargetWalkingPosition = null;
+                if ((segment.type() == TrackRoute.SegmentType.RAIL || segment.type() == TrackRoute.SegmentType.ROAD) &&
+                    segment.dimension().equals(building.getColony().getDimension()))
+                {
+                    path = segment.path();
+                }
+                break;
             }
-            return StationMasterStates.WALK_THE_TRACK;
         }
+
+        if (path == null || path.size() < 2)
+        {
+            return;
+        }
+
+        List<BlockPos> candidates = new ArrayList<>();
+        int upperBound = Math.min(path.size(), TRACK_WALK_SELECTION_RANGE + 1);
+        for (int i = 1; i < upperBound; i++)
+        {
+            BlockPos candidate = path.get(i);
+            IColony candidateColony = IColonyManager.getInstance()
+                .getColonyByPosFromWorld(building.getColony().getWorld(), candidate);
+
+            if (building.getColony().equals(candidateColony))
+            {
+                candidates.add(candidate);
+            }
+        }
+
+        if (!candidates.isEmpty())
+        {
+            currentTargetWalkingPosition = candidates.get(worker.getRandom().nextInt(candidates.size()));
+        }
+    }
+
+    /** Walks once to the selected local route position, then resumes normal work. */
+    private IAIState walkTheTrack()
+    {
+        if (currentTargetWalkingPosition == null)
+        {
+            return DECIDE;
+        }
+
+        IColony targetColony = IColonyManager.getInstance()
+            .getColonyByPosFromWorld(building.getColony().getWorld(), currentTargetWalkingPosition);
+        if (!building.getColony().equals(targetColony))
+        {
+            currentTargetWalkingPosition = null;
+            return DECIDE;
+        }
+
+        if (walkToSafePos(currentTargetWalkingPosition))
+        {
+            currentTargetWalkingPosition = null;
+            return DECIDE;
+        }
+
+        return StationMasterStates.WALK_THE_TRACK;
     }
         
 

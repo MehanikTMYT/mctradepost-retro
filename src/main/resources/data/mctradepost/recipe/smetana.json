@@ -1,16 +1,10 @@
 {
-  "type": "minecraft:crafting_shapeless",
+  "type": "mctradepost:durable_tool_shapeless",
   "category": "misc",
   "ingredients": [
-    {
-      "item": "minecolonies:large_milk_bottle"
-    },
-    {
-      "item": "minecolonies:large_milk_bottle"
-    },
-    {
-      "item": "mctradepost:immersion_blender"
-    }
+    "minecolonies:large_milk_bottle",
+    "minecolonies:large_milk_bottle",
+    "mctradepost:immersion_blender"
   ],
   "result": {
     "count": 4,

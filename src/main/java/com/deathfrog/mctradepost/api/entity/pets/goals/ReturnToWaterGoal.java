@@ -81,7 +81,7 @@ public class ReturnToWaterGoal<P extends Animal & ITradePostPet> extends Goal
     {
 
         final Level level = pet.level();
-        if (level.isClientSide) return false;
+        if (level.isClientSide()) return false;
 
         if (cooldownTicks > 0)
         {
@@ -91,7 +91,7 @@ public class ReturnToWaterGoal<P extends Animal & ITradePostPet> extends Goal
         if (pet.isPassenger() || pet.isSleeping()) return false;
 
         // If already safe, skip
-        if (pet.isInWaterOrBubble()) return false;
+        if (pet.isInWater()) return false;
 
         // Trigger when running low on air OR simply out of water (defensive)
         if (pet.getAirSupply() > airThresholdTicks && pet.onGround())
@@ -121,7 +121,7 @@ public class ReturnToWaterGoal<P extends Animal & ITradePostPet> extends Goal
     {
 
         final Level level = pet.level();
-        if (level.isClientSide) return;
+        if (level.isClientSide()) return;
 
         ticksRunning = 0;
         stuckTicks = 0;
@@ -137,7 +137,7 @@ public class ReturnToWaterGoal<P extends Animal & ITradePostPet> extends Goal
             return;
         }
 
-        final boolean onLand = !pet.isInWaterOrBubble();
+        final boolean onLand = !pet.isInWater();
 
         // Ordered candidate list:
         // on land: banks -> above -> water
@@ -240,7 +240,7 @@ public class ReturnToWaterGoal<P extends Animal & ITradePostPet> extends Goal
         if (target == null) return false;
 
         if (ticksRunning > maxRunTicks) return false; // hard timeout
-        if (pet.isInWaterOrBubble()) return false;
+        if (pet.isInWater()) return false;
 
         final Level level = pet.level();
         if (!level.isLoaded(target)) return false;                 // prevent unloaded-chunk weirdness
@@ -260,7 +260,7 @@ public class ReturnToWaterGoal<P extends Animal & ITradePostPet> extends Goal
     public void tick()
     {
         final Level level = pet.level();
-        if (level.isClientSide) return;
+        if (level.isClientSide()) return;
 
         ticksRunning++;
 
@@ -285,7 +285,7 @@ public class ReturnToWaterGoal<P extends Animal & ITradePostPet> extends Goal
         }
 
         // If path is finished but we’re not in water yet, try a small local reseek
-        if (pet.getNavigation().isDone() && !pet.isInWaterOrBubble())
+        if (pet.getNavigation().isDone() && !pet.isInWater())
         {
             final BlockPos nearby = findNearestReachableWater(pet.blockPosition(), 6);
             if (nearby != null && !nearby.equals(target))

@@ -25,7 +25,7 @@ public class WeatherRitualProcessor
      */
     public static boolean processRitualWeather(@Nonnull ServerLevel level, @Nonnull BlockPos pos, RitualDefinitionHelper ritual)
     {
-        int restOfDay = 24000 - (int) (level.getDayTime() % 24000);
+        int restOfDay = 24000 - (int) (level.getOverworldClockTime() % 24000);
         int clearTime = 0;
         int weatherTime = 0;
         boolean isRaining = false;
@@ -66,7 +66,7 @@ public class WeatherRitualProcessor
             return false;
         }
 
-        level.setWeatherParameters(clearTime, weatherTime, isRaining, isThundering);
+        level.getServer().setWeatherParameters(clearTime, weatherTime, isRaining, isThundering);
 
         LOGGER.info("Weather ritual of {} completed at {} ", weather, pos);
         WishingWellHandler.showRitualEffect(level, pos);

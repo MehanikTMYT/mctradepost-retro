@@ -1,10 +1,11 @@
 package com.deathfrog.mctradepost.core.commands;
 
 import com.minecolonies.core.commands.commandTypes.IMCCommand;
-import com.mojang.authlib.GameProfile;
 import com.mojang.brigadier.context.CommandContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.permissions.Permissions;
+import net.minecraft.server.players.NameAndId;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 
@@ -23,7 +24,7 @@ public abstract class AbstractCommands implements IMCCommand
         final CommandSourceStack source = context.getSource();
 
         // 1) Vanilla OP / dedicated server permission level
-        if (source.hasPermission(4))
+        if (source.permissions().hasPermission(Permissions.COMMANDS_OWNER))
         {
             return true;
         }
@@ -42,7 +43,7 @@ public abstract class AbstractCommands implements IMCCommand
             return true;
         }
 
-        GameProfile profile = player.getGameProfile();
+        NameAndId profile = player.nameAndId();
 
         // 4) Singleplayer / integrated server owner
         if (profile != null && source.getServer() != null &&

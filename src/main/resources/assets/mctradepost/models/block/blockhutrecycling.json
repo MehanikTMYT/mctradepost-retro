@@ -10,7 +10,8 @@
 		"10": "block/coal_block",
 		"output": "block/iron_block",
 		"bottom": "block/smooth_stone",
-		"gear": "block/chiseled_stone_bricks"
+		"gear": "block/chiseled_stone_bricks",
+		"particle": "block/light_gray_shulker_box"
 	},
 	"elements": [
 		{

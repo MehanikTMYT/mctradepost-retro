@@ -2,18 +2,9 @@
   "type": "minecraft:crafting_shapeless",
   "category": "misc",
   "ingredients": [
-    {
-      "tag": "mctradepost:meat"
-    },
-    {
-      "tag": "mctradepost:meat"
-    },
-    {
-      "item": "minecraft:egg"
-    },
-    {
-      "item": "mctradepost:immersion_blender"
-    }
+    "#mctradepost:protein",
+    "#mctradepost:protein",
+    "mctradepost:immersion_blender"
   ],
   "result": {
     "count": 8,

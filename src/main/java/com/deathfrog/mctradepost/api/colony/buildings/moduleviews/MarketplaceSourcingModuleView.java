@@ -10,7 +10,7 @@ import com.minecolonies.api.colony.buildings.modules.AbstractBuildingModuleView;
 import com.minecolonies.api.util.Utils;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -120,9 +120,9 @@ public class MarketplaceSourcingModuleView extends AbstractBuildingModuleView
 
     /** {@inheritDoc} */
     @Override
-    public ResourceLocation getIconResourceLocation()
+    public Identifier getIconResourceLocation()
     {
-        return ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "textures/gui/modules/search.png");
+        return Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "textures/gui/modules/search.png");
     }
 
     /** Converts a synchronized ordinal to a safe market tier. */

@@ -16,7 +16,7 @@ import com.minecolonies.api.colony.buildings.modules.AbstractBuildingModuleView;
 import com.minecolonies.api.util.Utils;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 
 public class ThriftShopOffersModuleView extends AbstractBuildingModuleView
@@ -97,9 +97,9 @@ public class ThriftShopOffersModuleView extends AbstractBuildingModuleView
      * @return the icon to show.
      */
     @Override
-    public ResourceLocation getIconResourceLocation()
+    public Identifier getIconResourceLocation()
     {
-        return ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "textures/gui/modules/thrift.png");
+        return Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "textures/gui/modules/thrift.png");
     }
 
     /**

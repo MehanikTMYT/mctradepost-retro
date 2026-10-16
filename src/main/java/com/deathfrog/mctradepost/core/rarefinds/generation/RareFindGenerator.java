@@ -1,9 +1,11 @@
 package com.deathfrog.mctradepost.core.rarefinds.generation;
 
 import com.deathfrog.mctradepost.MCTradePostMod;
+import com.minecolonies.api.crafting.VanillaRecipeUtils;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.AirItem;
@@ -44,45 +46,45 @@ public final class RareFindGenerator
     {
         final RareFindGenerationRules rules = RareFindGenerationRules.load(server);
         final ManualRareFindTagResolver tags = new ManualRareFindTagResolver(server.getResourceManager());
-        final Map<ResourceLocation, List<RareFindTier>> manual = tags.resolveDefinitiveTiers();
-        final Set<ResourceLocation> blacklist =
-            tags.resolve(ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "rarefinds_blacklist"));
-        final Set<ResourceLocation> generatedBlacklist = new TreeSet<>();
-        final Set<ResourceLocation> spawnEggs = new TreeSet<>();
+        final Map<Identifier, List<RareFindTier>> manual = tags.resolveDefinitiveTiers();
+        final Set<Identifier> blacklist =
+            tags.resolve(Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "rarefinds_blacklist"));
+        final Set<Identifier> generatedBlacklist = new TreeSet<>();
+        final Set<Identifier> spawnEggs = new TreeSet<>();
         for (final Item item : BuiltInRegistries.ITEM)
         {
             if (item == null) continue;
 
-            final ResourceLocation id = BuiltInRegistries.ITEM.getKey(item);
+            final Identifier id = BuiltInRegistries.ITEM.getKey(item);
             if (rules.blacklistedNamespaces().contains(id.getNamespace())) generatedBlacklist.add(id);
             if (item instanceof SpawnEggItem) spawnEggs.add(id);
         }
-        final Set<ResourceLocation> effectiveBlacklist = new HashSet<>(blacklist);
+        final Set<Identifier> effectiveBlacklist = new HashSet<>(blacklist);
         effectiveBlacklist.addAll(generatedBlacklist);
         effectiveBlacklist.addAll(spawnEggs);
-        final Map<ResourceLocation, Integer> values = GenerationDataReader.itemValues(server);
-        final Map<ResourceLocation, List<TierEvidence>> evidence = new HashMap<>();
+        final Map<Identifier, Integer> values = GenerationDataReader.itemValues(server);
+        final Map<Identifier, List<TierEvidence>> evidence = new HashMap<>();
 
         collectBaseEvidence(rules, values, evidence);
 
         final StructureLootScanner.Result structures = StructureLootScanner.scan(server.getResourceManager());
         collectStructureEvidence(server, rules, structures, evidence);
 
-        Map<ResourceLocation, RareFindTier> provisional = decideAll(evidence);
+        Map<Identifier, RareFindTier> provisional = decideAll(evidence);
         collectRecipeEvidence(server, provisional, evidence);
         provisional = decideAll(evidence);
 
-        final Map<ResourceLocation, RareFindGenerationReport.ItemResult> results = new TreeMap<>();
-        final Map<RareFindTier, Set<ResourceLocation>> generated = new EnumMap<>(RareFindTier.class);
+        final Map<Identifier, RareFindGenerationReport.ItemResult> results = new TreeMap<>();
+        final Map<RareFindTier, Set<Identifier>> generated = new EnumMap<>(RareFindTier.class);
         for (final RareFindTier tier : RareFindTier.values()) generated.put(tier, new TreeSet<>());
-        final Set<ResourceLocation> tierWithoutValue = new TreeSet<>();
-        final Map<ResourceLocation, List<RareFindTier>> conflicts = new TreeMap<>();
+        final Set<Identifier> tierWithoutValue = new TreeSet<>();
+        final Map<Identifier, List<RareFindTier>> conflicts = new TreeMap<>();
 
         for (final Item item : BuiltInRegistries.ITEM)
         {
             if (item == null) continue;
 
-            final ResourceLocation id = BuiltInRegistries.ITEM.getKey(item);
+            final Identifier id = BuiltInRegistries.ITEM.getKey(item);
 
             if (item instanceof AirItem || effectiveBlacklist.contains(id)) continue;
 
@@ -93,7 +95,7 @@ public final class RareFindGenerator
             final RareFindTier definitive = manualTiers.stream().max(Comparator.comparingInt(RareFindTier::level)).orElse(null);
             final RareFindTier derived = provisional.get(id);
             final RareFindTier namespaceFloor = rules.namespaceTierFloors().get(id.getNamespace());
-            final boolean food = new ItemStack(item).getFoodProperties(null) != null;
+            final boolean food = new ItemStack(item).get(DataComponents.FOOD) != null;
             RareFindTier finalTier = definitive != null ? definitive : food ? RareFindTier.TIER0 : derived;
 
             if (definitive == null && !food &&
@@ -139,7 +141,7 @@ public final class RareFindGenerator
             if (value == null || value <= 0) tierWithoutValue.add(id);
         }
 
-        final Set<ResourceLocation> undefined = new TreeSet<>(structures.allStructures());
+        final Set<Identifier> undefined = new TreeSet<>(structures.allStructures());
         undefined.removeIf(id -> rules.tierForStructure(id) != null);
         return new RareFindGenerationReport(Map.copyOf(results),
             immutableTierMap(generated),
@@ -162,19 +164,19 @@ public final class RareFindGenerator
      */
     @SuppressWarnings("null")
     private static void collectBaseEvidence(final RareFindGenerationRules rules,
-        final Map<ResourceLocation, Integer> values,
-        final Map<ResourceLocation, List<TierEvidence>> evidence)
+        final Map<Identifier, Integer> values,
+        final Map<Identifier, List<TierEvidence>> evidence)
     {
         for (final Item item : BuiltInRegistries.ITEM)
         {
             if (item == null) continue;
 
-            final ResourceLocation id = BuiltInRegistries.ITEM.getKey(item);
+            final Identifier id = BuiltInRegistries.ITEM.getKey(item);
             final ItemStack stack = new ItemStack(item);
             final RareFindTier explicit = rules.itemTiers().get(id);
             if (explicit != null) add(evidence, id, new TierEvidence("generator_rule", explicit, 10, "Explicit item rule"));
 
-            if (stack.getFoodProperties(null) != null)
+            if (stack.get(DataComponents.FOOD) != null)
                 add(evidence, id, new TierEvidence("food", RareFindTier.TIER0, 10, "Edible item; retained-search only"));
 
             final Integer value = values.get(id);
@@ -211,10 +213,10 @@ public final class RareFindGenerator
     private static void collectStructureEvidence(final MinecraftServer server,
         final RareFindGenerationRules rules,
         final StructureLootScanner.Result scan,
-        final Map<ResourceLocation, List<TierEvidence>> evidence)
+        final Map<Identifier, List<TierEvidence>> evidence)
     {
-        final Map<ResourceLocation, RareFindTier> easiestTableTier = new HashMap<>();
-        final Map<ResourceLocation, Set<ResourceLocation>> tableStructures = new HashMap<>();
+        final Map<Identifier, RareFindTier> easiestTableTier = new HashMap<>();
+        final Map<Identifier, Set<Identifier>> tableStructures = new HashMap<>();
         for (final StructureLootScanner.Reference reference : scan.references())
         {
             final RareFindTier tier = rules.tierForStructure(reference.structure());
@@ -224,15 +226,15 @@ public final class RareFindGenerator
         }
 
         final LootTableOutputScanner loot = new LootTableOutputScanner(server.getResourceManager());
-        final Map<ResourceLocation, RareFindTier> easiestItemTier = new HashMap<>();
-        final Map<ResourceLocation, String> itemDetail = new HashMap<>();
-        for (final Map.Entry<ResourceLocation, RareFindTier> entry : easiestTableTier.entrySet())
+        final Map<Identifier, RareFindTier> easiestItemTier = new HashMap<>();
+        final Map<Identifier, String> itemDetail = new HashMap<>();
+        for (final Map.Entry<Identifier, RareFindTier> entry : easiestTableTier.entrySet())
         {
             final String detail = "Loot table " + entry.getKey() +
                 " in " +
                 tableStructures.get(entry.getKey()).size() +
                 " classified structure template(s)";
-            for (final ResourceLocation item : loot.outputs(entry.getKey()))
+            for (final Identifier item : loot.outputs(entry.getKey()))
             {
                 final RareFindTier previous = easiestItemTier.get(item);
                 if (previous == null || entry.getValue().level() < previous.level())
@@ -256,23 +258,23 @@ public final class RareFindGenerator
      */
     @SuppressWarnings("null")
     private static void collectRecipeEvidence(final MinecraftServer server,
-        final Map<ResourceLocation, RareFindTier> known,
-        final Map<ResourceLocation, List<TierEvidence>> evidence)
+        final Map<Identifier, RareFindTier> known,
+        final Map<Identifier, List<TierEvidence>> evidence)
     {
-        final Map<ResourceLocation, RareFindTier> easiestRecipes = new HashMap<>();
-        final Map<ResourceLocation, String> recipeDetails = new HashMap<>();
+        final Map<Identifier, RareFindTier> easiestRecipes = new HashMap<>();
+        final Map<Identifier, String> recipeDetails = new HashMap<>();
         for (final RecipeHolder<?> holder : server.getRecipeManager().getRecipes())
         {
-            final ItemStack result = holder.value().getResultItem(server.registryAccess());
+            final ItemStack result = VanillaRecipeUtils.getResultItem(holder.value(), server.overworld());
             if (result.isEmpty()) continue;
             RareFindTier recipeTier = null;
             boolean useful = false;
             boolean completelyKnown = true;
-            for (final Ingredient ingredient : holder.value().getIngredients())
+            for (final Ingredient ingredient : VanillaRecipeUtils.getIngredients(holder.value()))
             {
                 if (ingredient.isEmpty()) continue;
                 RareFindTier easiestChoice = null;
-                for (final ItemStack choice : ingredient.getItems())
+                for (final ItemStack choice : ingredient.items().map(ItemStack::new).toArray(ItemStack[]::new))
                 {
                     final RareFindTier choiceTier = known.get(BuiltInRegistries.ITEM.getKey(choice.getItem()));
                     if (choiceTier == null)
@@ -292,7 +294,7 @@ public final class RareFindGenerator
             }
             if (completelyKnown && useful && recipeTier != null)
             {
-                final ResourceLocation resultId = BuiltInRegistries.ITEM.getKey(result.getItem());
+                final Identifier resultId = BuiltInRegistries.ITEM.getKey(result.getItem());
                 final RareFindTier previous = easiestRecipes.get(resultId);
                 if (previous == null || recipeTier.level() < previous.level())
                 {
@@ -310,9 +312,9 @@ public final class RareFindGenerator
      * @param evidence evidence grouped by item ID
      * @return derived tiers for items with usable evidence
      */
-    private static Map<ResourceLocation, RareFindTier> decideAll(final Map<ResourceLocation, List<TierEvidence>> evidence)
+    private static Map<Identifier, RareFindTier> decideAll(final Map<Identifier, List<TierEvidence>> evidence)
     {
-        final Map<ResourceLocation, RareFindTier> result = new HashMap<>();
+        final Map<Identifier, RareFindTier> result = new HashMap<>();
         evidence.forEach((id, list) -> {
             final RareFindTier tier = decide(list);
             if (tier != null) result.put(id, tier);
@@ -369,7 +371,7 @@ public final class RareFindGenerator
         for (int tier = 1; tier <= 5; tier++)
         {
             final TagKey<Block> tag =
-                TagKey.create(Registries.BLOCK, ResourceLocation.fromNamespaceAndPath("minecolonies", "tier" + tier + "blocks"));
+                TagKey.create(Registries.BLOCK, Identifier.fromNamespaceAndPath("minecolonies", "tier" + tier + "blocks"));
             if (block.defaultBlockState().is(tag)) highest = tier;
         }
         return switch (highest)
@@ -389,8 +391,8 @@ public final class RareFindGenerator
      * @param item     target item ID
      * @param entry    evidence to append
      */
-    private static void add(final Map<ResourceLocation, List<TierEvidence>> evidence,
-        final ResourceLocation item,
+    private static void add(final Map<Identifier, List<TierEvidence>> evidence,
+        final Identifier item,
         final TierEvidence entry)
     {
         evidence.computeIfAbsent(item, ignored -> new ArrayList<>()).add(entry);
@@ -402,9 +404,9 @@ public final class RareFindGenerator
      * @param source mutable generated-tier map
      * @return immutable map containing immutable sets
      */
-    private static Map<RareFindTier, Set<ResourceLocation>> immutableTierMap(final Map<RareFindTier, Set<ResourceLocation>> source)
+    private static Map<RareFindTier, Set<Identifier>> immutableTierMap(final Map<RareFindTier, Set<Identifier>> source)
     {
-        final Map<RareFindTier, Set<ResourceLocation>> copy = new EnumMap<>(RareFindTier.class);
+        final Map<RareFindTier, Set<Identifier>> copy = new EnumMap<>(RareFindTier.class);
         source.forEach((tier, ids) -> copy.put(tier, Set.copyOf(ids)));
         return Map.copyOf(copy);
     }

@@ -11,12 +11,12 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-import org.jetbrains.annotations.NotNull;
 
 import com.deathfrog.mctradepost.MCTradePostMod;
 import com.minecolonies.api.colony.ICitizenData;
 import com.minecolonies.api.colony.buildings.IBuilding;
 import com.minecolonies.api.crafting.ItemStorage;
+import com.minecolonies.api.crafting.VanillaRecipeUtils;
 import com.minecolonies.api.util.IItemHandlerCapProvider;
 import com.minecolonies.api.util.InventoryUtils;
 import com.minecolonies.api.util.ItemStackUtils;
@@ -32,7 +32,7 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.CraftingContainer;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.inventory.TransientCraftingContainer;
-import net.minecraft.world.item.EnchantedBookItem;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.CraftingInput;
@@ -46,12 +46,78 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.items.IItemHandler;
+import net.neoforged.neoforge.transfer.ResourceHandler;
+import net.neoforged.neoforge.transfer.access.ItemAccess;
+import net.neoforged.neoforge.transfer.item.ItemResource;
+import net.neoforged.neoforge.items.ItemHandlerHelper;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 
 public class MCTPInventoryUtils
 {
+    /**
+     * Checks whether an item stack can be inserted completely into a handler without
+     * changing the handler.
+     *
+     * @param targetHandler destination inventory
+     * @param stack stack to simulate inserting
+     * @return true when the entire stack would be accepted
+     */
+    @SuppressWarnings("null")
+    public static boolean canFullyInsert(@Nonnull final IItemHandler targetHandler, @Nonnull final ItemStack stack)
+    {
+        return stack.isEmpty() || ItemHandlerHelper.insertItemStacked(targetHandler, stack.copy(), true).isEmpty();
+    }
+
+    /**
+     * Safely transfers matching items between handlers without using MineColonies'
+     * unbounded multi-stack transfer loop. Each source stack is preflighted against
+     * the destination, and a failed or incomplete transfer returns immediately.
+     *
+     * @param sourceHandler source inventory
+     * @param stackPredicate predicate selecting source stacks
+     * @param count maximum number of items to transfer
+     * @param targetHandler destination inventory
+     * @return true when the full requested count was transferred, false otherwise
+     */
+    public static boolean transferItemStackIntoNextFreeSlotFromItemHandlerSafely(
+        @Nonnull final IItemHandler sourceHandler,
+        @Nonnull final Predicate<ItemStack> stackPredicate,
+        final int count,
+        @Nonnull final IItemHandler targetHandler)
+    {
+        if (count <= 0)
+        {
+            return true;
+        }
+
+        int remaining = count;
+        for (int slot = 0; slot < sourceHandler.getSlots() && remaining > 0; slot++)
+        {
+            final ItemStack sourceStack = sourceHandler.getStackInSlot(slot);
+            if (sourceStack.isEmpty() || !stackPredicate.test(sourceStack))
+            {
+                continue;
+            }
+
+            final int transferCount = Math.min(remaining, sourceStack.getCount());
+            final ItemStack simulatedTransfer = sourceStack.copy();
+            simulatedTransfer.setCount(transferCount);
+
+            if (!canFullyInsert(targetHandler, simulatedTransfer)
+                || !InventoryUtils.transferXOfItemStackIntoNextFreeSlotInItemHandler(
+                    sourceHandler, slot, transferCount, targetHandler))
+            {
+                return false;
+            }
+
+            remaining -= transferCount;
+        }
+
+        return remaining == 0;
+    }
+
     /**
      * Checks whether an item stack exposes an inventory containing at least one item.
      * Item capabilities cover modded containers such as backpacks, while the data
@@ -63,14 +129,18 @@ public class MCTPInventoryUtils
     @SuppressWarnings("null")
     public static boolean isNonEmptyItemContainer(@Nonnull final ItemStack stack)
     {
-        final IItemHandler itemHandler = stack.getCapability(Capabilities.ItemHandler.ITEM);
-        if (itemHandler != null)
+        if (!stack.isEmpty())
         {
-            for (int slot = 0; slot < itemHandler.getSlots(); slot++)
+            final ResourceHandler<ItemResource> capability = stack.getCapability(Capabilities.Item.ITEM, ItemAccess.forStack(stack));
+            if (capability != null)
             {
-                if (!itemHandler.getStackInSlot(slot).isEmpty())
+                final IItemHandler itemHandler = IItemHandler.of(capability);
+                for (int slot = 0; slot < itemHandler.getSlots(); slot++)
                 {
-                    return true;
+                    if (!itemHandler.getStackInSlot(slot).isEmpty())
+                    {
+                        return true;
+                    }
                 }
             }
         }
@@ -89,8 +159,8 @@ public class MCTPInventoryUtils
      * @param itemStackSelectionPredicate the predicate to test each slot with
      * @return a random matching slot, or -1 if no slot matches
      */
-    public static int findRandomSlotInItemHandlerWith(@NotNull IItemHandler itemHandler,
-        @NotNull Predicate<ItemStack> itemStackSelectionPredicate)
+    public static int findRandomSlotInItemHandlerWith(@Nonnull IItemHandler itemHandler,
+        @Nonnull Predicate<ItemStack> itemStackSelectionPredicate)
     {
         List<Integer> matchingSlots = new ArrayList<>();
 
@@ -160,12 +230,13 @@ public class MCTPInventoryUtils
      * @param world  the world to use for the calculation, or null if not applicable
      * @return a list of the secondary outputs, or an empty list if no secondary outputs are possible
      */
-    @NotNull
-    public static List<ItemStack> calculateSecondaryOutputs(@NotNull final Recipe<?> recipe, @Nonnull final Level world)
+    @SuppressWarnings("null")
+    @Nonnull
+    public static List<ItemStack> calculateSecondaryOutputs(@Nonnull final Recipe<?> recipe, @Nonnull final Level world)
     {
         if (recipe instanceof final CraftingRecipe craftingRecipe)
         {
-            final List<Ingredient> inputs = recipe.getIngredients();
+            final List<Ingredient> inputs = VanillaRecipeUtils.getIngredients(recipe);
             final CraftingContainer inv = new TransientCraftingContainer(new AbstractContainerMenu(MenuType.CRAFTING, 0)
             {
                 @Override
@@ -183,7 +254,7 @@ public class MCTPInventoryUtils
 
             for (int slot = 0; slot < inputs.size(); ++slot)
             {
-                final ItemStack[] stacks = inputs.get(slot).getItems();
+                final ItemStack[] stacks = inputs.get(slot).items().map(ItemStack::new).toArray(ItemStack[]::new);
                 if (stacks.length > 0)
                 {
                     ItemStack copyFirst = stacks[0].copy();
@@ -198,10 +269,17 @@ public class MCTPInventoryUtils
 
             if (input != null && craftingRecipe.matches(input, world))
             {
-                return craftingRecipe.getRemainingItems(input)
+                List<ItemStack> remainingStack = craftingRecipe.getRemainingItems(input)
                     .stream()
                     .filter(ItemStackUtils::isNotEmpty)
                     .collect(Collectors.toList());
+
+                if (remainingStack == null) 
+                {
+                    return Collections.emptyList();
+                }
+
+                return remainingStack;
             }
         }
         return Collections.emptyList();
@@ -217,7 +295,7 @@ public class MCTPInventoryUtils
     public static void dropItemsInWorld(@Nonnull ServerLevel level, @Nonnull BlockPos pos, @Nonnull ItemStack itemStack)
     {
         // Check if the level is server-side
-        if (!level.isClientSide)
+        if (!level.isClientSide())
         {
             // Create a new ItemEntity at the specified position with the item stack
             ItemEntity itemEntity = new ItemEntity(level, pos.getX(), pos.getY(), pos.getZ(), itemStack);
@@ -450,7 +528,7 @@ public class MCTPInventoryUtils
 
             if (holder != null && level > 0)
             {
-                ItemStack book = EnchantedBookItem.createForEnchantment(new EnchantmentInstance(holder, level));
+                ItemStack book = EnchantmentHelper.createBook(new EnchantmentInstance(holder, level));
                 out.add(book);
             }
         }
@@ -499,7 +577,7 @@ public class MCTPInventoryUtils
      */
     public static boolean isContainerEmpty(@Nonnull Level level, @Nonnull BlockPos pos, @Nonnull Direction side)
     {
-        if (level == null || level.isClientSide)
+        if (level == null || level.isClientSide())
         {
             return true;
         }
@@ -524,9 +602,10 @@ public class MCTPInventoryUtils
         }
 
         // 2) NeoForge capability-based inventory
-        final IItemHandler handler = level.getCapability(NullnessBridge.assumeNonnull(Capabilities.ItemHandler.BLOCK), pos, side);
-        if (handler != null)
+        final ResourceHandler<ItemResource> capability = level.getCapability(NullnessBridge.assumeNonnull(Capabilities.Item.BLOCK), pos, side);
+        if (capability != null)
         {
+            final IItemHandler handler = IItemHandler.of(capability);
             for (int i = 0; i < handler.getSlots(); i++)
             {
                 if (!handler.getStackInSlot(i).isEmpty())

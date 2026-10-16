@@ -1,8 +1,6 @@
 {
   "type": "mctradepost:deconstruction",
-  "input": {
-    "item": "minecraft:netherite_chestplate"
-  },
+  "input": "minecraft:netherite_chestplate",
   "results": [
     {
       "item": {

@@ -1,0 +1,16 @@
+{
+  "type": "mctradepost:gasifying",
+  "input": "immersiveengineering:slag",
+  "burn_time": 200,
+  "gas": 1000,
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "immersiveengineering"
+    },
+    {
+      "type": "neoforge:registered",
+      "value": "immersiveengineering:slag"
+    }
+  ]
+}

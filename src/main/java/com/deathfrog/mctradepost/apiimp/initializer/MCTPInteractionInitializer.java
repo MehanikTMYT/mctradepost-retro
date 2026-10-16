@@ -10,6 +10,7 @@ import net.minecraft.network.chat.Component;
 import static com.deathfrog.mctradepost.core.entity.ai.workers.minimal.EntityAIBurnoutTask.GREAT_VACATION;
 
 import com.deathfrog.mctradepost.core.colony.buildings.modules.MCTPBuildingModules;
+import com.deathfrog.mctradepost.core.colony.buildings.modules.StewTier;
 import com.deathfrog.mctradepost.core.colony.buildings.workerbuildings.BuildingMarketplace;
 import com.deathfrog.mctradepost.core.colony.buildings.workerbuildings.BuildingOutpost;
 import com.deathfrog.mctradepost.core.colony.buildings.workerbuildings.BuildingPetshop;
@@ -18,6 +19,8 @@ import com.deathfrog.mctradepost.core.colony.jobs.JobAnimalTrainer;
 import com.deathfrog.mctradepost.core.colony.jobs.JobDairyworker;
 import com.deathfrog.mctradepost.core.colony.jobs.JobShopkeeper;
 import com.deathfrog.mctradepost.core.colony.jobs.JobStewmelier;
+import com.deathfrog.mctradepost.core.colony.jobs.JobStationMaster;
+import com.deathfrog.mctradepost.core.colony.buildings.workerbuildings.BuildingStation;
 
 public class MCTPInteractionInitializer 
 {
@@ -29,12 +32,15 @@ public class MCTPInteractionInitializer
     public static final String NO_INGREDIENTS               = "entity.stewmelier.noingredients";
     public static final String NO_BOWLS                     = "entity.stewmelier.nobowls";
     public static final String NOT_ON_MENU                  = "entity.stewmelier.onmenu";
+    public static final String NOT_ON_MENU_HEARTY           = "entity.stewmelier.onmenu.hearty";
+    public static final String NOT_ON_MENU_GOURMET          = "entity.stewmelier.onmenu.gourmet";
     public static final String NSF_INGREDIENTS              = "entity.stewmelier.nsf_ingredients";
     public static final String NO_SHOP_INVENTORY            = "entity.shopkeeper.noinventory";
     public static final String NO_SALE_ITEMS                = "entity.shopkeeper.noitems";
     public static final String MISSING_FRAME                = "entity.shopkeeper.missingframe";
     public static final String NO_MARKETPLACE               = "entity.animaltrainier.nomarketplace";
     public static final String ANIMAL_NSF                   = "entity.animaltrainier.nsf";
+    public static final String NO_LIFTING_GAS               = "entity.stationmaster.no_lifting_gas";
 
     public static void injectInteractionHandlers() 
     {
@@ -75,7 +81,17 @@ public class MCTPInteractionInitializer
           citizen -> citizen.getWorkBuilding() instanceof BuildingKitchen && citizen.getJob(JobStewmelier.class).checkForBowlInteraction());
 
         InteractionValidatorRegistry.registerStandardPredicate(Component.translatable(NOT_ON_MENU),
-          citizen -> citizen.getWorkBuilding() instanceof BuildingKitchen && citizen.getJob(JobStewmelier.class).checkForMenuInteraction());
+          citizen -> citizen.getWorkBuilding() instanceof BuildingKitchen
+            && citizen.getJob(JobStewmelier.class).checkForMenuInteraction()
+            && citizen.getWorkBuilding().getModule(MCTPBuildingModules.STEWMELIER_INGREDIENTS).getActualStewTier() == StewTier.BASIC);
+        InteractionValidatorRegistry.registerStandardPredicate(Component.translatable(NOT_ON_MENU_HEARTY),
+          citizen -> citizen.getWorkBuilding() instanceof BuildingKitchen
+            && citizen.getJob(JobStewmelier.class).checkForMenuInteraction()
+            && citizen.getWorkBuilding().getModule(MCTPBuildingModules.STEWMELIER_INGREDIENTS).getActualStewTier() == StewTier.HEARTY);
+        InteractionValidatorRegistry.registerStandardPredicate(Component.translatable(NOT_ON_MENU_GOURMET),
+          citizen -> citizen.getWorkBuilding() instanceof BuildingKitchen
+            && citizen.getJob(JobStewmelier.class).checkForMenuInteraction()
+            && citizen.getWorkBuilding().getModule(MCTPBuildingModules.STEWMELIER_INGREDIENTS).getActualStewTier() == StewTier.GOURMET);
 
         InteractionValidatorRegistry.registerStandardPredicate(Component.translatable(NSF_INGREDIENTS),
           citizen -> citizen.getWorkBuilding() instanceof BuildingKitchen && citizen.getJob(JobStewmelier.class).checkForIngredientsAvailableInteraction());
@@ -94,5 +110,8 @@ public class MCTPInteractionInitializer
 
         InteractionValidatorRegistry.registerStandardPredicate(Component.translatable(ANIMAL_NSF),
           citizen -> citizen.getWorkBuilding() instanceof BuildingPetshop && citizen.getJob(JobAnimalTrainer.class).checkNSF());
+
+        InteractionValidatorRegistry.registerStandardPredicate(Component.translatable(NO_LIFTING_GAS),
+          citizen -> citizen.getWorkBuilding() instanceof BuildingStation && citizen.getJob(JobStationMaster.class).hasGasShortage());
     }
 }

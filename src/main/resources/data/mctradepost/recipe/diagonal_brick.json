@@ -1,18 +1,17 @@
 {
-    "type": "minecraft:crafting_shaped",
-    "category": "building",
-    "key": {
-      "B": { "item": "mctradepost:rough_brick" },
-      "M": { "item": "mctradepost:quartz_mortar" }
-    },
-    "pattern": [
-      "BM ",
-      "MB ",
-      "BM "
-    ],
-    "result": {
-      "count": 6,
-      "id": "mctradepost:diagonal_brick"
-    }
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "key": {
+    "B": "mctradepost:rough_brick",
+    "M": "mctradepost:quartz_mortar"
+  },
+  "pattern": [
+    "BM ",
+    "MB ",
+    "BM "
+  ],
+  "result": {
+    "count": 6,
+    "id": "mctradepost:diagonal_brick"
+  }
 }
-  

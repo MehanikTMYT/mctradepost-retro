@@ -4,7 +4,7 @@ import com.deathfrog.mctradepost.MCTradePostMod;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.packs.resources.Resource;
 
@@ -27,12 +27,12 @@ import java.util.Set;
  */
 public record RareFindGenerationRules(int tier2Value, int tier3Value, int tier4Value,
                                       Map<String, RareFindTier> structureTiers,
-                                      Map<ResourceLocation, RareFindTier> itemTiers,
+                                      Map<Identifier, RareFindTier> itemTiers,
                                       Set<String> blacklistedNamespaces,
                                       Map<String, RareFindTier> namespaceTierFloors)
 {
     private static final Gson GSON = new Gson();
-    private static final ResourceLocation FILE = ResourceLocation.fromNamespaceAndPath(
+    private static final Identifier FILE = Identifier.fromNamespaceAndPath(
         MCTradePostMod.MODID, "rare_find_generation_rules.json");
 
     /**
@@ -50,7 +50,7 @@ public record RareFindGenerationRules(int tier2Value, int tier3Value, int tier4V
         int tier3 = 8_000;
         int tier4 = 64_000;
         final Map<String, RareFindTier> structures = new LinkedHashMap<>();
-        final Map<ResourceLocation, RareFindTier> items = new LinkedHashMap<>();
+        final Map<Identifier, RareFindTier> items = new LinkedHashMap<>();
         final Set<String> namespaces = new LinkedHashSet<>();
         final Map<String, RareFindTier> namespaceFloors = new LinkedHashMap<>();
 
@@ -90,7 +90,7 @@ public record RareFindGenerationRules(int tier2Value, int tier3Value, int tier4V
                 {
                     for (final Map.Entry<String, JsonElement> entry : itemMappings.entrySet())
                     {
-                        final ResourceLocation id = ResourceLocation.tryParse(entry.getKey());
+                        final Identifier id = Identifier.tryParse(entry.getKey());
                         if (id != null) items.put(id, RareFindTier.of(entry.getValue().getAsInt()));
                     }
                 }
@@ -149,7 +149,7 @@ public record RareFindGenerationRules(int tier2Value, int tier3Value, int tier4V
      * @param structure structure template ID
      * @return assigned tier, or {@code null} when no rule matches
      */
-    public RareFindTier tierForStructure(final ResourceLocation structure)
+    public RareFindTier tierForStructure(final Identifier structure)
     {
         final String id = structure.toString();
         RareFindTier result = null;

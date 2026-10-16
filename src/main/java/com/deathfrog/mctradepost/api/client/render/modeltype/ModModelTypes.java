@@ -2,19 +2,19 @@ package com.deathfrog.mctradepost.api.client.render.modeltype;
 
 import com.deathfrog.mctradepost.MCTradePostMod;
 import com.minecolonies.api.client.render.modeltype.IModelType;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 public final class ModModelTypes
 {
 
-    public static final ResourceLocation SHOPKEEPER_MODEL_ID = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "shopkeeper");
-    public static final ResourceLocation GUESTSERVICES_MODEL_ID = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "guestservices");
-    public static final ResourceLocation BARTENDER_MODEL_ID = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "bartender");
-    public static final ResourceLocation ANIMALTRAINER_MODEL_ID = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "animaltrainer");
-    public static final ResourceLocation RECYCLINGENGINEER_MODEL_ID = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "recyclingengineer");
-    public static final ResourceLocation DAIRYWORKER_MODEL_ID = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "dairyworker");
-    public static final ResourceLocation STEWMELIER_MODEL_ID = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "stewmelier");
-    public static final ResourceLocation STATIONMASTER_MODEL_ID = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "stationmaster");   
+    public static final Identifier SHOPKEEPER_MODEL_ID = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "shopkeeper");
+    public static final Identifier GUESTSERVICES_MODEL_ID = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "guestservices");
+    public static final Identifier BARTENDER_MODEL_ID = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "bartender");
+    public static final Identifier ANIMALTRAINER_MODEL_ID = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "animaltrainer");
+    public static final Identifier RECYCLINGENGINEER_MODEL_ID = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "recyclingengineer");
+    public static final Identifier DAIRYWORKER_MODEL_ID = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "dairyworker");
+    public static final Identifier STEWMELIER_MODEL_ID = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "stewmelier");
+    public static final Identifier STATIONMASTER_MODEL_ID = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "stationmaster");
 
     public static IModelType SHOPKEEPER;
     public static IModelType GUESTSERVICES;

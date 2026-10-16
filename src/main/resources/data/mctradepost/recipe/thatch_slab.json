@@ -5,9 +5,7 @@
     "###"
   ],
   "key": {
-    "#": {
-      "item": "mctradepost:thatch"
-    }
+    "#": "#mctradepost:thatchlike"
   },
   "result": {
     "id": "mctradepost:thatch_slab",

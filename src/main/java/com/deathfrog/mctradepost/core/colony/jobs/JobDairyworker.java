@@ -3,7 +3,7 @@ package com.deathfrog.mctradepost.core.colony.jobs;
 import com.minecolonies.core.colony.jobs.AbstractJobCrafter;
 import com.minecolonies.core.entity.citizen.EntityCitizen;
 import net.minecraft.core.BlockPos;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 import com.deathfrog.mctradepost.api.client.render.modeltype.ModModelTypes;
 import com.deathfrog.mctradepost.core.entity.ai.workers.crafting.EntityAIWorkDairyworker;
@@ -69,7 +69,7 @@ public class JobDairyworker extends AbstractJobCrafter<EntityAIWorkDairyworker, 
      */
     @NotNull
     @Override
-    public ResourceLocation getModel()
+    public Identifier getModel()
     {
         return ModModelTypes.DAIRYWORKER_MODEL_ID;
     }

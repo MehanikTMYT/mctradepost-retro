@@ -40,24 +40,78 @@ public class TrackPathConnection
 
     public static class TrackConnectionResult
     {
+        /** Broad reason why a route search stopped before reaching its destination. */
+        public enum FailureKind
+        {
+            PATH_ENDED,
+            ROUTE_BROKEN,
+            SEARCH_LIMIT_REACHED,
+            MISSING_DESTINATION,
+            NO_VALID_LINKAGE
+        }
+
+        /**
+         * Compact, dimension-aware description of the most useful failed-search frontier.
+         *
+         * @param position furthest useful position proven reachable from the source
+         * @param attemptedMode transport mode being searched beyond that position
+         * @param reason broad reason the search stopped
+         */
+        public record RouteFailureDiagnostic(DimPos position, TrackRoute.SegmentType attemptedMode, FailureKind reason) { }
+
         public boolean connected;
         public BlockPos closestPoint;         // same semantics as before
         public List<BlockPos> path;           // ordered start → end, tracks only
         public TrackRoute route;
         public long lastChecked = 0L;
+        public RouteFailureDiagnostic failureDiagnostic;
 
+        /**
+         * Creates a legacy-compatible connection result without a segmented route.
+         *
+         * @param connected whether the destination was reached
+         * @param closestPoint legacy closest rail position
+         * @param path legacy primary path
+         * @param now game time at which the search completed
+         */
         public TrackConnectionResult(boolean connected, BlockPos closestPoint, List<BlockPos> path, long now)
         {
             this(connected, closestPoint, path, now, null);
         }
 
+        /**
+         * Creates a connection result without a failed-search diagnostic.
+         *
+         * @param connected whether the destination was reached
+         * @param closestPoint legacy closest rail position
+         * @param path legacy primary path
+         * @param now game time at which the search completed
+         * @param route complete segmented route, or {@code null}
+         */
         public TrackConnectionResult(boolean connected, BlockPos closestPoint, List<BlockPos> path, long now, TrackRoute route)
+        {
+            this(connected, closestPoint, path, now, route, null);
+        }
+
+        /**
+         * Creates a connection result with an optional failed-search diagnostic.
+         *
+         * @param connected whether the destination was reached
+         * @param closestPoint legacy closest rail position
+         * @param path legacy primary path
+         * @param now game time at which the search completed
+         * @param route complete segmented route, or {@code null}
+         * @param failureDiagnostic failed-search frontier, or {@code null}
+         */
+        public TrackConnectionResult(boolean connected, BlockPos closestPoint, List<BlockPos> path, long now, TrackRoute route,
+            RouteFailureDiagnostic failureDiagnostic)
         {
             this.connected = connected;
             this.closestPoint = closestPoint;
             this.path = path;
             this.route = route;
             this.lastChecked = now;
+            this.failureDiagnostic = failureDiagnostic;
         }
 
         /**
@@ -99,6 +153,19 @@ public class TrackPathConnection
                 return TrackRoute.singleDimension(Level.OVERWORLD, path);
             }
             return null;
+        }
+
+        /**
+         * Checks whether this result contains a path representation that can be reused.
+         * <p>
+         * Legacy results store their route in {@link #path}, while newer multimodal results may store the complete route only in
+         * {@link #route}. Callers performing cache repair must accept either representation.
+         *
+         * @return true when a legacy path or segmented route is present
+         */
+        public boolean hasUsableRouteData()
+        {
+            return (path != null && !path.isEmpty()) || (route != null && !route.segments().isEmpty());
         }
 
         /**
@@ -200,8 +267,13 @@ public class TrackPathConnection
         }
 
         // not connected
-        diagnostics.logFinished(visited.size() >= MAX_DEPTH ? "max-depth" : "disconnected", visited.size(), toVisit.size(), addedRailTickets.size(), closestSoFar);
-        return new TrackConnectionResult(false, closestSoFar, List.of(), localLevel.getGameTime());
+        boolean searchLimitReached = visited.size() >= MAX_DEPTH;
+        diagnostics.logFinished(searchLimitReached ? "max-depth" : "disconnected", visited.size(), toVisit.size(), addedRailTickets.size(), closestSoFar);
+        TrackConnectionResult.RouteFailureDiagnostic failure = new TrackConnectionResult.RouteFailureDiagnostic(
+            new DimPos(localLevel.dimension(), closestSoFar),
+            TrackRoute.SegmentType.RAIL,
+            searchLimitReached ? TrackConnectionResult.FailureKind.SEARCH_LIMIT_REACHED : TrackConnectionResult.FailureKind.PATH_ENDED);
+        return new TrackConnectionResult(false, closestSoFar, List.of(), localLevel.getGameTime(), null, failure);
         }
         finally
         {
@@ -221,7 +293,7 @@ public class TrackPathConnection
         {
             return;
         }
-        ChunkUtil.releaseChunkTickets(level, addedRailTickets, RAIL_CHUNK_RADIUS, ChunkUtil.RAIL_TICKET);
+        ChunkUtil.releaseChunkTickets(level, addedRailTickets, RAIL_CHUNK_RADIUS, ChunkUtil.railTicket());
     }
 
     /**
@@ -260,7 +332,7 @@ public class TrackPathConnection
         {
             TraceUtils.dynamicTrace(TRACE_TRACKPATH, () -> MCTradePostMod.LOGGER.warn("Rail BFS #{} START dim={} start={} end={} loadChunks={}",
                 searchId,
-                level.dimension().location(),
+                level.dimension().identifier(),
                 start,
                 end,
                 loadChunks));
@@ -284,7 +356,7 @@ public class TrackPathConnection
 
             TraceUtils.dynamicTrace(TRACE_TRACKPATH, () -> MCTradePostMod.LOGGER.warn("Rail BFS #{} PROGRESS dim={} visited={} queued={} current={} closest={} chunkLoads={} tickets={} elapsedMs={}",
                 searchId,
-                level.dimension().location(),
+                level.dimension().identifier(),
                 visited,
                 queued,
                 current,
@@ -302,10 +374,10 @@ public class TrackPathConnection
         private void logBeforeChunkLoad(@Nonnull BlockPos pos)
         {
             chunkLoadAttempts++;
-            ChunkPos chunk = new ChunkPos(pos);
+            ChunkPos chunk = ChunkPos.containing(pos);
             TraceUtils.dynamicTrace(TRACE_TRACKPATH, () -> MCTradePostMod.LOGGER.warn("Rail BFS #{} CHUNK_LOAD_BEGIN dim={} chunk={} pos={} attempt={} elapsedMs={}",
                 searchId,
-                level.dimension().location(),
+                level.dimension().identifier(),
                 chunk,
                 pos,
                 chunkLoadAttempts,
@@ -323,8 +395,8 @@ public class TrackPathConnection
         {
             TraceUtils.dynamicTrace(TRACE_TRACKPATH, () -> MCTradePostMod.LOGGER.warn("Rail BFS #{} CHUNK_LOAD_END dim={} chunk={} pos={} loaded={} tickets={} elapsedMs={}",
                 searchId,
-                level.dimension().location(),
-                new ChunkPos(pos),
+                level.dimension().identifier(),
+                ChunkPos.containing(pos),
                 pos,
                 loaded,
                 ticketCount,
@@ -348,7 +420,7 @@ public class TrackPathConnection
                 TraceUtils.dynamicTrace(TRACE_TRACKPATH, () -> MCTradePostMod.LOGGER.warn("Rail BFS #{} END outcome={} dim={} start={} end={} visited={} queued={} closest={} chunkLoads={} tickets={} elapsedMs={}",
                     searchId,
                     outcome,
-                    level.dimension().location(),
+                    level.dimension().identifier(),
                     start,
                     end,
                     visited,
@@ -446,7 +518,7 @@ public class TrackPathConnection
             if (loadChunks)
             {
                 diagnostics.logBeforeChunkLoad(nxt);
-                ChunkUtil.ensureChunkLoadedByTicket(level, nxt, RAIL_CHUNK_RADIUS, ChunkUtil.RAIL_TICKET, addedRailTickets);
+                ChunkUtil.ensureChunkLoadedByTicket(level, nxt, RAIL_CHUNK_RADIUS, ChunkUtil.railTicket(), addedRailTickets);
                 diagnostics.logAfterChunkLoad(nxt, level.isLoaded(nxt), addedRailTickets.size());
             }
         }

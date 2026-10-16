@@ -8,62 +8,71 @@ import com.minecolonies.core.client.model.MaleAlchemistModel;
 import com.minecolonies.core.client.model.MaleCrafterModel;
 
 import net.minecraft.client.model.geom.ModelLayerLocation;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
-import net.neoforged.api.distmarker.OnlyIn;
-import net.neoforged.api.distmarker.Dist;
-
-@OnlyIn(Dist.CLIENT)
 public class ModelRegistryHandler
 {
+    @SuppressWarnings("null")
+    public static final ModelLayerLocation AIRSHIP = new ModelLayerLocation(
+        Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "airship"), "main");
+    @SuppressWarnings("null")
+    public static final ModelLayerLocation TRADE_CART = new ModelLayerLocation(
+        Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "trade_cart"), "main");
+    @SuppressWarnings("null")
+    public static final ModelLayerLocation PET_DRAGON = new ModelLayerLocation(
+        Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "pet_dragon"), "main");
+
     /**
-     * These are currently unused until usable citizen skins can be designed.
+     * Most of these are currently unused until usable citizen skins can be designed.
      * Note that MineColonies citizens use custom models and the skins need to be designed around those models.
     */
 
     @SuppressWarnings("null")
-    public static final ModelLayerLocation MALE_SHOPKEEPER = new ModelLayerLocation(ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "male_shopkeeper"), "male_shopkeeper");
+    public static final ModelLayerLocation MALE_SHOPKEEPER = new ModelLayerLocation(Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "male_shopkeeper"), "male_shopkeeper");
     @SuppressWarnings("null")
-    public static final ModelLayerLocation FEMALE_SHOPKEEPER = new ModelLayerLocation(ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "female_shopkeeper"), "female_shopkeeper");
+    public static final ModelLayerLocation FEMALE_SHOPKEEPER = new ModelLayerLocation(Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "female_shopkeeper"), "female_shopkeeper");
 
     @SuppressWarnings("null")
-    public static final ModelLayerLocation MALE_GUESTSERVICES = new ModelLayerLocation(ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "male_guestservices"), "male_guestservices");
+    public static final ModelLayerLocation MALE_GUESTSERVICES = new ModelLayerLocation(Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "male_guestservices"), "male_guestservices");
     @SuppressWarnings("null")
-    public static final ModelLayerLocation FEMALE_GUESTSERVICES = new ModelLayerLocation(ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "female_guestservices"), "female_guestservices");
+    public static final ModelLayerLocation FEMALE_GUESTSERVICES = new ModelLayerLocation(Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "female_guestservices"), "female_guestservices");
 
     @SuppressWarnings("null")
-    public static final ModelLayerLocation MALE_RECYCLINGENGINEER = new ModelLayerLocation(ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "male_recyclingengineer"), "male_recyclingengineer");
+    public static final ModelLayerLocation MALE_RECYCLINGENGINEER = new ModelLayerLocation(Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "male_recyclingengineer"), "male_recyclingengineer");
     @SuppressWarnings("null")
-    public static final ModelLayerLocation FEMALE_RECYCLINGENGINEER = new ModelLayerLocation(ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "female_recyclingengineer"), "female_recyclingengineer");
+    public static final ModelLayerLocation FEMALE_RECYCLINGENGINEER = new ModelLayerLocation(Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "female_recyclingengineer"), "female_recyclingengineer");
 
     @SuppressWarnings("null")
-    public static final ModelLayerLocation MALE_STATIONMASTER = new ModelLayerLocation(ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "male_stationmaster"), "male_stationmaster");
+    public static final ModelLayerLocation MALE_STATIONMASTER = new ModelLayerLocation(Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "male_stationmaster"), "male_stationmaster");
     @SuppressWarnings("null")
-    public static final ModelLayerLocation FEMALE_STATIONMASTER = new ModelLayerLocation(ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "female_stationmaster"), "female_stationmaster");
+    public static final ModelLayerLocation FEMALE_STATIONMASTER = new ModelLayerLocation(Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "female_stationmaster"), "female_stationmaster");
 
     @SuppressWarnings("null")
-    public static final ModelLayerLocation MALE_BARTENDER = new ModelLayerLocation(ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "male_bartender"), "male_bartender");
+    public static final ModelLayerLocation MALE_BARTENDER = new ModelLayerLocation(Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "male_bartender"), "male_bartender");
     @SuppressWarnings("null")
-    public static final ModelLayerLocation FEMALE_BARTENDER = new ModelLayerLocation(ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "female_bartender"), "female_bartender");
+    public static final ModelLayerLocation FEMALE_BARTENDER = new ModelLayerLocation(Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "female_bartender"), "female_bartender");
 
     @SuppressWarnings("null")
-    public static final ModelLayerLocation MALE_ANIMALTRAINER = new ModelLayerLocation(ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "male_animaltrainer"), "male_animaltrainer");
+    public static final ModelLayerLocation MALE_ANIMALTRAINER = new ModelLayerLocation(Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "male_animaltrainer"), "male_animaltrainer");
     @SuppressWarnings("null")
-    public static final ModelLayerLocation FEMALE_ANIMALTRAINER = new ModelLayerLocation(ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "female_animaltrainer"), "female_animaltrainer");
+    public static final ModelLayerLocation FEMALE_ANIMALTRAINER = new ModelLayerLocation(Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "female_animaltrainer"), "female_animaltrainer");
 
     @SuppressWarnings("null")
-    public static final ModelLayerLocation MALE_DAIRYWORKER = new ModelLayerLocation(ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "male_dairyworker"), "male_dairyworker");
+    public static final ModelLayerLocation MALE_DAIRYWORKER = new ModelLayerLocation(Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "male_dairyworker"), "male_dairyworker");
     @SuppressWarnings("null")
-    public static final ModelLayerLocation FEMALE_DAIRYWORKER = new ModelLayerLocation(ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "female_dairyworker"), "female_dairyworker");
+    public static final ModelLayerLocation FEMALE_DAIRYWORKER = new ModelLayerLocation(Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "female_dairyworker"), "female_dairyworker");
 
     @SuppressWarnings("null")
-    public static final ModelLayerLocation MALE_STEWMELIER = new ModelLayerLocation(ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "male_stewmelier"), "male_stewmelier");
+    public static final ModelLayerLocation MALE_STEWMELIER = new ModelLayerLocation(Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "male_stewmelier"), "male_stewmelier");
     @SuppressWarnings("null")
-    public static final ModelLayerLocation FEMALE_STEWMELIER = new ModelLayerLocation(ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "female_stewmelier"), "female_stewmelier");
+    public static final ModelLayerLocation FEMALE_STEWMELIER = new ModelLayerLocation(Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "female_stewmelier"), "female_stewmelier");
 
     @SuppressWarnings("null")
-    public static void registerModels(EntityRenderersEvent.RegisterLayerDefinitions event) 
+    public static void registerModels(EntityRenderersEvent.RegisterLayerDefinitions event)
     {
+        event.registerLayerDefinition(AIRSHIP, com.deathfrog.mctradepost.core.client.model.AirshipModel::createBodyLayer);
+        event.registerLayerDefinition(TRADE_CART, com.deathfrog.mctradepost.core.client.model.TradeCartModel::createBodyLayer);
+        event.registerLayerDefinition(PET_DRAGON, com.deathfrog.mctradepost.core.client.model.PetDragonModel::createBodyLayer);
         event.registerLayerDefinition(MALE_SHOPKEEPER, MaleAlchemistModel::createMesh);
         event.registerLayerDefinition(FEMALE_SHOPKEEPER, FemaleAlchemistModel::createMesh);
 

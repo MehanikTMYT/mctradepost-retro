@@ -5,9 +5,7 @@ import com.deathfrog.mctradepost.core.client.gui.modules.WindowPetTrainingItemsM
 import com.ldtteam.blockui.views.BOWindow;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
+import net.minecraft.resources.Identifier;
 
 import javax.annotation.Nullable;
 
@@ -29,7 +27,6 @@ public class PetTrainingItemsModuleView extends AbstractBuildingModuleView
     }
 
     @Override
-    @OnlyIn(Dist.CLIENT)
     public BOWindow getWindow()
     {
         return new WindowPetTrainingItemsModule(this);
@@ -71,9 +68,9 @@ public class PetTrainingItemsModuleView extends AbstractBuildingModuleView
      * @return the icon to show.
      */
    @Override
-    public ResourceLocation getIconResourceLocation()
+    public Identifier getIconResourceLocation()
     {
-        return ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "textures/gui/modules/collar.png");
+        return Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "textures/gui/modules/collar.png");
     }
 
     /**

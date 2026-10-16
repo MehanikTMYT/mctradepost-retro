@@ -1,20 +1,19 @@
 {
-    "type": "minecraft:crafting_shaped",
-    "category": "equipment",
-    "key": {
-      "W": { "item": "minecraft:paper" },
-      "P": { "item": "minecraft:iron_ingot" },
-      "L": { "item": "minecraft:leather" },
-      "B": { "item": "minecolonies:clipboard" }
-    },
-    "pattern": [
-      "WPW",
-      "LBL",
-      " W "
-    ],
-    "result": {
-      "count": 1,
-      "id": "mctradepost:advanced_clipboard"
-    }
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "W": "minecraft:paper",
+    "P": "minecraft:iron_ingot",
+    "L": "minecraft:leather",
+    "B": "minecolonies:clipboard"
+  },
+  "pattern": [
+    "WPW",
+    "LBL",
+    " W "
+  ],
+  "result": {
+    "count": 1,
+    "id": "mctradepost:advanced_clipboard"
+  }
 }
-  

@@ -12,8 +12,6 @@ import com.minecolonies.core.colony.buildings.modules.settings.BoolSetting;
 import com.minecolonies.core.network.messages.server.colony.building.warehouse.SortBuildingMessage;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
 
 public class SortSetting extends BoolSetting
 {
@@ -51,7 +49,6 @@ public class SortSetting extends BoolSetting
      * @param building           the building view
      * @param window             the window containing the setting
      */
-    @OnlyIn(Dist.CLIENT)
     @Override
     public void setupHandler(final ISettingKey<?> key,
         final Pane pane,

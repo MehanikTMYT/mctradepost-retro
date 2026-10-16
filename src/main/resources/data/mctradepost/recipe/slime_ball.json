@@ -1,25 +1,13 @@
 {
-  "type": "minecraft:crafting_shapeless",
+  "type": "mctradepost:durable_tool_shapeless",
   "category": "misc",
   "ingredients": [
-    {
-      "item": "mctradepost:immersion_blender"
-    },
-    {
-      "item": "minecraft:honey_bottle"
-    },
-    {
-      "item": "minecraft:wheat_seeds"
-    },
-    {
-      "item": "minecraft:wheat_seeds"
-    },
-    {
-      "item": "minecraft:wheat_seeds"
-    },
-    {
-      "item": "minecraft:wheat_seeds"
-    }
+    "mctradepost:immersion_blender",
+    "minecraft:honey_bottle",
+    "minecraft:wheat_seeds",
+    "minecraft:wheat_seeds",
+    "minecraft:wheat_seeds",
+    "minecraft:wheat_seeds"
   ],
   "result": {
     "count": 1,

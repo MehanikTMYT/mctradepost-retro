@@ -11,7 +11,8 @@
 		"13": "mctradepost:block/rough_brick",
 		"14": "mctradepost:block/petsign",
 		"15": "mctradepost:block/rough_stone",
-		"16": "mctradepost:block/wallhole"
+		"16": "mctradepost:block/wallhole",
+		"particle": "mctradepost:block/rough_brick"
 	},
 	"elements": [
 		{

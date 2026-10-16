@@ -64,16 +64,14 @@ public class Vacationer
    public Vacationer(CompoundTag vacationCompound) 
    {
       this.state = VacationState.BROWSING;
-      this.civilianId = vacationCompound.getInt("id");
-      this.state = VacationState.values()[vacationCompound.getInt("status")];
-      String skillname = vacationCompound.getString("skill");
+      this.civilianId = vacationCompound.getIntOr("id", 0);
+      this.state = VacationState.values()[vacationCompound.getIntOr("status", 0)];
+      String skillname = vacationCompound.getStringOr("skill", "");
       this.burntSkill = skillname.length() == 0 ? null : Skill.valueOf(skillname);
-      this.targetLevel = vacationCompound.getInt("targetLevel");
-      this.currentlyAtResort = vacationCompound.getBoolean("currentlyAtResort");
+      this.targetLevel = vacationCompound.getIntOr("targetLevel", 0);
+      this.currentlyAtResort = vacationCompound.getBooleanOr("currentlyAtResort", false);
       // Vacation records written before the grace period was introduced remain immediately eligible.
-      this.serviceGraceEndsAt = vacationCompound.contains("serviceGraceEndsAt")
-          ? vacationCompound.getLong("serviceGraceEndsAt")
-          : 0L;
+      this.serviceGraceEndsAt = vacationCompound.getLongOr("serviceGraceEndsAt", 0L);
    }
 
    public int getCivilianId() 

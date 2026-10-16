@@ -10,7 +10,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
@@ -19,7 +19,7 @@ public record ConfigurationPacket(String configName, String configValue) impleme
 {
     @SuppressWarnings("null")
     public static final CustomPacketPayload.Type<ConfigurationPacket> TYPE =
-        new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "config_value"));
+        new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "config_value"));
 
     // Each pair of elements defines the stream codec of the element to encode/decode and the getter for the element to encode
     // 'name' will be encoded and decoded as a string
@@ -53,7 +53,11 @@ public record ConfigurationPacket(String configName, String configValue) impleme
             MCTPConfig.deserializeConfigurationSetting(data.configName(), data.configValue());
         }).exceptionally(e -> {
             // Handle exception
-            Component discoMessage = Component.translatable("ConfigurationPacket handling failed.", e.getMessage());
+            // Was Component.translatable() with a full English sentence (and an unused %s) as the "key" -
+            // that's not a real lang key, so it never resolves to anything but its own literal fallback
+            // text and always drops e.getMessage(). Component.literal() says the same thing honestly and
+            // actually includes the failure detail in the disconnect reason.
+            Component discoMessage = Component.literal("ConfigurationPacket handling failed: " + e.getMessage());
             context.disconnect(NullnessBridge.assumeNonnull(discoMessage));
             return null;
         });

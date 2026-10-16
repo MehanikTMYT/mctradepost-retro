@@ -2,30 +2,14 @@
   "type": "minecraft:crafting_shapeless",
   "category": "building",
   "ingredients": [
-    {
-      "item": "mctradepost:quartz_mortar"
-    },
-    {
-      "item": "mctradepost:quartz_mortar"
-    },
-    {
-      "item": "mctradepost:quartz_mortar"
-    },
-    {
-      "item": "mctradepost:quartz_mortar"
-    },
-    {
-      "item": "mctradepost:rough_stone"
-    },
-    {
-      "item": "mctradepost:rough_stone"
-    },
-    {
-      "item": "mctradepost:rough_stone"
-    },
-    {
-      "item": "mctradepost:rough_stone"
-    }
+    "mctradepost:quartz_mortar",
+    "mctradepost:quartz_mortar",
+    "mctradepost:quartz_mortar",
+    "mctradepost:quartz_mortar",
+    "mctradepost:rough_stone",
+    "mctradepost:rough_stone",
+    "mctradepost:rough_stone",
+    "mctradepost:rough_stone"
   ],
   "result": {
     "count": 8,

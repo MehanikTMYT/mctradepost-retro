@@ -115,7 +115,7 @@ public class CommunityRitualProcessor
             return RitualResult.NEEDS_INGREDIENTS;
         }
 
-        Item companionItem = BuiltInRegistries.ITEM.get(ritual.companionItem());
+        Item companionItem = BuiltInRegistries.ITEM.getValue(ritual.companionItem());
         if (companionItem.equals(MCTradePostMod.WISH_SHELTER.get()))
         {
             return processRitualShelter(marketplace, pos, ritual, state);

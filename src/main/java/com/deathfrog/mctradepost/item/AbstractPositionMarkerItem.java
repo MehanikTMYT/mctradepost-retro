@@ -16,8 +16,10 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
+import java.util.function.Consumer;
 
 public abstract class AbstractPositionMarkerItem extends Item
 {
@@ -53,7 +55,7 @@ public abstract class AbstractPositionMarkerItem extends Item
         ItemStack stack = player != null ? player.getItemInHand(NullnessBridge.assumeNonnull(ctx.getHand())) : ItemStack.EMPTY;
         BlockPos clicked = ctx.getClickedPos();
 
-        if (!level.isClientSide && !stack.isEmpty())
+        if (!level.isClientSide() && !stack.isEmpty())
         {
             setLinkedBlockPos(stack, clicked);
             sendPlayerLinkedMessage(player, clicked);
@@ -141,7 +143,8 @@ public abstract class AbstractPositionMarkerItem extends Item
     @Override
     public void appendHoverText(@Nonnull ItemStack stack,
         @Nonnull Item.TooltipContext ctx,
-        @Nonnull List<Component> tooltip,
+        @Nonnull TooltipDisplay display,
+        @Nonnull Consumer<Component> tooltip,
         @Nonnull TooltipFlag flag)
     {
         if (hasLinkedBlockPos(stack))
@@ -151,13 +154,13 @@ public abstract class AbstractPositionMarkerItem extends Item
             if (pos != null && !BlockPos.ZERO.equals(pos))
             {
                 String set = hoverMessageId(true);
-                tooltip.add(Component.translatable(set, pos.toShortString()).withStyle(ChatFormatting.GRAY));
+                tooltip.accept(Component.translatable(set, pos.toShortString()).withStyle(ChatFormatting.GRAY));
                 return;
             }
         }
 
         String unset = hoverMessageId(false);
-        tooltip.add(Component.translatable(unset).withStyle(ChatFormatting.GRAY));
+        tooltip.accept(Component.translatable(unset).withStyle(ChatFormatting.GRAY));
 
     }
 

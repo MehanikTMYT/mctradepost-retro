@@ -1,8 +1,6 @@
 {
   "type": "mctradepost:deconstruction",
-  "input": {
-    "item": "minecraft:netherite_sword"
-  },
+  "input": "minecraft:netherite_sword",
   "results": [
     {
       "item": {

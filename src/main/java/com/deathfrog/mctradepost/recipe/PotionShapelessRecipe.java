@@ -5,16 +5,16 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.Holder;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ItemStackTemplate;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.alchemy.Potion;
 import net.minecraft.world.item.alchemy.PotionContents;
@@ -22,6 +22,7 @@ import net.minecraft.world.item.crafting.CraftingBookCategory;
 import net.minecraft.world.item.crafting.CraftingInput;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraft.world.item.crafting.PlacementInfo;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.Level;
@@ -36,9 +37,13 @@ public class PotionShapelessRecipe implements CraftingRecipe
     public static final String POTION_SHAPELESS_RECIPE_KEY = "potion_shapeless";
 
     private final List<PotionInput> inputs;
-    private final ItemStack result;
+    // ItemStackTemplate, not a raw ItemStack: ItemStack.CODEC's "id" field goes through
+    // Item.CODEC_WITH_BOUND_COMPONENTS, which requires the item's default component map to already be
+    // bound -- not true yet when this recipe's JSON is parsed during a datapack reload. ItemStackTemplate
+    // only needs the registry id at parse time and materializes lazily via create().
+    private final ItemStackTemplate result;
 
-    public PotionShapelessRecipe(final List<PotionInput> inputs, final ItemStack result)
+    public PotionShapelessRecipe(final List<PotionInput> inputs, final ItemStackTemplate result)
     {
         this.inputs = List.copyOf(inputs);
         this.result = result;
@@ -49,9 +54,14 @@ public class PotionShapelessRecipe implements CraftingRecipe
         return inputs;
     }
 
-    public ItemStack getResultStack()
+    public ItemStackTemplate getResult()
     {
         return result;
+    }
+
+    public ItemStack getResultStack()
+    {
+        return result.create();
     }
 
     @SuppressWarnings("null")
@@ -97,43 +107,53 @@ public class PotionShapelessRecipe implements CraftingRecipe
     }
 
     @Override
-    public ItemStack assemble(@Nonnull final CraftingInput input, @Nonnull final HolderLookup.Provider registries)
+    public ItemStack assemble(@Nonnull final CraftingInput input)
     {
-        return result.copy();
+        return result.create();
     }
 
     @Override
-    public boolean canCraftInDimensions(final int width, final int height)
+    public boolean showNotification()
     {
-        return width * height >= getInputCount();
+        return true;
+    }
+
+    @Nonnull
+    @Override
+    public String group()
+    {
+        return "";
     }
 
     @Override
-    public ItemStack getResultItem(@Nonnull final HolderLookup.Provider registries)
+    public PlacementInfo placementInfo()
     {
-        return result;
+        return PlacementInfo.create(getIngredients());
     }
 
     @Override
-    public RecipeSerializer<?> getSerializer()
+    public RecipeSerializer<? extends CraftingRecipe> getSerializer()
     {
         return MCTradePostMod.POTION_SHAPELESS_SERIALIZER.get();
     }
 
-    @Override
-    public RecipeType<?> getType()
-    {
-        return RecipeType.CRAFTING;
-    }
+    // getType() is no longer declared here: CraftingRecipe#getType() now has a default
+    // implementation returning RecipeType.CRAFTING, which is exactly what this used to return.
 
-    @Override
+    /**
+     * Not an interface override any more ({@link CraftingRecipe} dropped getIngredients() in favour of
+     * {@link #placementInfo()}), but still used directly by {@link #placementInfo()} and {@link #getDisplayInputs()}.
+     */
     public NonNullList<Ingredient> getIngredients()
     {
         final NonNullList<Ingredient> ingredients = NonNullList.create();
 
         for (final PotionInput input : inputs)
         {
-            final Ingredient ingredient = Ingredient.of(input.displayStack());
+            // Ingredient.of(ItemStack) no longer exists as of 26.1.2; ItemStack stopped implementing
+            // ItemLike. Matches old semantics exactly either way: the old of(ItemStack) overload only
+            // ever matched by item identity too, discarding components/NBT.
+            final Ingredient ingredient = Ingredient.of(input.displayStack().getItem());
             for (int i = 0; i < input.count(); i++)
             {
                 ingredients.add(ingredient);
@@ -171,14 +191,14 @@ public class PotionShapelessRecipe implements CraftingRecipe
         return CraftingBookCategory.MISC;
     }
 
-    public record PotionInput(ResourceLocation item, ResourceLocation potion, int count)
+    public record PotionInput(Identifier item, Identifier potion, int count)
     {
         @SuppressWarnings("null")
         public static final MapCodec<PotionInput> CODEC =
             RecordCodecBuilder.mapCodec(instance -> instance.group(
-                    ResourceLocation.CODEC.optionalFieldOf("item", BuiltInRegistries.ITEM.getKey(Items.POTION))
+                    Identifier.CODEC.optionalFieldOf("item", BuiltInRegistries.ITEM.getKey(Items.POTION))
                         .forGetter(PotionInput::item),
-                    ResourceLocation.CODEC.fieldOf("potion")
+                    Identifier.CODEC.fieldOf("potion")
                         .forGetter(PotionInput::potion),
                     Codec.intRange(1, 9).optionalFieldOf("count", 1)
                         .forGetter(PotionInput::count)
@@ -188,8 +208,8 @@ public class PotionShapelessRecipe implements CraftingRecipe
         @SuppressWarnings("null")
         public static final StreamCodec<RegistryFriendlyByteBuf, PotionInput> STREAM_CODEC =
             StreamCodec.composite(
-                ResourceLocation.STREAM_CODEC, PotionInput::item,
-                ResourceLocation.STREAM_CODEC, PotionInput::potion,
+                Identifier.STREAM_CODEC, PotionInput::item,
+                Identifier.STREAM_CODEC, PotionInput::potion,
                 ByteBufCodecs.VAR_INT, PotionInput::count,
                 PotionInput::new
             );
@@ -197,7 +217,7 @@ public class PotionShapelessRecipe implements CraftingRecipe
         @SuppressWarnings("null")
         public boolean matches(final ItemStack stack)
         {
-            final Optional<Holder.Reference<Potion>> potionHolder = BuiltInRegistries.POTION.getHolder(potion);
+            final Optional<Holder.Reference<Potion>> potionHolder = BuiltInRegistries.POTION.get(potion);
 
             return stack.is(resolveItem())
                 && potionHolder.isPresent()
@@ -207,7 +227,7 @@ public class PotionShapelessRecipe implements CraftingRecipe
         @SuppressWarnings("null")
         public ItemStack displayStack()
         {
-            final Optional<Holder.Reference<Potion>> potionHolder = BuiltInRegistries.POTION.getHolder(potion);
+            final Optional<Holder.Reference<Potion>> potionHolder = BuiltInRegistries.POTION.get(potion);
             if (potionHolder.isEmpty())
             {
                 return new ItemStack(resolveItem());
@@ -223,13 +243,14 @@ public class PotionShapelessRecipe implements CraftingRecipe
         }
     }
 
-    public static class Serializer implements RecipeSerializer<PotionShapelessRecipe>
+    /** RecipeSerializer is a record (MapCodec + StreamCodec) as of Minecraft 26.1.2; this holds the shared instance. */
+    public static final class Serializer
     {
         @SuppressWarnings("null")
         public static final MapCodec<PotionShapelessRecipe> CODEC =
             RecordCodecBuilder.mapCodec(instance -> instance.group(
                     PotionInput.CODEC.codec().listOf().fieldOf("inputs").forGetter(PotionShapelessRecipe::getPotionInputs),
-                    ItemStack.CODEC.fieldOf("result").forGetter(PotionShapelessRecipe::getResultStack)
+                    ItemStackTemplate.CODEC.fieldOf("result").forGetter(PotionShapelessRecipe::getResult)
                 ).apply(instance, PotionShapelessRecipe::new)
             );
 
@@ -237,20 +258,12 @@ public class PotionShapelessRecipe implements CraftingRecipe
         public static final StreamCodec<RegistryFriendlyByteBuf, PotionShapelessRecipe> STREAM_CODEC =
             StreamCodec.composite(
                 ByteBufCodecs.collection(ArrayList::new, PotionInput.STREAM_CODEC), PotionShapelessRecipe::getPotionInputs,
-                ItemStack.STREAM_CODEC, PotionShapelessRecipe::getResultStack,
+                ItemStackTemplate.STREAM_CODEC, PotionShapelessRecipe::getResult,
                 PotionShapelessRecipe::new
             );
 
-        @Override
-        public MapCodec<PotionShapelessRecipe> codec()
-        {
-            return CODEC;
-        }
+        public static final RecipeSerializer<PotionShapelessRecipe> INSTANCE = new RecipeSerializer<>(CODEC, STREAM_CODEC);
 
-        @Override
-        public StreamCodec<RegistryFriendlyByteBuf, PotionShapelessRecipe> streamCodec()
-        {
-            return STREAM_CODEC;
-        }
+        private Serializer() {}
     }
 }

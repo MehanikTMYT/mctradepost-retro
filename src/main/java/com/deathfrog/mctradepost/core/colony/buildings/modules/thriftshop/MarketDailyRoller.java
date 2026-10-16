@@ -9,6 +9,7 @@ import java.util.Set;
 import com.deathfrog.mctradepost.MCTPConfig;
 import com.deathfrog.mctradepost.core.colony.buildings.workerbuildings.BuildingMarketplace;
 import com.deathfrog.mctradepost.item.CoinItem;
+import com.minecolonies.api.util.Utils;
 
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.RegistryAccess;
@@ -61,7 +62,7 @@ public final class MarketDailyRoller
     public static List<MarketOffer> rollDailyOffers(ServerLevel level, BuildingMarketplace marketplace, int rerollIndex, int commonOffers, int uncommonOffers, int rareOffers, int epicOffers)
     {
         // Deterministic daily seed so restart doesn't reshuffle the day's market.
-        final long day = level.getDayTime() / TICKS_PER_DAY;
+        final long day = level.getOverworldClockTime() / TICKS_PER_DAY;
         final long colonyId = marketplace.getColony().getID();
         final long seed = mixSeed(level.getSeed(), colonyId, rerollIndex, day);
         final RandomSource rand = RandomSource.create(seed);
@@ -150,7 +151,7 @@ public final class MarketDailyRoller
 
             try
             {
-                Tag saved = o.stack().save(provider);
+                Tag saved = Utils.saveOptionalItemStack(provider, o.stack());
 
                 // Normalize count away so different stack sizes dedupe
                 String key;

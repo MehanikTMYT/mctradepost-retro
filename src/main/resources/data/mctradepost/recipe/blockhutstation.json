@@ -2,15 +2,9 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
-    "B": {
-      "item": "minecraft:rail"
-    },
-    "T": {
-      "item": "structurize:sceptergold"
-    },
-    "X": {
-      "tag": "minecraft:planks"
-    }
+    "B": "minecraft:rail",
+    "T": "structurize:sceptergold",
+    "X": "#minecraft:planks"
   },
   "pattern": [
     "XTX",

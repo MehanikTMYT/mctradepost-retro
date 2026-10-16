@@ -1,8 +1,6 @@
 {
   "type": "mctradepost:deconstruction",
-  "input": {
-    "item": "minecraft:netherite_pickaxe"
-  },
+  "input": "minecraft:netherite_pickaxe",
   "results": [
     {
       "item": {

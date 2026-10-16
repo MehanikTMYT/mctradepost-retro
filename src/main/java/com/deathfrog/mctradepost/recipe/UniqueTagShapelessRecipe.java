@@ -6,16 +6,16 @@ import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ItemStackTemplate;
 import net.minecraft.world.item.crafting.*;
 import net.minecraft.world.level.Level;
 
@@ -35,9 +35,13 @@ public class UniqueTagShapelessRecipe implements CraftingRecipe
     private final Ingredient base;
     private final TagKey<Item> tag;
     private final int count;
-    private final ItemStack result;
+    // ItemStackTemplate, not a raw ItemStack: ItemStack.CODEC's "id" field goes through
+    // Item.CODEC_WITH_BOUND_COMPONENTS, which requires the item's default component map to already be
+    // bound -- not true yet when this recipe's JSON is parsed during a datapack reload. ItemStackTemplate
+    // only needs the registry id at parse time and materializes lazily via create().
+    private final ItemStackTemplate result;
 
-    public UniqueTagShapelessRecipe(final Ingredient base, final TagKey<Item> tag, final int count, final ItemStack result)
+    public UniqueTagShapelessRecipe(final Ingredient base, final TagKey<Item> tag, final int count, final ItemStackTemplate result)
     {
         this.base = base;
         this.tag = tag;
@@ -48,7 +52,8 @@ public class UniqueTagShapelessRecipe implements CraftingRecipe
     public Ingredient getBase() { return base; }
     public TagKey<Item> getTag() { return tag; }
     public int getCount() { return count; }
-    public ItemStack getResultStack() { return result; }
+    public ItemStackTemplate getResult() { return result; }
+    public ItemStack getResultStack() { return result.create(); }
 
     @Override
     public boolean matches(@Nonnull final CraftingInput in, @Nonnull final Level level)
@@ -67,7 +72,7 @@ public class UniqueTagShapelessRecipe implements CraftingRecipe
         int tagFound = 0;
 
         // Track uniqueness by item ID
-        final ObjectOpenHashSet<ResourceLocation> uniqueItemIds = new ObjectOpenHashSet<>();
+        final ObjectOpenHashSet<Identifier> uniqueItemIds = new ObjectOpenHashSet<>();
 
         for (int i = 0; i < in.size(); i++)
         {
@@ -92,7 +97,7 @@ public class UniqueTagShapelessRecipe implements CraftingRecipe
                 if (item == null) continue;
 
                 // uniqueness rule: same exact item cannot appear twice
-                final ResourceLocation id = BuiltInRegistries.ITEM.getKey(item);
+                final Identifier id = BuiltInRegistries.ITEM.getKey(item);
                 if (!uniqueItemIds.add(id))
                     return false;
 
@@ -111,38 +116,41 @@ public class UniqueTagShapelessRecipe implements CraftingRecipe
     }
 
     @Override
-    public ItemStack assemble(@Nonnull final CraftingInput in, @Nonnull final HolderLookup.Provider regs)
+    public ItemStack assemble(@Nonnull final CraftingInput in)
     {
-        return result.copy();
+        return result.create();
     }
 
     @Override
-    public boolean canCraftInDimensions(final int w, final int h)
+    public boolean showNotification()
     {
-        return w * h >= (1 + count);
+        return true;
+    }
+
+    @Nonnull
+    @Override
+    public String group()
+    {
+        return "";
     }
 
     @Override
-    public ItemStack getResultItem(@Nonnull final HolderLookup.Provider regs)
+    public PlacementInfo placementInfo()
     {
-        return result;
+        return PlacementInfo.create(getIngredients());
     }
 
     @Override
-    public RecipeSerializer<?> getSerializer()
+    public RecipeSerializer<? extends CraftingRecipe> getSerializer()
     {
         return MCTradePostMod.UNIQUE_TAG_SHAPELESS_SERIALIZER.get();
     }
 
-    @Override
-    public RecipeType<?> getType()
-    {
-        // Important: keep this as vanilla crafting so it works in the crafting table
-        return RecipeType.CRAFTING;
-    }
+    // getType() is no longer declared here: CraftingRecipe#getType() now has a default
+    // implementation returning RecipeType.CRAFTING ("keep this as vanilla crafting" still holds).
 
-    /** Serializer for 1.21.x (MapCodec + StreamCodec) */
-    public static class Serializer implements RecipeSerializer<UniqueTagShapelessRecipe>
+    /** RecipeSerializer is a record (MapCodec + StreamCodec) as of Minecraft 26.1.2; this holds the shared instance. */
+    public static final class Serializer
     {
         // JSON format:
         // {
@@ -155,7 +163,7 @@ public class UniqueTagShapelessRecipe implements CraftingRecipe
     @SuppressWarnings("null")
     public static final MapCodec<UniqueTagShapelessRecipe> CODEC =
         RecordCodecBuilder.mapCodec(i -> i.group(
-                Ingredient.CODEC_NONEMPTY.fieldOf("base")
+                Ingredient.CODEC.fieldOf("base")
                     .forGetter(UniqueTagShapelessRecipe::getBase),
 
                 TagKey.codec(NullnessBridge.assumeNonnull(net.minecraft.core.registries.Registries.ITEM))
@@ -165,8 +173,8 @@ public class UniqueTagShapelessRecipe implements CraftingRecipe
                 com.mojang.serialization.Codec.INT.fieldOf("count")
                     .forGetter(r -> r.getCount()),
 
-                ItemStack.CODEC.fieldOf("result")
-                    .forGetter(UniqueTagShapelessRecipe::getResultStack)
+                ItemStackTemplate.CODEC.fieldOf("result")
+                    .forGetter(UniqueTagShapelessRecipe::getResult)
             ).apply(i, (base, tag, count, result) ->
                 new UniqueTagShapelessRecipe(base, tag, count.intValue(), result)
             )
@@ -178,21 +186,13 @@ public class UniqueTagShapelessRecipe implements CraftingRecipe
                 Ingredient.CONTENTS_STREAM_CODEC, UniqueTagShapelessRecipe::getBase,
                 ByteBufCodecs.fromCodec(TagKey.codec(net.minecraft.core.registries.Registries.ITEM)), UniqueTagShapelessRecipe::getTag,
                 ByteBufCodecs.VAR_INT, UniqueTagShapelessRecipe::getCount,
-                ItemStack.STREAM_CODEC, UniqueTagShapelessRecipe::getResultStack,
+                ItemStackTemplate.STREAM_CODEC, UniqueTagShapelessRecipe::getResult,
                 UniqueTagShapelessRecipe::new
             );
 
-        @Override
-        public MapCodec<UniqueTagShapelessRecipe> codec()
-        {
-            return CODEC;
-        }
+        public static final RecipeSerializer<UniqueTagShapelessRecipe> INSTANCE = new RecipeSerializer<>(CODEC, STREAM_CODEC);
 
-        @Override
-        public StreamCodec<RegistryFriendlyByteBuf, UniqueTagShapelessRecipe> streamCodec()
-        {
-            return STREAM_CODEC;
-        }
+        private Serializer() {}
     }
 
     /**
@@ -202,7 +202,6 @@ public class UniqueTagShapelessRecipe implements CraftingRecipe
      * The tag ingredient is built using the ingredient mappings available in the game.
      * @return the ingredient list
      */
-    @Override
     public NonNullList<Ingredient> getIngredients()
     {
         final NonNullList<Ingredient> list = NonNullList.create();
@@ -211,7 +210,9 @@ public class UniqueTagShapelessRecipe implements CraftingRecipe
         if (tag == null) return list;
 
         // build an Ingredient that represents the tag for display in JEI/recipe book
-        final Ingredient tagIng = Ingredient.of(tag); // if available in your mappings
+        // Ingredient.of(TagKey) no longer exists as of 26.1.2; resolve the tag to a HolderSet first
+        // (matches com.minecolonies.api.crafting.ZeroWasteRecipe's BuiltInRegistries...getOrThrow(tag) pattern).
+        final Ingredient tagIng = Ingredient.of(BuiltInRegistries.ITEM.getOrThrow(tag));
 
         for (int i = 0; i < count; i++)
         {

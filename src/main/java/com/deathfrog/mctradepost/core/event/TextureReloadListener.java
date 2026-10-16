@@ -1,15 +1,14 @@
 package com.deathfrog.mctradepost.core.event;
 
 import com.deathfrog.mctradepost.MCTradePostMod;
-import com.ldtteam.blockui.AtlasManager;
 import net.minecraft.server.packs.resources.SimplePreparableReloadListener;
 import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraft.server.packs.resources.ResourceManager;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent;
+import net.neoforged.neoforge.client.event.AddClientReloadListenersEvent;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -37,8 +36,8 @@ public class TextureReloadListener extends SimplePreparableReloadListener<Textur
         MCTradePostMod.LOGGER.info("Preparing texture packs");
         
         final Set<String> set = new HashSet<>();
-        final List<ResourceLocation> resLocs = new ArrayList<>(manager.listResources("textures/entity/citizen", f -> true).keySet());
-        for (final ResourceLocation res : resLocs)
+        final List<Identifier> resLocs = new ArrayList<>(manager.listResources("textures/entity/citizen", f -> true).keySet());
+        for (final Identifier res : resLocs)
         {
             if (res.getPath().contains("png") && res.getPath().contains("textures/entity/citizen"))
             {
@@ -71,12 +70,16 @@ public class TextureReloadListener extends SimplePreparableReloadListener<Textur
     }
 
     @SubscribeEvent
-    public static void modInitClient(final RegisterClientReloadListenersEvent event)
+    public static void modInitClient(final AddClientReloadListenersEvent event)
     {
-        event.registerReloadListener(new TextureReloadListener());
+        event.addListener(Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "citizen_textures"), new TextureReloadListener());
 
-        // registry minecolonies gui atlas
-        AtlasManager.INSTANCE.addAtlas(event::registerReloadListener, MCTradePostMod.MODID);
+        // 26.1.2 port: the old com.ldtteam.blockui.AtlasManager.INSTANCE.addAtlas(...) registration API is gone.
+        // Registering a dedicated mctradepost GUI atlas (net.neoforged.neoforge.client.event.RegisterTextureAtlasesEvent
+        // + BlockUI.NAMESPACE_TO_ATLAS_MAP, see MineColonies' own TextureReloadListener for the pattern) is an optional
+        // batching optimization only: BlockUI's Image.resolveBlit falls through to a direct per-texture blit for any
+        // namespace with no registered atlas, which is exactly what our "mctradepost:textures/gui/*.png"-style XML
+        // `source` references already use. No atlas is required for our GUI icons to render correctly.
     }
 }
 

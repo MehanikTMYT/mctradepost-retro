@@ -2,21 +2,11 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
-    "F": {
-      "item": "minecolonies:blockhutfarmer"
-    },
-    "G": {
-      "item": "minecolonies:blockhutguardtower"
-    },
-    "S": {
-      "item": "mctradepost:blockhutstation"
-    },
-    "T": {
-      "item": "structurize:sceptergold"
-    },
-    "X": {
-      "tag": "minecraft:planks"
-    }
+    "F": "minecolonies:blockhutfarmer",
+    "G": "minecolonies:blockhutguardtower",
+    "S": "mctradepost:blockhutstation",
+    "T": "structurize:sceptergold",
+    "X": "#minecraft:planks"
   },
   "pattern": [
     "XTX",

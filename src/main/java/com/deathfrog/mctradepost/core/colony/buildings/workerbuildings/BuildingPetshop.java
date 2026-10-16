@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.jetbrains.annotations.NotNull;
@@ -34,6 +35,7 @@ import com.mojang.logging.LogUtils;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.HolderLookup.Provider;
+import net.minecraft.core.UUIDUtil;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -103,7 +105,7 @@ public class BuildingPetshop extends AbstractBuilding
         PetRegistryUtil.loadPetWorkLocations(this.getColony(), compound);
 
         petDataByUuid.clear();
-        final ListTag petDataList = compound.getList(TAG_PET_DATA, Tag.TAG_COMPOUND);
+        final ListTag petDataList = compound.getListOrEmpty(TAG_PET_DATA);
         for (final Tag tag : petDataList)
         {
             if (tag instanceof CompoundTag petTag)
@@ -162,12 +164,13 @@ public class BuildingPetshop extends AbstractBuilding
      */
     public void rememberPetData(final CompoundTag petTag)
     {
-        if (petTag == null || !petTag.hasUUID("uuid") || !petTag.contains(PetData.TAG_ANIMAL_TYPE))
+        final Optional<UUID> uuid = petTag == null ? Optional.empty() : petTag.getIntArray("uuid").map(UUIDUtil::uuidFromIntArray);
+        if (uuid.isEmpty() || !petTag.contains(PetData.TAG_ANIMAL_TYPE))
         {
             return;
         }
 
-        petDataByUuid.put(petTag.getUUID("uuid"), petTag.copy());
+        petDataByUuid.put(uuid.get(), petTag.copy());
     }
 
     /**
@@ -281,9 +284,9 @@ public class BuildingPetshop extends AbstractBuilding
         for (final ITradePostPet pet : getPets())
         {
             final CompoundTag petTag = rememberPetData(pet);
-            if (petTag != null && petTag.hasUUID("uuid"))
+            if (petTag != null)
             {
-                petTags.put(petTag.getUUID("uuid"), petTag);
+                petTag.getIntArray("uuid").map(UUIDUtil::uuidFromIntArray).ifPresent(id -> petTags.put(id, petTag));
             }
         }
 
@@ -305,8 +308,8 @@ public class BuildingPetshop extends AbstractBuilding
                 .filter(ITradePostPet.class::isInstance)
                 .map(ITradePostPet.class::cast)
                 .map(this::rememberPetData)
-                .filter(tag -> tag != null && tag.hasUUID("uuid"))
-                .ifPresent(tag -> petTags.put(tag.getUUID("uuid"), tag));
+                .filter(tag -> tag != null && tag.getIntArray("uuid").isPresent())
+                .ifPresent(tag -> petTags.put(tag.getIntArray("uuid").map(UUIDUtil::uuidFromIntArray).orElseThrow(), tag));
 
             if (!petTags.containsKey(uuid) && petDataByUuid.containsKey(uuid))
             {

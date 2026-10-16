@@ -1,11 +1,12 @@
 package com.deathfrog.mctradepost.api.util;
 
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Set;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
+import com.deathfrog.mctradepost.MCTradePostMod;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
@@ -16,13 +17,18 @@ import net.minecraft.world.level.chunk.status.ChunkStatus;
 
 public class ChunkUtil
 {
-    @SuppressWarnings("null")
-    @Nonnull public static final TicketType<ChunkPos> RAIL_TICKET =
-        TicketType.create("track_search", Comparator.comparingLong(ChunkPos::toLong), 2);
+    // TicketType instances themselves now live in MCTradePostMod.TICKET_TYPES (see there for why:
+    // TicketType lost its per-entity comparator/lifespan constructor in 26.1.2 and instances must be
+    // registered through a DeferredRegister rather than constructed as bare static fields here).
+    @Nonnull public static TicketType railTicket()
+    {
+        return MCTradePostMod.RAIL_TICKET.get();
+    }
 
-    @SuppressWarnings("null")
-    @Nonnull public static final TicketType<ChunkPos> OUTPOST_TICKET =
-        TicketType.create("mctradepost_outpost", (a, b) -> Long.compare(a.toLong(), b.toLong()));
+    @Nonnull public static TicketType outpostTicket()
+    {
+        return MCTradePostMod.OUTPOST_TICKET.get();
+    }
 
     public static final @Nonnull Set<ChunkPos> emptySet = NullnessBridge.assumeNonnull(Set.of());
 
@@ -34,7 +40,7 @@ public class ChunkUtil
      * @param cp    the chunk to check for.
      * @return true if the chunk is loaded, false if not.
      */
-    public static boolean ensureChunkLoadedByTicket(ServerLevel level, ChunkPos cp, int radius, @Nonnull TicketType<ChunkPos> ticketType)
+    public static boolean ensureChunkLoadedByTicket(ServerLevel level, ChunkPos cp, int radius, @Nonnull TicketType ticketType)
     {
         return ensureChunkLoadedByTicket(level, cp, radius, ticketType, null);
     }
@@ -53,23 +59,23 @@ public class ChunkUtil
     public static boolean ensureChunkLoadedByTicket(ServerLevel level,
         ChunkPos cp,
         int radius,
-        @Nonnull TicketType<ChunkPos> ticketType,
+        @Nonnull TicketType ticketType,
         @Nullable Set<ChunkPos> ticketsAdded)
     {
         // already resident?
-        if (level.hasChunk(cp.x, cp.z)) return true;
+        if (level.hasChunk(cp.x(), cp.z())) return true;
 
         // 1. add a short-lived ticket
-        level.getChunkSource().addRegionTicket(ticketType, cp, radius, cp);
+        level.getChunkSource().addTicketWithRadius(ticketType, cp, radius);
         if (ticketsAdded != null)
         {
             ticketsAdded.add(cp);
         }
 
         // 2. pull the chunk synchronously so the search can proceed *this* tick
-        level.getChunk(cp.x, cp.z, NullnessBridge.assumeNonnull(ChunkStatus.FULL), true);   // may generate
+        level.getChunk(cp.x(), cp.z(), NullnessBridge.assumeNonnull(ChunkStatus.FULL), true);   // may generate
 
-        return level.hasChunk(cp.x, cp.z);
+        return level.hasChunk(cp.x(), cp.z());
     }
 
     /**
@@ -80,9 +86,9 @@ public class ChunkUtil
      * @param pos   the position of the block to check for.
      * @return true if the chunk is loaded, false if not.
      */
-    public static boolean ensureChunkLoadedByTicket(@Nonnull ServerLevel level, @Nonnull BlockPos pos, int radius, @Nonnull TicketType<ChunkPos> ticketType)
+    public static boolean ensureChunkLoadedByTicket(@Nonnull ServerLevel level, @Nonnull BlockPos pos, int radius, @Nonnull TicketType ticketType)
     {
-        return ensureChunkLoadedByTicket(level, new ChunkPos(pos), radius, ticketType);
+        return ensureChunkLoadedByTicket(level, ChunkPos.containing(pos), radius, ticketType);
     }
 
     /**
@@ -98,10 +104,10 @@ public class ChunkUtil
     public static boolean ensureChunkLoadedByTicket(@Nonnull ServerLevel level,
         @Nonnull BlockPos pos,
         int radius,
-        @Nonnull TicketType<ChunkPos> ticketType,
+        @Nonnull TicketType ticketType,
         @Nullable Set<ChunkPos> ticketsAdded)
     {
-        return ensureChunkLoadedByTicket(level, new ChunkPos(pos), radius, ticketType, ticketsAdded);
+        return ensureChunkLoadedByTicket(level, ChunkPos.containing(pos), radius, ticketType, ticketsAdded);
     }
 
     /**
@@ -112,10 +118,10 @@ public class ChunkUtil
      * @param pos    the BlockPos of the chunk to release
      * @param radius the radius of the ticket to release
      */
-    public static void releaseChunkTicket(@Nonnull ServerLevel level, @Nonnull BlockPos pos, int radius, @Nonnull TicketType<ChunkPos> ticketType)
+    public static void releaseChunkTicket(@Nonnull ServerLevel level, @Nonnull BlockPos pos, int radius, @Nonnull TicketType ticketType)
     {
-        ChunkPos cp = new ChunkPos(pos);
-        level.getChunkSource().removeRegionTicket(ticketType, cp, radius, cp);
+        ChunkPos cp = ChunkPos.containing(pos);
+        level.getChunkSource().removeTicketWithRadius(ticketType, cp, radius);
     }
 
     /**
@@ -129,7 +135,7 @@ public class ChunkUtil
     public static void releaseChunkTickets(@Nonnull ServerLevel level,
         @Nonnull Set<ChunkPos> chunks,
         int radius,
-        @Nonnull TicketType<ChunkPos> ticketType)
+        @Nonnull TicketType ticketType)
     {
         for (ChunkPos cp : chunks)
         {
@@ -137,7 +143,7 @@ public class ChunkUtil
             {
                 continue;
             }
-            level.getChunkSource().removeRegionTicket(ticketType, cp, radius, cp);
+            level.getChunkSource().removeTicketWithRadius(ticketType, cp, radius);
         }
     }
 
@@ -165,21 +171,21 @@ public class ChunkUtil
 
         final Set<ChunkPos> forced = alreadyForced == null ? new HashSet<>() : new HashSet<>(alreadyForced);
 
-        final ChunkPos centerChunk = new ChunkPos(center);
+        final ChunkPos centerChunk = ChunkPos.containing(center);
         final int r = Math.max(0, radiusChunks);
 
         for (int dx = -r; dx <= r; dx++)
         {
             for (int dz = -r; dz <= r; dz++)
             {
-                final ChunkPos cp = new ChunkPos(centerChunk.x + dx, centerChunk.z + dz);
+                final ChunkPos cp = new ChunkPos(centerChunk.x() + dx, centerChunk.z() + dz);
                 if (forced.contains(cp))
                 {
                     continue;
                 }
 
                 // Force it
-                serverLevel.setChunkForced(cp.x, cp.z, true);
+                serverLevel.setChunkForced(cp.x(), cp.z(), true);
                 forced.add(cp);
             }
         }
@@ -213,7 +219,7 @@ public class ChunkUtil
         for (final ChunkPos cp : forcedChunks)
         {
             if (cp == null) continue;
-            serverLevel.setChunkForced(cp.x, cp.z, false);
+            serverLevel.setChunkForced(cp.x(), cp.z(), false);
         }
 
         return emptySet;

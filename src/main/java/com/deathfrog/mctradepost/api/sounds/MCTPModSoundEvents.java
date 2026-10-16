@@ -7,7 +7,7 @@ import com.minecolonies.api.sounds.EventType;
 import com.minecolonies.api.sounds.ModSoundEvents;
 import com.minecolonies.api.util.Tuple;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundEvent;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -43,7 +43,7 @@ public final class MCTPModSoundEvents
      */
     static
     {
-        final List<ResourceLocation> jobList = new ArrayList<>(MCTPModJobs.getJobs());
+        final List<Identifier> jobList = new ArrayList<>(MCTPModJobs.getJobs());
 
         registerSoundsForJobs(jobList, SOUND_EVENTS, DEFERRED_CITIZEN_SOUND_EVENTS);
     }
@@ -51,13 +51,13 @@ public final class MCTPModSoundEvents
     /**
      * Registers the sound events for the given jobs.
      *
-     * @param jobs a list of {@link ResourceLocation}s, which represent the jobs for which the sound events should be registered.
+     * @param jobs a list of {@link Identifier}s, which represent the jobs for which the sound events should be registered.
      */
-    private static void registerSoundsForJobs(final List<ResourceLocation> jobs,
+    private static void registerSoundsForJobs(final List<Identifier> jobs,
         final DeferredRegister<SoundEvent> soundEventRegister,
         final Map<String, Map<EventType, List<Tuple<DeferredHolder<SoundEvent, SoundEvent>, DeferredHolder<SoundEvent, SoundEvent>>>>> soundMap)
     {
-        for (final ResourceLocation job : jobs)
+        for (final Identifier job : jobs)
         {
             final Map<EventType, List<Tuple<DeferredHolder<SoundEvent, SoundEvent>, DeferredHolder<SoundEvent, SoundEvent>>>> map = new HashMap<>();
             for (final EventType event : EventType.values())

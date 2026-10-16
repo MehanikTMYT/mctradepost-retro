@@ -18,6 +18,7 @@ import com.deathfrog.mctradepost.core.colony.buildings.workerbuildings.BuildingM
 import com.deathfrog.mctradepost.core.colony.buildings.modules.MCTPBuildingModules;
 import com.deathfrog.mctradepost.core.colony.buildings.modules.TradeMessage;
 import com.deathfrog.mctradepost.core.entity.ai.workers.trade.StationData;
+import com.deathfrog.mctradepost.core.entity.ai.workers.trade.DimPos;
 import com.deathfrog.mctradepost.core.entity.ai.workers.trade.StationData.TrackConnectionStatus;
 import com.ldtteam.blockui.Pane;
 import com.ldtteam.blockui.PaneBuilders;
@@ -31,9 +32,8 @@ import com.minecolonies.api.crafting.ItemStorage;
 import com.minecolonies.api.colony.IColonyManager;
 import com.minecolonies.api.colony.buildings.views.IBuildingView;
 import com.minecolonies.core.client.gui.AbstractModuleWindow;
-import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
@@ -166,7 +166,7 @@ public class WindowStationExportModule extends AbstractModuleWindow<BuildingStat
 
     public WindowStationExportModule(IBuildingView buildingView, BuildingStationExportModuleView moduleView)
     {
-        super(moduleView, ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, STATION_EXPORT_WINDOW_RESOURCE_SUFFIX));
+        super(moduleView, Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, STATION_EXPORT_WINDOW_RESOURCE_SUFFIX));
         this.buildingView = buildingView;
 
         registerButton(TAG_BUTTON_TAKETRADE, this::takeTradeClicked);
@@ -273,18 +273,18 @@ public class WindowStationExportModule extends AbstractModuleWindow<BuildingStat
 
                 final ButtonImage takeTradeButton = rowPane.findPaneOfTypeByID(TAG_BUTTON_TAKETRADE, ButtonImage.class);
                 takeTradeButton.setVisible(true);
-                takeTradeButton.setImage(export.isSelected() ? ResourceLocation.parse(TEXTURE_ASSIGN_ON_NORMAL) : ResourceLocation.parse(TEXTURE_ASSIGN_OFF_NORMAL));
-                takeTradeButton.setImageDisabled(export.isSelected() ? ResourceLocation.parse(TEXTURE_ASSIGN_ON_DISABLED) : ResourceLocation.parse(TEXTURE_ASSIGN_OFF_DISABLED));
+                takeTradeButton.setImage(export.isSelected() ? Identifier.parse(TEXTURE_ASSIGN_ON_NORMAL) : Identifier.parse(TEXTURE_ASSIGN_OFF_NORMAL));
+                takeTradeButton.setImageDisabled(export.isSelected() ? Identifier.parse(TEXTURE_ASSIGN_ON_DISABLED) : Identifier.parse(TEXTURE_ASSIGN_OFF_DISABLED));
                 
                 if (export.shipDistance >= 0)
                 {
                     takeTradeButton.setEnabled(false);  // Can't change the status of a shipment in progress.
-                    PaneBuilders.tooltipBuilder().hoverPane(takeTradeButton).build().setText(Component.literal("Cannot alter shipment in progress."));
+                    PaneBuilders.tooltipBuilder().hoverPane(takeTradeButton).build().setText(Component.translatable("com.mctradepost.gui.station.export.cannot_alter"));
                 }
                 else
                 {
                     takeTradeButton.setEnabled(export.isEnabled());
-                    PaneBuilders.tooltipBuilder().hoverPane(takeTradeButton).build().setText(Component.literal("Toggle exporting this remote need."));
+                    PaneBuilders.tooltipBuilder().hoverPane(takeTradeButton).build().setText(Component.translatable("com.mctradepost.gui.station.export.toggle_remote_need"));
                 }
 
                 final Box progressBar = rowPane.findPaneOfTypeByID(GuiUtil.PROGRESS_BAR, Box.class);
@@ -304,20 +304,20 @@ public class WindowStationExportModule extends AbstractModuleWindow<BuildingStat
                     if (export.isSelected())
                     {
 
-                        exportSpecificHelp.setText(Component.literal("No shipment in progress."));
+                        exportSpecificHelp.setText(Component.translatable("com.mctradepost.gui.station.export.no_shipment"));
 
                         // MCTradePostMod.LOGGER.warn("Ship distance is less than 0: {} Last ship day: {} Current day: {} Insufficient funds: {}", export.shipDistance, export.lastShipDay, buildingView.getColony().getDay(), export.nsf);
                         if (export.lastShipDay == buildingView.getColony().getDay())
                         {
-                            exportSpecificHelp.setText(Component.literal("Already shipped today."));
+                            exportSpecificHelp.setText(Component.translatable("com.mctradepost.gui.station.export.already_shipped"));
                         } else if (export.nsf)
                         {
-                            exportSpecificHelp.setText(Component.literal("Insufficient funds at destination."));
+                            exportSpecificHelp.setText(Component.translatable("com.mctradepost.gui.station.export.insufficient_funds"));
                         }
-                    } 
+                    }
                     else
                     {
-                        exportSpecificHelp.setText(Component.literal("Check box to take offer."));
+                        exportSpecificHelp.setText(Component.translatable("com.mctradepost.gui.station.export.check_to_take"));
                     }
                 }
             }
@@ -333,13 +333,18 @@ public class WindowStationExportModule extends AbstractModuleWindow<BuildingStat
                     return;
                 }
 
-                Map<BlockPos, StationData> stations = ((StationView) buildingView).getStations();
+                StationView stationView = (StationView) buildingView;
+                Map<DimPos, StationData> stations = stationView.getStations();
                 potentialExportMap.clear();
 
                 for (StationData station : stations.values())
                 {
+                    if (!stationView.shouldAttemptConnection(station))
+                    {
+                        continue;
+                    }
                     IBuildingView remoteStationView = IColonyManager.getInstance().getBuildingView(station.getDimension(), station.getBuildingPosition());
-                    if (remoteStationView != null && remoteStationView.hasModuleView(MCTPBuildingModules.IMPORTS) && !buildingView.getPosition().equals(remoteStationView.getPosition()))
+                    if (remoteStationView != null && remoteStationView.hasModuleView(MCTPBuildingModules.IMPORTS))
                     {
                         List<TradeDefinition> imports = remoteStationView.getModuleView(MCTPBuildingModules.IMPORTS).getImports();
 
@@ -363,7 +368,7 @@ public class WindowStationExportModule extends AbstractModuleWindow<BuildingStat
                             continue;
                         }
 
-                        if (export.getDestinationStationData().getBuildingPosition().equals(exportGui.getDestinationStation().getBuildingPosition()) &&
+                        if (export.getDestinationStationData().equals(exportGui.getDestinationStation()) &&
                             export.getTradeItem().getItemStack().is(item) &&
                             exportGui.cost.equals(export.getCost()) &&
                             exportGui.quantity.equals(export.getQuantity()))

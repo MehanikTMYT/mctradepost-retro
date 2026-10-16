@@ -17,6 +17,7 @@ import javax.annotation.Nonnull;
 
 import com.deathfrog.mctradepost.MCTradePostMod;
 import com.deathfrog.mctradepost.api.util.NullnessBridge;
+import com.minecolonies.api.crafting.VanillaRecipeUtils;
 
 public class RecipeAnalysisHelper
 {
@@ -45,7 +46,7 @@ public class RecipeAnalysisHelper
             .stream()
             // .filter(r -> r.value().getResultItem(level.registryAccess()).getItem().equals(item))
             .filter(r -> {
-                ItemStack result = r.value().getResultItem(registryAccess);
+                ItemStack result = VanillaRecipeUtils.getResultItem(r.value(), level);
                 return result != null && !result.isEmpty() && result.getItem().equals(item);
             })
             .filter(r -> (r.value().getType() == RecipeType.CRAFTING) || (r.value().getType() == RecipeType.SMELTING) ||
@@ -160,11 +161,11 @@ public class RecipeAnalysisHelper
             visited.add(recipe);
         }
 
-        for (Ingredient ingredient : recipe.getIngredients())
+        for (Ingredient ingredient : VanillaRecipeUtils.getIngredients(recipe))
         {
             if (ingredient.isEmpty()) continue;
 
-            ItemStack[] stacks = ingredient.getItems();
+            ItemStack[] stacks = ingredient.items().map(ItemStack::new).toArray(ItemStack[]::new);
             if (stacks.length > 0)
             {
                 @SuppressWarnings("null")
@@ -194,9 +195,7 @@ public class RecipeAnalysisHelper
             }
         }
 
-        RegistryAccess registryAccess = level.registryAccess();
-
-        int resultCount = recipe.getResultItem(NullnessBridge.assumeNonnull(registryAccess)).getCount();
+        int resultCount = VanillaRecipeUtils.getResultItem(recipe, level).getCount();
         total = resultCount == 0 ? total : Math.max(total / resultCount, 1);
 
         if (startTracking)
@@ -206,7 +205,7 @@ public class RecipeAnalysisHelper
 
         if (recipe instanceof AbstractCookingRecipe)
         {
-            int time = ((AbstractCookingRecipe) recipe).getCookingTime();
+            int time = ((AbstractCookingRecipe) recipe).cookingTime();
 
             // Normal cook time is 100, so this gives a 20% bonus to smelted items. (Rounding means it matters only for items valued at
             // 5+.)

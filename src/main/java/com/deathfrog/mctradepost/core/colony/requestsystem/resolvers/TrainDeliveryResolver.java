@@ -101,7 +101,7 @@ public class TrainDeliveryResolver extends AbstractRequestResolver<Delivery>
     @Override
     public void onAssignedRequestCancelled(@NotNull IRequestManager manager, @NotNull IRequest<? extends Delivery> request)
     {
-        if (!manager.getColony().getWorld().isClientSide)
+        if (!manager.getColony().getWorld().isClientSide())
         {
             final Colony colony = (Colony) manager.getColony();
             final IBuilding station = colony.getServerBuildingManager().getBuilding(getLocation().getInDimensionLocation(), BuildingStation.class);
@@ -175,7 +175,7 @@ public class TrainDeliveryResolver extends AbstractRequestResolver<Delivery>
      */
     public Optional<IRequester> getBuilding(@NotNull final IRequestManager manager, @NotNull final IToken<?> token)
     {
-        if (!manager.getColony().getWorld().isClientSide)
+        if (!manager.getColony().getWorld().isClientSide())
         {
             return Optional.ofNullable(manager.getColony().getRequesterBuildingForPosition(getLocation().getInDimensionLocation()));
         }

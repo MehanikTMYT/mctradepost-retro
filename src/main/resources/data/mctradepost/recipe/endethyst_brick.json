@@ -2,18 +2,10 @@
   "type": "minecraft:crafting_shapeless",
   "category": "building",
   "ingredients": [
-    {
-      "item": "mctradepost:endethyst"
-    },
-    {
-      "item": "mctradepost:endethyst"
-    },
-    {
-      "item": "mctradepost:endethyst"
-    },
-    {
-      "item": "mctradepost:endethyst"
-    }
+    "mctradepost:endethyst",
+    "mctradepost:endethyst",
+    "mctradepost:endethyst",
+    "mctradepost:endethyst"
   ],
   "result": {
     "count": 4,

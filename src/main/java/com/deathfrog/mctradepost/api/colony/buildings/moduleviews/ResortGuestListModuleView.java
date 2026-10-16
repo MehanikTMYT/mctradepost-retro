@@ -16,7 +16,7 @@ import com.minecolonies.api.util.Utils;
 
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 public class ResortGuestListModuleView extends AbstractBuildingModuleView
 {
@@ -76,9 +76,9 @@ public class ResortGuestListModuleView extends AbstractBuildingModuleView
     }
 
     @Override
-    public ResourceLocation getIconResourceLocation()
+    public Identifier getIconResourceLocation()
     {
-        return ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "textures/gui/modules/guests.png");
+        return Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "textures/gui/modules/guests.png");
     }
 
     /**

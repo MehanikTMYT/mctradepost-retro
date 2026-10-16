@@ -33,7 +33,7 @@ public final class PetGuardAlertUtil
     @SuppressWarnings("null")
     public static <P extends PathfinderMob & ITradePostPet> int alertNearbyGuards(@Nonnull final P pet, @Nonnull final LivingEntity attacker)
     {
-        if (pet.level().isClientSide || !isValidAlertTarget(attacker))
+        if (pet.level().isClientSide() || !isValidAlertTarget(attacker))
         {
             return 0;
         }

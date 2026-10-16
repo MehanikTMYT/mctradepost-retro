@@ -26,7 +26,7 @@ public class OutpostClaimMarkerItem extends AbstractPositionMarkerItem
     public void sendPlayerLinkedMessage(Player player, BlockPos clicked)
     {
         Component message = Component.translatable("com.mctradepost.outpost.claim", clicked.toShortString());
-        player.displayClientMessage(NullnessBridge.assumeNonnull(message), true);
+        player.sendOverlayMessage(NullnessBridge.assumeNonnull(message));
     }
 
     /**

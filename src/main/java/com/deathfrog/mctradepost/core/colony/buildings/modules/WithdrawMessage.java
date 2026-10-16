@@ -84,7 +84,7 @@ public class WithdrawMessage extends AbstractBuildingServerMessage<IBuilding>
 
                     if (!success)
                     {
-                        MCTPInventoryUtils.dropItemsInWorld((ServerLevel) player.serverLevel(), player.getOnPos().above(), coinStack);
+                        MCTPInventoryUtils.dropItemsInWorld(player.level(), player.getOnPos().above(), coinStack);
                     }
                 }
                 MessageUtils.format("mctradepost.marketplace.minted").sendTo(player);

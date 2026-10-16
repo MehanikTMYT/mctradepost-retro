@@ -1,8 +1,6 @@
 {
   "type": "mctradepost:deconstruction",
-  "input": {
-    "item": "minecraft:netherite_axe"
-  },
+  "input": "minecraft:netherite_axe",
   "results": [
     {
       "item": {

@@ -114,7 +114,7 @@ public final class ModJobsInitializer
  */
     public static void logRegisteredJobEntries(ServerLevel level) 
     {
-        Registry<JobEntry> jobRegistry = level.registryAccess().registryOrThrow(NullnessBridge.assumeNonnull(CommonMinecoloniesAPIImpl.JOBS));
+        Registry<JobEntry> jobRegistry = level.registryAccess().lookupOrThrow(NullnessBridge.assumeNonnull(CommonMinecoloniesAPIImpl.JOBS));
 
         MCTradePostMod.LOGGER.info("=== Registered JobEntry objects in MineColonies ===");
         for (JobEntry entry : jobRegistry) 

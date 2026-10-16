@@ -2,15 +2,9 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
-    "B": {
-      "item": "mctradepost:daiquiri"
-    },
-    "T": {
-      "item": "structurize:sceptergold"
-    },
-    "X": {
-      "tag": "minecraft:planks"
-    }
+    "B": "mctradepost:daiquiri",
+    "T": "structurize:sceptergold",
+    "X": "#minecraft:planks"
   },
   "pattern": [
     "XTX",

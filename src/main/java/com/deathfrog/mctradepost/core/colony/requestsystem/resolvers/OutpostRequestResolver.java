@@ -143,7 +143,7 @@ public class OutpostRequestResolver extends AbstractBuildingDependentRequestReso
     @Override
     public Optional<IRequester> getBuilding(@NotNull final IRequestManager manager, @NotNull final IToken<?> token)
     {
-        if (!manager.getColony().getWorld().isClientSide)
+        if (!manager.getColony().getWorld().isClientSide())
         {
             IRequest<?> request = manager.getRequestForToken(token);
 
@@ -172,7 +172,7 @@ public class OutpostRequestResolver extends AbstractBuildingDependentRequestReso
         @NotNull IRequest<? extends IDeliverable> requestToCheck,
         @NotNull AbstractBuilding requestingBuilding)
     {
-        if (manager.getColony().getWorld().isClientSide)
+        if (manager.getColony().getWorld().isClientSide())
         {
             return null;
         }
@@ -405,7 +405,7 @@ public class OutpostRequestResolver extends AbstractBuildingDependentRequestReso
         @NotNull AbstractBuilding requestingBuilding)
     {
 
-        if (manager.getColony().getWorld().isClientSide)
+        if (manager.getColony().getWorld().isClientSide())
         {
             return false;
         }

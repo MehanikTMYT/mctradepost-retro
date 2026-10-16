@@ -44,6 +44,10 @@ import net.minecraft.network.chat.Component;
 
 public class MCTPBuildingModules
 {
+    public static final BuildingEntry.ModuleProducer<CitizenIncentiveModule, com.deathfrog.mctradepost.api.colony.buildings.moduleviews.CitizenIncentiveModuleView> CITIZEN_INCENTIVES =
+        new BuildingEntry.ModuleProducer<>("citizen_incentives", CitizenIncentiveModule::new,
+            () -> com.deathfrog.mctradepost.api.colony.buildings.moduleviews.CitizenIncentiveModuleView::new);
+
     /**
      * Global
      */
@@ -86,13 +90,16 @@ public class MCTPBuildingModules
     /**
      * Craftmanship
      */
-    public static final BuildingEntry.ModuleProducer<CraftingWorkerBuildingModule,WorkerBuildingModuleView> RECYCLINGENGINEER_WORK          =
+    public static final BuildingEntry.ModuleProducer<WorkerBuildingModule,WorkerBuildingModuleView> RECYCLINGENGINEER_WORK          =
       new BuildingEntry.ModuleProducer<>("recyclingengineer_work", () -> new CraftingWorkerBuildingModule(MCTPModJobs.recyclingengineer.get(), Skill.Strength, Skill.Focus, false, (b) -> 1),
         () -> WorkerBuildingModuleView::new);
 
     public static final BuildingEntry.ModuleProducer<SettingsModule,SettingsModuleView> RECYCLING_SETTINGS    =
       new BuildingEntry.ModuleProducer<>("recycling_settings", () -> new SettingsModule()
-        .with(BuildingRecycling.ITERATIVE_PROCESSING, new BoolSetting(false)).with(BuildingRecycling.ALLOW_SORT, new SortSetting()), () -> SettingsModuleView::new);
+        .with(BuildingRecycling.ITERATIVE_PROCESSING, new BoolSetting(false))
+        .with(BuildingRecycling.SCRAP_MODE, new BoolSetting(false))
+        .with(BuildingRecycling.DELETE_FAILED_ATTEMPTS, new BoolSetting(false))
+        .with(BuildingRecycling.ALLOW_SORT, new SortSetting()), () -> SettingsModuleView::new);
 
     public static final BuildingEntry.ModuleProducer<BuildingRecyclerProgressModule, RecyclerProgressView> RECYCLING_PROGRESS     =
       new BuildingEntry.ModuleProducer<BuildingRecyclerProgressModule, RecyclerProgressView>("recycling_progress", () -> new BuildingRecyclerProgressModule(), () -> RecyclerProgressView::new);

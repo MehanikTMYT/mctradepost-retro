@@ -25,7 +25,7 @@ import com.mojang.logging.LogUtils;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.ai.goal.Goal;
@@ -106,7 +106,7 @@ public class ScavengeResourceGoal<P extends Animal & ITradePostPet> extends Goal
             return false;
         }
 
-        if (level.isClientSide)
+        if (level.isClientSide())
         {
             return false;
         }
@@ -231,7 +231,7 @@ public class ScavengeResourceGoal<P extends Animal & ITradePostPet> extends Goal
         if (localPet == null) return;
 
         final Level level = pet.level();
-        if (level == null || level.isClientSide) return;
+        if (level == null || level.isClientSide()) return;
 
         boolean targetChanged = (lastStartTarget == null || !lastStartTarget.equals(this.targetPos));
         if (targetChanged)
@@ -270,7 +270,7 @@ public class ScavengeResourceGoal<P extends Animal & ITradePostPet> extends Goal
     public boolean canContinueToUse()
     {
         final Level level = pet.level();
-        if (level == null || level.isClientSide) return false;
+        if (level == null || level.isClientSide()) return false;
 
         if (targetPos == null)
         {
@@ -303,7 +303,7 @@ public class ScavengeResourceGoal<P extends Animal & ITradePostPet> extends Goal
     public void tick()
     {
         final Level level = pet.level();
-        if (level == null || level.isClientSide) return;
+        if (level == null || level.isClientSide()) return;
 
         final BlockPos localTargetPos = targetPos;
         final BlockPos localNavigationPos = navigationPos;
@@ -420,7 +420,7 @@ public class ScavengeResourceGoal<P extends Animal & ITradePostPet> extends Goal
             return;
         }
 
-        ResourceLocation lootTableLocation = profile.lootTableFor(level, pos, harvestSpotState);
+        Identifier lootTableLocation = profile.lootTableFor(level, pos, harvestSpotState);
 
         if (lootTableLocation == null) return;
 
@@ -557,7 +557,7 @@ public class ScavengeResourceGoal<P extends Animal & ITradePostPet> extends Goal
     public void stop()
     {
         final Level level = pet.level();
-        if (level == null || level.isClientSide) return;
+        if (level == null || level.isClientSide()) return;
 
         // If we were pre-empted while still en route and still have tries, PAUSE
         if (this.targetPos != null && !this.hasArrived && this.searchTries > 0)

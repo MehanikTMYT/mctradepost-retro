@@ -5,6 +5,7 @@ import com.deathfrog.mctradepost.MCTradePostMod;
 import com.deathfrog.mctradepost.api.colony.buildings.moduleviews.BuildingStationExportModuleView;
 import com.deathfrog.mctradepost.api.colony.buildings.views.StationView;
 import com.deathfrog.mctradepost.core.entity.ai.workers.trade.StationData;
+import com.deathfrog.mctradepost.core.entity.ai.workers.trade.DimPos;
 import com.ldtteam.blockui.Pane;
 import com.ldtteam.blockui.controls.Text;
 import com.ldtteam.blockui.views.Box;
@@ -12,9 +13,8 @@ import com.ldtteam.blockui.views.ScrollingList;
 import com.minecolonies.api.colony.IColonyManager;
 import com.minecolonies.api.colony.buildings.views.IBuildingView;
 import com.minecolonies.core.client.gui.AbstractModuleWindow;
-import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 /**
  * BOWindow for the BuildingStation's export window.
@@ -23,7 +23,7 @@ public class WindowSupplyTradeModule extends AbstractModuleWindow<BuildingStatio
 {
     private static final String PANE_STATIONS = "stations";
     private static final String STATIONCONNECTION_WINDOW_RESOURCE_SUFFIX = "gui/layouthuts/layoutstationconnection.xml";
-    private Map<BlockPos, StationData> stations = null;
+    private Map<DimPos, StationData> stations = null;
     IBuildingView buildingView = null;
 
     /**
@@ -33,7 +33,7 @@ public class WindowSupplyTradeModule extends AbstractModuleWindow<BuildingStatio
 
     public WindowSupplyTradeModule(BuildingStationExportModuleView moduleView, IBuildingView buildingView)
     {
-        super(moduleView, ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, STATIONCONNECTION_WINDOW_RESOURCE_SUFFIX));
+        super(moduleView, Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, STATIONCONNECTION_WINDOW_RESOURCE_SUFFIX));
         this.buildingView = buildingView;
         stations = ((StationView) buildingView).getStations();
 
@@ -79,8 +79,7 @@ public class WindowSupplyTradeModule extends AbstractModuleWindow<BuildingStatio
                     return;
                 }
 
-                final BlockPos pos = stations.keySet().toArray(new BlockPos[0])[index];
-                final StationData station = stations.get(pos);
+                final StationData station = stations.values().toArray(new StationData[0])[index];
 
                 final Box wrapperBox = rowPane.findPaneOfTypeByID("stationx", Box.class);
                 wrapperBox.setPosition(wrapperBox.getX(), wrapperBox.getY());

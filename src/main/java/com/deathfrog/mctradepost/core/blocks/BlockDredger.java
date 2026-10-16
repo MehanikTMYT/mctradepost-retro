@@ -7,9 +7,11 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.LevelAccessor;
+import net.minecraft.world.level.LevelReader;
+import net.minecraft.world.level.ScheduledTickAccess;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SimpleWaterloggedBlock;
 import net.minecraft.world.level.block.state.BlockState;
@@ -83,17 +85,19 @@ public class BlockDredger extends AbstractBlockPetWorkingLocation implements Sim
      */
     @Override
     public BlockState updateShape(@Nonnull BlockState state,
-        @Nonnull Direction dir,
-        @Nonnull BlockState neighborState,
-        @Nonnull LevelAccessor level,
+        @Nonnull LevelReader level,
+        @Nonnull ScheduledTickAccess ticks,
         @Nonnull BlockPos pos,
-        @Nonnull BlockPos neighborPos)
+        @Nonnull Direction dir,
+        @Nonnull BlockPos neighborPos,
+        @Nonnull BlockState neighborState,
+        @Nonnull RandomSource random)
     {
         if (state.getValue(WATERLOGGED))
         {
-            level.scheduleTick(pos, Fluids.WATER, Fluids.WATER.getTickDelay(level));
+            ticks.scheduleTick(pos, Fluids.WATER, Fluids.WATER.getTickDelay(level));
         }
-        return super.updateShape(state, dir, neighborState, level, pos, neighborPos);
+        return super.updateShape(state, level, ticks, pos, dir, neighborPos, neighborState, random);
     }
 
     /**

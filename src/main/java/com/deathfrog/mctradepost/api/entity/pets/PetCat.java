@@ -18,11 +18,15 @@ import com.minecolonies.api.colony.IAnimalData;
 import com.minecolonies.api.colony.buildings.IBuilding;
 import com.minecolonies.api.colony.managers.interfaces.IAnimalDataView;
 import com.minecolonies.api.colony.managers.interfaces.IManagedAnimal;
+import com.minecolonies.api.entity.pathfinding.registry.IPathNavigateRegistry;
+import com.minecolonies.core.entity.pathfinding.navigation.AbstractAdvancedPathNavigate;
 import com.minecolonies.core.entity.pathfinding.navigation.MinecoloniesAdvancedPathNavigate;
 import com.minecolonies.api.util.constant.NbtTagConstants;
+import com.minecolonies.api.util.ValueIOUtils;
 import com.mojang.logging.LogUtils;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
@@ -31,6 +35,8 @@ import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -44,7 +50,7 @@ import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
 import net.minecraft.world.entity.ai.navigation.PathNavigation;
 import net.minecraft.world.entity.animal.Animal;
-import net.minecraft.world.entity.animal.Cat;
+import net.minecraft.world.entity.animal.feline.Cat;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.inventory.MenuType;
@@ -74,9 +80,9 @@ public class PetCat extends Cat implements ITradePostPet, IHerdingPet, IManagedA
     {
         super(entityType, level);
         petData = new PetData<>(this);
-        level.registryAccess().registryOrThrow(Registries.CAT_VARIANT)
+        level.registryAccess().lookupOrThrow(Registries.CAT_VARIANT)
             .getRandom(this.random)
-            .ifPresent(this::setVariant);
+            .ifPresent(variant -> this.setComponent(DataComponents.CAT_VARIANT, variant));
         registerGoals();
     }
 
@@ -148,10 +154,12 @@ public class PetCat extends Cat implements ITradePostPet, IHerdingPet, IManagedA
      * @param compound the CompoundTag to add the data to
      */
     @Override
-    public void addAdditionalSaveData(@Nonnull CompoundTag compound)
+    public void addAdditionalSaveData(@Nonnull ValueOutput output)
     {
-        super.addAdditionalSaveData(compound);
-        
+        super.addAdditionalSaveData(output);
+
+        final CompoundTag compound = new CompoundTag();
+
         if (petData != null)
         {
             petData.toNBT(compound);
@@ -166,6 +174,8 @@ public class PetCat extends Cat implements ITradePostPet, IHerdingPet, IManagedA
         {
             compound.putInt(NbtTagConstants.TAG_MANAGED_ANIMALID, getManagedAnimalId());
         }
+
+        output.store(compound);
     }
 
     /**
@@ -176,27 +186,29 @@ public class PetCat extends Cat implements ITradePostPet, IHerdingPet, IManagedA
      * @param compound the CompoundTag containing the serialized state of the BaseTradePostPet.
      */
     @Override
-    public void readAdditionalSaveData(@Nonnull CompoundTag compound)
-    {   
+    public void readAdditionalSaveData(@Nonnull ValueInput input)
+    {
 
         try
         {
-            super.readAdditionalSaveData(compound);
+            super.readAdditionalSaveData(input);
         }
         catch (Exception e)
         {
-            // LOGGER.warn("Failed to deserialize parent entity data from tag: {}", compound, e);
+            // LOGGER.warn("Failed to deserialize parent entity data from tag: {}", input, e);
         }
+
+        final CompoundTag compound = ValueIOUtils.readAsTag(input);
 
         petData = new PetData<>(this, compound);
 
         if (compound.contains(NbtTagConstants.TAG_COLONY_ID))
         {
-            setColonyId(compound.getInt(NbtTagConstants.TAG_COLONY_ID));
+            setColonyId(compound.getIntOr(NbtTagConstants.TAG_COLONY_ID, 0));
         }
         if (compound.contains(NbtTagConstants.TAG_MANAGED_ANIMALID))
         {
-            setManagedAnimalId(compound.getInt(NbtTagConstants.TAG_MANAGED_ANIMALID));
+            setManagedAnimalId(compound.getIntOr(NbtTagConstants.TAG_MANAGED_ANIMALID, 0));
         }
 
         // Reset and safely re-register goals
@@ -231,16 +243,14 @@ public class PetCat extends Cat implements ITradePostPet, IHerdingPet, IManagedA
      * @return whether the damage was successfully applied
      */
     @Override
-    public boolean hurt(@Nonnull DamageSource damageSource, float damage)
+    public boolean hurtServer(@Nonnull ServerLevel level, @Nonnull DamageSource damageSource, float damage)
     {
-        if (this.level().isClientSide) return false;
-
         if (petData != null)
         {
             damage = petData.adjustDamage(damageSource, damage);
         }
 
-        return super.hurt(damageSource, damage);
+        return super.hurtServer(level, damageSource, damage);
     }
 
     @Override
@@ -263,7 +273,7 @@ public class PetCat extends Cat implements ITradePostPet, IHerdingPet, IManagedA
     public void resetGoals()
     {
         // Never do AI goal surgery on the client.
-        if (level() == null || level().isClientSide)
+        if (level() == null || level().isClientSide())
         {
             return;
         }
@@ -340,13 +350,13 @@ public class PetCat extends Cat implements ITradePostPet, IHerdingPet, IManagedA
                 }
                 PetAnimalManagerUtil.clearHomeBuilding(this);
                 PetRegistryUtil.unregister(this);
-                this.setOwnerUUID(null);
-                
+                this.setOwner(null);
+
                 petData = null;
 
                 if (this.isLeashed())
                 {
-                    this.dropLeash(true, false);
+                    this.removeLeash();
                 }
             }
             case UNLOADED_TO_CHUNK, CHANGED_DIMENSION -> {
@@ -368,7 +378,7 @@ public class PetCat extends Cat implements ITradePostPet, IHerdingPet, IManagedA
     @Override   
     protected PathNavigation createNavigation(@Nonnull Level level) 
     {
-        MinecoloniesAdvancedPathNavigate pathNavigation = new MinecoloniesAdvancedPathNavigate(this, level);
+        AbstractAdvancedPathNavigate pathNavigation = IPathNavigateRegistry.getInstance().getNavigateFor(this);
         pathNavigation.getPathingOptions().setEnterDoors(true);
         pathNavigation.getPathingOptions().setCanOpenDoors(true);
         pathNavigation.getPathingOptions().setEnterGates(true);
@@ -576,7 +586,7 @@ public class PetCat extends Cat implements ITradePostPet, IHerdingPet, IManagedA
     @Override
     public InteractionResult mobInteract(@Nonnull Player player, @Nonnull InteractionHand hand)
     {
-        if (!level().isClientSide && hand == InteractionHand.MAIN_HAND)
+        if (!level().isClientSide() && hand == InteractionHand.MAIN_HAND)
         {
             ItemStackHandlerContainerWrapper inventoryWrapper = new ItemStackHandlerContainerWrapper(this.getInventory());
 
@@ -594,12 +604,6 @@ public class PetCat extends Cat implements ITradePostPet, IHerdingPet, IManagedA
         return super.mobInteract(player, hand);
     }
 
-    /**
-     * Drops the pet's entire inventory on death. This is not a conventional override of
-     * {@link Animal#dropCustomDeathLoot(ServerLevel, DamageSource, boolean)}, as the superclass does not
-     * provide a way to drop the entire inventory. This is a workaround to drop the pet's inventory
-     * when it dies.
-     */
     /**
      * Drops the pet's entire inventory on death. This is not a conventional override of
      * {@link Animal#dropCustomDeathLoot(ServerLevel, DamageSource, boolean)}, as the superclass does not

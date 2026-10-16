@@ -8,6 +8,7 @@ import com.deathfrog.mctradepost.core.colony.buildings.modules.BuildingEconModul
 import com.deathfrog.mctradepost.core.colony.buildings.modules.MCTPBuildingModules;
 import com.deathfrog.mctradepost.core.colony.buildings.modules.MarketplaceItemListModule;
 import com.deathfrog.mctradepost.core.colony.buildings.workerbuildings.BuildingMarketplace;
+import com.deathfrog.mctradepost.core.rarefinds.blacklist.RareFindBlacklistManager;
 import com.deathfrog.mctradepost.core.colony.jobs.JobShopkeeper;
 import com.deathfrog.mctradepost.core.colony.buildings.modules.thriftshop.MarketDailyRoller.MarketOffer;
 import com.deathfrog.mctradepost.core.colony.buildings.modules.thriftshop.MarketDailyRoller.MarketTier;
@@ -18,6 +19,7 @@ import com.minecolonies.api.colony.ICitizenData;
 import com.minecolonies.api.entity.citizen.AbstractEntityCitizen;
 import com.minecolonies.api.util.MessageUtils;
 import com.minecolonies.api.util.StatsUtil;
+import com.minecolonies.api.util.Utils;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -62,7 +64,9 @@ public class MarketplaceSourcingModule extends AbstractBuildingModule implements
     /** Describes one retained item and its current prepaid investment. */
     public record RetainedSearch(@Nonnull ItemStack stack, MarketTier tier, int investmentLevel, long investmentUntil) {}
 
-    /** Describes one recurring item purchase and the last day on which it was attempted. */
+    /** 
+     * Describes one recurring item purchase and the last day on which it was attempted. 
+     */
     public record Subscription(@Nonnull ItemStack stack, MarketTier tier, long lastProcessedDay) {}
 
     /**
@@ -71,7 +75,7 @@ public class MarketplaceSourcingModule extends AbstractBuildingModule implements
      * @param research research effect which gates the requested feature
      * @return zero before level three or research, otherwise one to three slots
      */
-    public int capacity(net.minecraft.resources.ResourceLocation research)
+    public int capacity(net.minecraft.resources.Identifier research)
     {
         boolean unlocked = building.getColony().getResearchManager().getResearchEffects().getEffectStrength(research) > 0;
         return unlocked ? Math.max(0, building.getBuildingLevel() - 2) : 0;
@@ -144,7 +148,8 @@ public class MarketplaceSourcingModule extends AbstractBuildingModule implements
             int cost = investmentCost(search.stack(), level);
             if (player.totalExperience < cost) return false;
             player.giveExperiencePoints(-cost);
-            player.playNotifySound(NullnessBridge.assumeNonnull(SoundEvents.ENCHANTMENT_TABLE_USE), SoundSource.PLAYERS, 0.8F, 1.0F);
+            player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+                NullnessBridge.assumeNonnull(SoundEvents.ENCHANTMENT_TABLE_USE), SoundSource.PLAYERS, 0.8F, 1.0F);
             long baseDay = active ? search.investmentUntil() : currentDay;
             searches.set(i, new RetainedSearch(search.stack(), search.tier(), level,
                 baseDay + MCTPConfig.retainedSearchInvestmentDays.get()));
@@ -333,6 +338,7 @@ public class MarketplaceSourcingModule extends AbstractBuildingModule implements
         java.util.EnumSet<MarketTier> promotedTiers = java.util.EnumSet.noneOf(MarketTier.class);
         for (RetainedSearch search : candidates)
         {
+            if (RareFindBlacklistManager.isBlacklisted(search.stack())) continue;
             if (search.investmentLevel() == 0 || search.investmentUntil() <= day) continue;
             if (promotedTiers.contains(search.tier())) continue;
             if (containsSubscription(search.stack()) || offers.stream().anyMatch(o -> ItemStack.isSameItemSameComponents(o.stack(), search.stack()))) continue;
@@ -521,20 +527,20 @@ public class MarketplaceSourcingModule extends AbstractBuildingModule implements
     public void deserializeNBT(@NotNull HolderLookup.Provider provider, CompoundTag compound)
     {
         searches.clear();
-        for (Tag raw : compound.getList(TAG_SEARCHES, Tag.TAG_COMPOUND))
+        for (Tag raw : compound.getListOrEmpty(TAG_SEARCHES))
         {
             CompoundTag tag = (CompoundTag) raw;
-            ItemStack stack = ItemStack.parseOptional(provider, tag.getCompound(TAG_STACK));
+            ItemStack stack = Utils.parseOptionalItemStack(provider, tag.getCompoundOrEmpty(TAG_STACK));
             MarketTier tier = readTier(tag);
-            if (!stack.isEmpty()) searches.add(new RetainedSearch(stack, tier, tag.getInt(TAG_INVESTMENT_LEVEL), tag.getLong(TAG_INVESTMENT_UNTIL)));
+            if (!stack.isEmpty()) searches.add(new RetainedSearch(stack, tier, tag.getIntOr(TAG_INVESTMENT_LEVEL, 0), tag.getLongOr(TAG_INVESTMENT_UNTIL, 0L)));
         }
         subscriptions.clear();
-        for (Tag raw : compound.getList(TAG_SUBSCRIPTIONS, Tag.TAG_COMPOUND))
+        for (Tag raw : compound.getListOrEmpty(TAG_SUBSCRIPTIONS))
         {
             CompoundTag tag = (CompoundTag) raw;
-            ItemStack stack = ItemStack.parseOptional(provider, tag.getCompound(TAG_STACK));
+            ItemStack stack = Utils.parseOptionalItemStack(provider, tag.getCompoundOrEmpty(TAG_STACK));
             MarketTier tier = readTier(tag);
-            if (!stack.isEmpty()) subscriptions.add(new Subscription(stack, tier, tag.getLong(TAG_LAST_PROCESSED)));
+            if (!stack.isEmpty()) subscriptions.add(new Subscription(stack, tier, tag.getLongOr(TAG_LAST_PROCESSED, 0L)));
         }
     }
 
@@ -547,7 +553,7 @@ public class MarketplaceSourcingModule extends AbstractBuildingModule implements
         buf.writeVarInt((int) building.getColony().getResearchManager().getResearchEffects()
             .getEffectStrength(MCTPResearchConstants.THRIFTSHOP_TIER));
         buf.writeVarInt(shopkeeperPrimarySkill());
-        buf.writeLong(building.getColony().getWorld().getDayTime() / MarketDailyRoller.TICKS_PER_DAY);
+        buf.writeLong(building.getColony().getWorld().getOverworldClockTime() / MarketDailyRoller.TICKS_PER_DAY);
         buf.writeVarInt(searches.size());
         for (RetainedSearch search : searches)
         {
@@ -570,7 +576,7 @@ public class MarketplaceSourcingModule extends AbstractBuildingModule implements
     private CompoundTag stackTierTag(HolderLookup.Provider provider, ItemStack stack, MarketTier tier)
     {
         CompoundTag tag = new CompoundTag();
-        tag.put(TAG_STACK, NullnessBridge.assumeNonnull(stack.save(provider)));
+        tag.put(TAG_STACK, NullnessBridge.assumeNonnull(Utils.saveOptionalItemStack(provider, stack)));
         tag.putString(TAG_TIER, tier.name());
         return tag;
     }
@@ -578,7 +584,7 @@ public class MarketplaceSourcingModule extends AbstractBuildingModule implements
     /** Reads a persisted tier defensively, defaulting to the common tier for legacy data. */
     private MarketTier readTier(CompoundTag tag)
     {
-        try { return MarketTier.valueOf(tag.getString(TAG_TIER)); }
+        try { return MarketTier.valueOf(tag.getStringOr(TAG_TIER, "")); }
         catch (IllegalArgumentException ignored) { return MarketTier.TIER1_COMMON; }
     }
 }

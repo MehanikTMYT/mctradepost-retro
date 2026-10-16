@@ -40,7 +40,7 @@ public class CommandPetshopWorkLocations extends AbstractCommands
             return 0;
         }
 
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.level();
         BlockPos playerPos = player.blockPosition();
         IColony colony = IColonyManager.getInstance().getColonyByPosFromWorld(level, playerPos);
 

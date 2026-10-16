@@ -8,36 +8,46 @@ import com.minecolonies.api.blocks.ModBlocks;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.animal.Animal;
-import net.minecraft.world.entity.animal.Bee;
-import net.minecraft.world.entity.animal.Chicken;
-import net.minecraft.world.entity.animal.Cow;
-import net.minecraft.world.entity.animal.Pig;
-import net.minecraft.world.entity.animal.Rabbit;
-import net.minecraft.world.entity.animal.Sheep;
+import net.minecraft.world.entity.animal.bee.Bee;
+import net.minecraft.world.entity.animal.chicken.Chicken;
+import net.minecraft.world.entity.animal.cow.Cow;
+import net.minecraft.world.entity.animal.pig.Pig;
+import net.minecraft.world.entity.animal.rabbit.Rabbit;
+import net.minecraft.world.entity.animal.sheep.Sheep;
 import net.minecraft.world.entity.animal.armadillo.Armadillo;
 import net.minecraft.world.entity.animal.frog.Frog;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
+import java.util.function.Supplier;
+
 public enum PetTypes
 {
-    WOLF(new ItemStack(NullnessBridge.assumeNonnull(Items.BONE), 16), 3, PetWolf.class, NullnessBridge.assumeNonnull(MCTradePostMod.PET_WOLF.get()), "Wolf", true, 0),
-    FOX(new ItemStack(NullnessBridge.assumeNonnull(Items.SWEET_BERRIES), 16), 3, PetFox.class, NullnessBridge.assumeNonnull(MCTradePostMod.PET_FOX.get()), "Fox", true, 0),
-    CAT(new ItemStack(NullnessBridge.assumeNonnull(Items.COD), 16), 3, PetCat.class, NullnessBridge.assumeNonnull(MCTradePostMod.PET_CAT.get()), "Cat", true, 0),
-    PARROT(new ItemStack(NullnessBridge.assumeNonnull(ModBlocks.blockCorn.asItem()), 16), 3, PetParrot.class, NullnessBridge.assumeNonnull(MCTradePostMod.PET_PARROT.get()), "Parrot", true, 0),
-    AXOLOTL(new ItemStack(NullnessBridge.assumeNonnull(Items.KELP), 16), 3, PetAxolotl.class, NullnessBridge.assumeNonnull(MCTradePostMod.PET_AXOLOTL.get()), "Axolotl", true, 1),
-    PANDA(new ItemStack(NullnessBridge.assumeNonnull(Items.BAMBOO), 16), 3, PetPanda.class, NullnessBridge.assumeNonnull(MCTradePostMod.PET_PANDA.get()), "Panda", true, 1),
-    COW(new ItemStack(NullnessBridge.assumeNonnull(ModBlocks.blockDurum.asItem()), 16), 2, Cow.class, NullnessBridge.assumeNonnull(EntityType.COW), "Cow", false, 0),
-    PIG(new ItemStack(NullnessBridge.assumeNonnull(Items.BEETROOT), 16), 2, Pig.class, NullnessBridge.assumeNonnull(EntityType.PIG), "Pig", false, 0),
-    CHICKEN(new ItemStack(NullnessBridge.assumeNonnull(Items.WHEAT_SEEDS), 16), 2, Chicken.class, NullnessBridge.assumeNonnull(EntityType.CHICKEN), "Chicken", false, 0),
-    SHEEP(new ItemStack(NullnessBridge.assumeNonnull(Items.WHEAT), 16), 2, Sheep.class, NullnessBridge.assumeNonnull(EntityType.SHEEP), "Sheep", false, 0),
-    BEE(new ItemStack(NullnessBridge.assumeNonnull(Items.DANDELION), 16), 3, Bee.class, NullnessBridge.assumeNonnull(EntityType.BEE), "Bee", false, 1),
-    RABBIT(new ItemStack(NullnessBridge.assumeNonnull(Items.CARROT), 16), 3, Rabbit.class, NullnessBridge.assumeNonnull(EntityType.RABBIT), "Rabbit", false, 1),
-    ARMADILLO(new ItemStack(NullnessBridge.assumeNonnull(Items.SPIDER_EYE), 16), 4, Armadillo.class, NullnessBridge.assumeNonnull(EntityType.ARMADILLO), "Armadillo", false, 2),
-    FROG(new ItemStack(NullnessBridge.assumeNonnull(Items.SLIME_BALL), 16), 4, Frog.class, NullnessBridge.assumeNonnull(EntityType.FROG), "Frog", false, 2);
+    // trainingItem is a Supplier, not a plain ItemStack: as of 26.1.2, ItemStack's constructor eagerly
+    // caches the item's component map via Holder.components(), which throws "Components not bound yet"
+    // if constructed before the registry freeze/component-binding phase completes. PetTypes.<clinit>
+    // runs the first time any constant is referenced -- which happens mid-registration here, since
+    // MCTradePostMod's own item registration (WISH_GATHERING_COW etc.) references PetTypes.COW while
+    // still inside the ITEMS RegisterEvent. Deferring construction to first actual use (well after
+    // load) avoids the ordering problem entirely.
+    WOLF(() -> new ItemStack(NullnessBridge.assumeNonnull(Items.BONE), 16), 3, PetWolf.class, NullnessBridge.assumeNonnull(MCTradePostMod.PET_WOLF.get()), "Wolf", true, 0),
+    FOX(() -> new ItemStack(NullnessBridge.assumeNonnull(Items.SWEET_BERRIES), 16), 3, PetFox.class, NullnessBridge.assumeNonnull(MCTradePostMod.PET_FOX.get()), "Fox", true, 0),
+    CAT(() -> new ItemStack(NullnessBridge.assumeNonnull(Items.COD), 16), 3, PetCat.class, NullnessBridge.assumeNonnull(MCTradePostMod.PET_CAT.get()), "Cat", true, 0),
+    PARROT(() -> new ItemStack(NullnessBridge.assumeNonnull(ModBlocks.blockCorn.asItem()), 16), 3, PetParrot.class, NullnessBridge.assumeNonnull(MCTradePostMod.PET_PARROT.get()), "Parrot", true, 0),
+    AXOLOTL(() -> new ItemStack(NullnessBridge.assumeNonnull(Items.KELP), 16), 3, PetAxolotl.class, NullnessBridge.assumeNonnull(MCTradePostMod.PET_AXOLOTL.get()), "Axolotl", true, 1),
+    PANDA(() -> new ItemStack(NullnessBridge.assumeNonnull(Items.BAMBOO), 16), 3, PetPanda.class, NullnessBridge.assumeNonnull(MCTradePostMod.PET_PANDA.get()), "Panda", true, 1),
+    DRAGON(() -> new ItemStack(NullnessBridge.assumeNonnull(Items.CHORUS_FRUIT), 16), 5, PetDragon.class, NullnessBridge.assumeNonnull(MCTradePostMod.PET_DRAGON.get()), "Dragon", true, 3),
+    COW(() -> new ItemStack(NullnessBridge.assumeNonnull(ModBlocks.blockDurum.asItem()), 16), 2, Cow.class, NullnessBridge.assumeNonnull(EntityType.COW), "Cow", false, 0),
+    PIG(() -> new ItemStack(NullnessBridge.assumeNonnull(Items.BEETROOT), 16), 2, Pig.class, NullnessBridge.assumeNonnull(EntityType.PIG), "Pig", false, 0),
+    CHICKEN(() -> new ItemStack(NullnessBridge.assumeNonnull(Items.WHEAT_SEEDS), 16), 2, Chicken.class, NullnessBridge.assumeNonnull(EntityType.CHICKEN), "Chicken", false, 0),
+    SHEEP(() -> new ItemStack(NullnessBridge.assumeNonnull(Items.WHEAT), 16), 2, Sheep.class, NullnessBridge.assumeNonnull(EntityType.SHEEP), "Sheep", false, 0),
+    BEE(() -> new ItemStack(NullnessBridge.assumeNonnull(Items.DANDELION), 16), 3, Bee.class, NullnessBridge.assumeNonnull(EntityType.BEE), "Bee", false, 1),
+    RABBIT(() -> new ItemStack(NullnessBridge.assumeNonnull(Items.CARROT), 16), 3, Rabbit.class, NullnessBridge.assumeNonnull(EntityType.RABBIT), "Rabbit", false, 1),
+    ARMADILLO(() -> new ItemStack(NullnessBridge.assumeNonnull(Items.SPIDER_EYE), 16), 4, Armadillo.class, NullnessBridge.assumeNonnull(EntityType.ARMADILLO), "Armadillo", false, 2),
+    FROG(() -> new ItemStack(NullnessBridge.assumeNonnull(Items.SLIME_BALL), 16), 4, Frog.class, NullnessBridge.assumeNonnull(EntityType.FROG), "Frog", false, 2);
 
-    private final @Nonnull ItemStack trainingItem;
+    private final @Nonnull Supplier<ItemStack> trainingItem;
     private final @Nonnull Class<? extends Animal> petClass;
     private final @Nonnull EntityType<? extends Animal> entityType;
     private final @Nonnull String typeName;
@@ -45,7 +55,7 @@ public enum PetTypes
     private final boolean isPet;
     private final int exoticLevel;
 
-    PetTypes(@Nonnull ItemStack trainingItem,
+    PetTypes(@Nonnull Supplier<ItemStack> trainingItem,
         int coinCost,
         @Nonnull Class<? extends Animal> petClass,
         @Nonnull EntityType<? extends Animal> entityType,
@@ -69,7 +79,7 @@ public enum PetTypes
      */
     public ItemStack getTrainingItem()
     {
-        return trainingItem;
+        return trainingItem.get();
     }
 
     /**
@@ -206,6 +216,7 @@ public enum PetTypes
             case PetTypes.PARROT -> new PetData<PetParrot>(null, compound);
             case PetTypes.CAT -> new PetData<PetCat>(null, compound);
             case PetTypes.PANDA -> new PetData<PetPanda>(null, compound);
+            case PetTypes.DRAGON -> new PetData<PetDragon>(null, compound);
             default -> throw new IllegalArgumentException("Unknown pet type: " + type.getTypeName());
         };
 

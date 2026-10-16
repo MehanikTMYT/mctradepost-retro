@@ -4,7 +4,7 @@ import com.deathfrog.mctradepost.MCTradePostMod;
 import com.deathfrog.mctradepost.MCTPConfig;
 import com.deathfrog.mctradepost.api.colony.buildings.moduleviews.MarketplaceSourcingModuleView;
 import com.deathfrog.mctradepost.api.util.ItemValueManager;
-import com.deathfrog.mctradepost.core.ModTags;
+import com.deathfrog.mctradepost.core.rarefinds.blacklist.RareFindBlacklistManager;
 import com.deathfrog.mctradepost.core.colony.buildings.modules.MarketplaceSourcingMessage;
 import com.deathfrog.mctradepost.core.colony.buildings.modules.MarketplaceSourcingMessage.Action;
 import com.deathfrog.mctradepost.core.colony.buildings.modules.thriftshop.MarketplaceSourcingModule.RetainedSearch;
@@ -23,7 +23,7 @@ import com.minecolonies.core.client.gui.AbstractModuleWindow;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.ChatFormatting;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 
 import javax.annotation.Nonnull;
@@ -51,7 +51,7 @@ public class WindowMarketplaceSourcingModule extends AbstractModuleWindow<Market
      */
     public WindowMarketplaceSourcingModule(IBuildingView buildingView, MarketplaceSourcingModuleView moduleView)
     {
-        super(moduleView, ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "gui/layouthuts/layoutretainedsearch.xml"));
+        super(moduleView, Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "gui/layouthuts/layoutretainedsearch.xml"));
         this.buildingView = buildingView;
         this.searchList = window.findPaneOfTypeByID("searchlist", ScrollingList.class);
         registerButton("addSearch", this::addSearch);
@@ -234,7 +234,7 @@ public class WindowMarketplaceSourcingModule extends AbstractModuleWindow<Market
     /** Returns whether an item belongs in the retained-search picker, including locked tiers. */
     private boolean isRetainedSearchCandidate(ItemStack stack)
     {
-        return !stack.is(ModTags.ITEMS.RARE_FINDS_BLACKLIST_TAG)
+        return !RareFindBlacklistManager.isBlacklisted(stack)
             && ItemValueManager.get(stack.getItem()) > 0
             && MarketTierSources.retainedSearchTierLevel(stack) >= 0;
     }

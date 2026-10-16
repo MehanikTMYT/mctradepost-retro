@@ -35,7 +35,7 @@ public class BlockOutpostMarker extends Block
     @SuppressWarnings("null")
     public static boolean placeOutpostMarker(@Nonnull ServerLevel level, @Nonnull BlockPos pos, @Nullable ServerPlayer placer)
     {
-        if (level.isClientSide) return false;
+        if (level.isClientSide()) return false;
 
         BlockPos target = pos.above();
 

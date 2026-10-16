@@ -27,8 +27,8 @@ public class MCTPTileEntityColonyBuilding extends TileEntityColonyBuilding {
     }
 
     @Override
-    public void loadAdditional(@NotNull final CompoundTag compound, @NotNull final HolderLookup.Provider provider)
+    protected void loadAdditionalTag(@NotNull final CompoundTag compound, @NotNull final HolderLookup.Provider provider)
     {
-        super.loadAdditional(compound, provider);
+        super.loadAdditionalTag(compound, provider);
     }
 }

@@ -101,13 +101,13 @@ public class ThriftShopOffersModule extends AbstractBuildingModule implements IP
             return;
         }
 
-        lastRollDay = compound.getLong(TAG_LAST_ROLL);
-        rerollCost = compound.getInt(TAG_REROLL_COST);
-        rerollCooldown = compound.getInt(TAG_REROLL_COOLDOWN);
-        rerollIndex = compound.getInt(TAG_REROLL_INDEX);
-        
+        lastRollDay = compound.getLongOr(TAG_LAST_ROLL, 0L);
+        rerollCost = compound.getIntOr(TAG_REROLL_COST, 0);
+        rerollCooldown = compound.getIntOr(TAG_REROLL_COOLDOWN, 0);
+        rerollIndex = compound.getIntOr(TAG_REROLL_INDEX, 0);
+
         // offers
-        if (!compound.contains(TAG_OFFERS, Tag.TAG_LIST))
+        if (compound.getList(TAG_OFFERS).isEmpty())
         {
             // Nothing persisted
             offers.clear();
@@ -115,18 +115,18 @@ public class ThriftShopOffersModule extends AbstractBuildingModule implements IP
             return;
         }
 
-        final ListTag list = compound.getList(TAG_OFFERS, Tag.TAG_COMPOUND);
+        final ListTag list = compound.getListOrEmpty(TAG_OFFERS);
 
         final List<MarketOffer> loaded = new ArrayList<>(list.size());
         for (int i = 0; i < list.size(); i++)
         {
-            final CompoundTag offerTag = list.getCompound(i);
+            final CompoundTag offerTag = list.getCompoundOrEmpty(i);
 
             // tier
             MarketTier tier = MarketTier.TIER1_COMMON;
-            if (offerTag.contains(TAG_OFFER_TIER, Tag.TAG_STRING))
+            if (offerTag.getString(TAG_OFFER_TIER).isPresent())
             {
-                String name = offerTag.getString(TAG_OFFER_TIER);
+                String name = offerTag.getStringOr(TAG_OFFER_TIER, "");
                 try
                 {
                     tier = MarketTier.valueOf(name);
@@ -136,9 +136,9 @@ public class ThriftShopOffersModule extends AbstractBuildingModule implements IP
                     // Unknown tier string from older version; keep default
                 }
             }
-            else if (offerTag.contains(TAG_OFFER_TIER, Tag.TAG_INT))
+            else if (offerTag.getInt(TAG_OFFER_TIER).isPresent())
             {
-                int ord = offerTag.getInt(TAG_OFFER_TIER);
+                int ord = offerTag.getIntOr(TAG_OFFER_TIER, 0);
                 MarketTier[] values = MarketTier.values();
                 if (ord >= 0 && ord < values.length)
                 {
@@ -148,20 +148,20 @@ public class ThriftShopOffersModule extends AbstractBuildingModule implements IP
 
             // stack
             ItemStack stack = ItemStack.EMPTY;
-            if (offerTag.contains(TAG_OFFER_STACK, Tag.TAG_COMPOUND))
+            if (offerTag.getCompound(TAG_OFFER_STACK).isPresent())
             {
                 // 1.21+ safe read using provider
-                stack = ItemStack.parseOptional(provider, NullnessBridge.assumeNonnull(offerTag.getCompound(TAG_OFFER_STACK)));
+                stack = Utils.parseOptionalItemStack(provider, NullnessBridge.assumeNonnull(offerTag.getCompoundOrEmpty(TAG_OFFER_STACK)));
             }
 
             // price
-            int price = offerTag.getInt(TAG_OFFER_PRICE);
+            int price = offerTag.getIntOr(TAG_OFFER_PRICE, 0);
 
             // LOGGER.info("Colony {} - Offer read: {} at {}", building.getColony().getID(), stack.getHoverName(), price);
 
             if (!stack.isEmpty() && price > 0)
             {
-                loaded.add(new MarketOffer(stack, tier, price, offerTag.getBoolean(TAG_RETAINED_SEARCH_RESULT)));
+                loaded.add(new MarketOffer(stack, tier, price, offerTag.getBooleanOr(TAG_RETAINED_SEARCH_RESULT, false)));
             }
         }
 
@@ -218,7 +218,7 @@ public class ThriftShopOffersModule extends AbstractBuildingModule implements IP
             offerTag.putString(TAG_OFFER_TIER, NullnessBridge.assumeNonnull(offer.tier().name()));
 
             // Store item stack using provider-aware save (1.21 safe)
-            offerTag.put(TAG_OFFER_STACK, NullnessBridge.assumeNonnull(stack.save(provider)));
+            offerTag.put(TAG_OFFER_STACK, NullnessBridge.assumeNonnull(Utils.saveOptionalItemStack(provider, stack)));
 
             offerTag.putInt(TAG_OFFER_PRICE, price);
             offerTag.putBoolean(TAG_RETAINED_SEARCH_RESULT, offer.retainedSearchResult());
@@ -387,7 +387,7 @@ public class ThriftShopOffersModule extends AbstractBuildingModule implements IP
     {
         Level level = building.getColony().getWorld();
 
-        if (level == null || level.isClientSide)
+        if (level == null || level.isClientSide())
         {
             TraceUtils.dynamicTrace(TRACE_RAREFINDS, () -> LOGGER.info("Colony {}: Rare Finds - Skipping rolls for client side: {}", building.getColony().getID()));
             return;
@@ -407,7 +407,7 @@ public class ThriftShopOffersModule extends AbstractBuildingModule implements IP
         }
 
         // Current Minecraft "day number"
-        final long currentDay = level.getDayTime() / MarketDailyRoller.TICKS_PER_DAY;
+        final long currentDay = level.getOverworldClockTime() / MarketDailyRoller.TICKS_PER_DAY;
 
         // lastRoll stores the day number
         if (lastRollDay == currentDay && !reroll)
@@ -596,7 +596,7 @@ public class ThriftShopOffersModule extends AbstractBuildingModule implements IP
             MessageUtils.format("mctradepost.subscription.inventory_full").sendTo(player);
             return;
         }
-        long currentDay = building.getColony().getWorld().getDayTime() / MarketDailyRoller.TICKS_PER_DAY;
+        long currentDay = building.getColony().getWorld().getOverworldClockTime() / MarketDailyRoller.TICKS_PER_DAY;
         if (!sourcing.activateSubscription(offer, currentDay)) return;
         econ.deposit(-subscriptionPrice);
         ItemStack remainder = ItemHandlerHelper.insertItemStacked(building.getItemHandlerCap(), offer.stack().copy(), false);

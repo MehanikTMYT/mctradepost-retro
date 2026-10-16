@@ -2,21 +2,11 @@
   "type": "minecraft:crafting_shapeless",
   "category": "misc",
   "ingredients": [
-    {
-      "item": "minecolonies:chickpea"
-    },
-    {
-      "item": "minecolonies:chickpea"
-    },
-    {
-      "item": "minecolonies:mint"
-    },
-    {
-      "item": "minecolonies:butter"
-    },
-    {
-      "item": "mctradepost:smetana"
-    }
+    "minecolonies:chickpea",
+    "minecolonies:chickpea",
+    "minecolonies:mint",
+    "minecolonies:butter",
+    "mctradepost:smetana"
   ],
   "result": {
     "count": 2,

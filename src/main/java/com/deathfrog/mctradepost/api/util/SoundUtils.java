@@ -38,7 +38,7 @@ public class SoundUtils
         final double volume,
         final double pitch)
     {
-        if (worldIn.isClientSide)
+        if (worldIn.isClientSide())
         {
             return;
         }

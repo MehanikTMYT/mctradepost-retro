@@ -1,17 +1,16 @@
 {
-    "type": "minecraft:crafting_shaped",
-    "category": "building",
-    "key": {
-      "S": { "item": "mctradepost:diagonal_brick" }
-    },
-    "pattern": [
-      "   ",
-      "SSS",
-      "SSS"
-    ],
-    "result": {
-      "count": 6,
-      "id": "mctradepost:diagonal_brick_wall"
-    }
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "key": {
+    "S": "mctradepost:diagonal_brick"
+  },
+  "pattern": [
+    "   ",
+    "SSS",
+    "SSS"
+  ],
+  "result": {
+    "count": 6,
+    "id": "mctradepost:diagonal_brick_wall"
+  }
 }
-  

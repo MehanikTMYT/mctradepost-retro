@@ -1,5 +1,7 @@
 package com.deathfrog.mctradepost.core.entity.ai.workers.minimal;
 
+import com.deathfrog.mctradepost.core.colony.buildings.modules.CitizenIncentiveModule;
+
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import org.slf4j.Logger;
@@ -10,7 +12,7 @@ import com.deathfrog.mctradepost.api.research.MCTPResearchConstants;
 import com.deathfrog.mctradepost.api.util.NullnessBridge;
 import com.deathfrog.mctradepost.api.util.SoundUtils;
 import com.deathfrog.mctradepost.api.util.TraceUtils;
-import com.deathfrog.mctradepost.core.client.gui.modules.WindowEconModule;
+import com.deathfrog.mctradepost.api.util.EconomicConstants;
 import com.deathfrog.mctradepost.core.colony.buildings.workerbuildings.BuildingOutpost;
 import com.deathfrog.mctradepost.core.colony.buildings.workerbuildings.BuildingResort;
 import com.deathfrog.mctradepost.core.entity.ai.workers.minimal.Vacationer.VacationState;
@@ -45,7 +47,7 @@ import com.mojang.logging.LogUtils;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
@@ -66,7 +68,7 @@ public class EntityAIBurnoutTask
      * Worker status icon
      */
     public final static VisibleCitizenStatus VACATION_STATUS =
-        new VisibleCitizenStatus(ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "textures/icons/vacation/default.png"),
+        new VisibleCitizenStatus(Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "textures/icons/vacation/default.png"),
             "com.mctradepost.gui.visiblestatus.needvacation");
 
     /* What do we consider maximum advertizing saturation? 
@@ -278,7 +280,7 @@ public class EntityAIBurnoutTask
             return 0;
         }
 
-        double statmultiplier = VACATION_SUSCEPTIBILITY_THRESHOLD / citizenData.getCitizenSkillHandler().getLevel(skillToHeal);
+        double statmultiplier = VACATION_SUSCEPTIBILITY_THRESHOLD / CitizenIncentiveModule.getNormalLevel(citizenData, skillToHeal);
 
         int adPower = (int) Math.max(resort.getBuildingLevel() * statmultiplier, 1);
 
@@ -330,7 +332,7 @@ public class EntityAIBurnoutTask
                 return cannotVacation();
             }
 
-            int currentSkillLevel = citizenData.getCitizenSkillHandler().getLevel(skillToHeal);
+            int currentSkillLevel = CitizenIncentiveModule.getNormalLevel(citizenData, skillToHeal);
 
             vacationTracker = new Vacationer(citizen.getCivilianID(), skillToHeal);
             vacationTracker.setTargetLevel(currentSkillLevel + VACATION_HEALING);
@@ -459,7 +461,7 @@ public class EntityAIBurnoutTask
         }
         else
         {
-            currentSkillLevel = citizenData.getCitizenSkillHandler().getLevel(skillToHeal);
+            currentSkillLevel = CitizenIncentiveModule.getNormalLevel(citizenData, skillToHeal);
             if (currentSkillLevel >= VACATION_IMMUNITY_THRESHOLD)
             {
                 TraceUtils.dynamicTrace(TRACE_BURNOUT,
@@ -790,7 +792,7 @@ public class EntityAIBurnoutTask
         try
         {
             citizenData.getCitizenSkillHandler().addXpToSkill(skillToHeal, calcHealSpeed(bestResortLocation), citizenData);
-            currentLevel = citizenData.getCitizenSkillHandler().getLevel(skillToHeal);
+            currentLevel = CitizenIncentiveModule.getNormalLevel(citizenData, skillToHeal);
         }
         catch (Exception e)
         {
@@ -878,7 +880,7 @@ public class EntityAIBurnoutTask
             int incomeGenerated = MCTPConfig.vacationIncome.get() * MCTPConfig.tradeCoinValue.get();
             citizenData.getColony()
                 .getStatisticsManager()
-                .incrementBy(WindowEconModule.CURRENT_BALANCE, incomeGenerated, citizenData.getColony().getDay());
+                .incrementBy(EconomicConstants.CURRENT_BALANCE, incomeGenerated, citizenData.getColony().getDay());
 
             vacationTracker.reset();
         }

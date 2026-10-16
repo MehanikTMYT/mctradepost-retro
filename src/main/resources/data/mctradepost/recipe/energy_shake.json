@@ -1,22 +1,12 @@
 {
-  "type": "minecraft:crafting_shapeless",
+  "type": "mctradepost:durable_tool_shapeless",
   "category": "misc",
   "ingredients": [
-    {
-      "item": "minecraft:egg"
-    },
-    {
-      "item": "minecraft:beetroot"
-    },
-    {
-      "item": "minecraft:beetroot"
-    },
-    {
-      "item": "minecraft:glow_berries"
-    },
-    {
-      "item": "mctradepost:immersion_blender"
-    }
+    "minecraft:egg",
+    "minecraft:beetroot",
+    "minecraft:beetroot",
+    "minecraft:glow_berries",
+    "mctradepost:immersion_blender"
   ],
   "result": {
     "count": 8,

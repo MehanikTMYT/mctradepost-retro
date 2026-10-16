@@ -1,18 +1,10 @@
 {
   "type": "minecraft:crafting_shapeless",
   "ingredients": [
-    {
-      "item": "minecraft:clay_ball"
-    },
-    {
-      "item": "minecraft:sand"
-    },
-    {
-      "item": "minecraft:white_dye"
-    },
-    {
-      "item": "minecraft:water_bucket"
-    }
+    "minecraft:clay_ball",
+    "minecraft:sand",
+    "minecraft:white_dye",
+    "minecraft:water_bucket"
   ],
   "result": {
     "id": "mctradepost:plaster",

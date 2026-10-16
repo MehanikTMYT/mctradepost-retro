@@ -2,21 +2,11 @@
   "type": "minecraft:crafting_shapeless",
   "category": "misc",
   "ingredients": [
-    {
-      "item": "minecolonies:large_water_bottle"
-    },
-    {
-      "item": "minecraft:wheat"
-    },
-    {
-      "item": "minecraft:wheat"
-    },
-    {
-      "item": "minecraft:sugar"
-    },
-    {
-      "tag": "mctradepost:fermentables"
-    }
+    "minecolonies:large_water_bottle",
+    "minecraft:wheat",
+    "minecraft:wheat",
+    "minecraft:sugar",
+    "#mctradepost:fermentables"
   ],
   "result": {
     "count": 8,

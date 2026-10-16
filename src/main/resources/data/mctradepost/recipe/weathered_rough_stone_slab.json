@@ -5,9 +5,7 @@
     "###"
   ],
   "key": {
-    "#": {
-      "item": "mctradepost:weathered_rough_stone"
-    }
+    "#": "mctradepost:weathered_rough_stone"
   },
   "result": {
     "id": "mctradepost:weathered_rough_stone_slab",

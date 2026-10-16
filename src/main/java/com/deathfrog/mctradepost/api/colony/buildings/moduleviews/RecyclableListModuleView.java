@@ -11,7 +11,7 @@ import com.minecolonies.core.colony.buildings.moduleviews.ItemListModuleView;
 import com.minecolonies.api.util.Utils;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 public class RecyclableListModuleView extends ItemListModuleView
 {
@@ -29,9 +29,9 @@ public class RecyclableListModuleView extends ItemListModuleView
      * @return The icon to display.
      */
     @Override
-    public ResourceLocation getIconResourceLocation()
+    public Identifier getIconResourceLocation()
     {
-        return ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "textures/gui/modules/recycling.png");
+        return Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "textures/gui/modules/recycling.png");
     }
 
     /**

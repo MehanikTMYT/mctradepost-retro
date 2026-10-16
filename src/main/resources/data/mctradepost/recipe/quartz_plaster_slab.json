@@ -5,9 +5,7 @@
     "###"
   ],
   "key": {
-    "#": {
-      "item": "mctradepost:quartz_plaster"
-    }
+    "#": "mctradepost:quartz_plaster"
   },
   "result": {
     "id": "mctradepost:quartz_plaster_slab",

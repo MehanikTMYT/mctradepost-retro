@@ -1,17 +1,16 @@
 {
-    "type": "minecraft:crafting_shaped",
-    "category": "building",
-    "key": {
-      "S": { "item": "mctradepost:marine_basalt" }
-    },
-    "pattern": [
-      "   ",
-      "SSS",
-      "SSS"
-    ],
-    "result": {
-      "count": 6,
-      "id": "mctradepost:marine_basalt_wall"
-    }
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "key": {
+    "S": "mctradepost:marine_basalt"
+  },
+  "pattern": [
+    "   ",
+    "SSS",
+    "SSS"
+  ],
+  "result": {
+    "count": 6,
+    "id": "mctradepost:marine_basalt_wall"
+  }
 }
-  

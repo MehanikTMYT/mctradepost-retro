@@ -1,17 +1,16 @@
 {
-    "type": "minecraft:crafting_shaped",
-    "category": "building",
-    "key": {
-      "S": { "item": "mctradepost:marine_basalt" }
-    },
-    "pattern": [
-      "  S",
-      " SS",
-      "SSS"
-    ],
-    "result": {
-      "count": 4,
-      "id": "mctradepost:marine_basalt_stairs"
-    }
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "key": {
+    "S": "mctradepost:marine_basalt"
+  },
+  "pattern": [
+    "  S",
+    " SS",
+    "SSS"
+  ],
+  "result": {
+    "count": 4,
+    "id": "mctradepost:marine_basalt_stairs"
+  }
 }
-  

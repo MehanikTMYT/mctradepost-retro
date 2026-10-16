@@ -1,6 +1,7 @@
 package com.deathfrog.mctradepost.core.blocks;
 
 import java.util.List;
+import java.util.function.Consumer;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -15,22 +16,20 @@ import com.deathfrog.mctradepost.core.blocks.blockentity.PetWorkingBlockEntity;
 import com.mojang.logging.LogUtils;
 
 import net.minecraft.ChatFormatting;
-import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.MenuProvider;
-import net.minecraft.world.SimpleContainer;
-import net.minecraft.world.Containers;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -41,7 +40,7 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraft.world.level.block.state.properties.DirectionProperty;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.entity.player.Player;
 
@@ -49,7 +48,7 @@ public class AbstractBlockPetWorkingLocation extends Block implements EntityBloc
 {
     public static final Logger LOGGER = LogUtils.getLogger();
 
-    public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
+    public static final EnumProperty<Direction> FACING = BlockStateProperties.HORIZONTAL_FACING;
     public static final String TOOLTIP_BASE = "item.mctradepost.petworkinglocation.";
     public static final String TOOLTIP_EXPANDED_BASE = "item.mctradepost.petworkinglocation.expanded.";
 
@@ -106,7 +105,7 @@ public class AbstractBlockPetWorkingLocation extends Block implements EntityBloc
     }
 
     @Override
-    public boolean propagatesSkylightDown(@Nonnull BlockState state, @Nonnull BlockGetter level, @Nonnull BlockPos pos) {
+    public boolean propagatesSkylightDown(@Nonnull BlockState state) {
         return true;
     }
 
@@ -121,34 +120,23 @@ public class AbstractBlockPetWorkingLocation extends Block implements EntityBloc
     }
 
     /**
-     * Drops both the normal work inventory and the separately protected focus
-     * item when a pet working block is replaced.
+     * Updates comparator-facing neighbours when a pet working block is actually removed.
+     * <p>
+     * {@code Block.onRemove} no longer exists: the engine now calls this hook only when the block genuinely changed
+     * (mirrors the old {@code !state.is(newStateBlock)} guard), and separately calls
+     * {@link PetWorkingBlockEntity#preRemoveSideEffects} to drop the main inventory and the focus item.
+     * </p>
      *
      * @param state state being removed
      * @param level level containing the block
      * @param pos position of the block
-     * @param newState replacement state
-     * @param movedByPiston whether the replacement was caused by piston movement
+     * @param movedByPiston whether the removal was caused by piston movement
      */
     @Override
-    protected void onRemove(@Nonnull BlockState state, @Nonnull Level level, @Nonnull BlockPos pos,
-        @Nonnull BlockState newState, boolean movedByPiston)
+    protected void affectNeighborsAfterRemoval(@Nonnull BlockState state, @Nonnull ServerLevel level, @Nonnull BlockPos pos, boolean movedByPiston)
     {
-        Block newStateBlock = newState.getBlock();
-
-        if (newStateBlock != null && !state.is(newStateBlock) && level.getBlockEntity(pos) instanceof PetWorkingBlockEntity working)
-        {
-            SimpleContainer focusContainer = working.getFocusContainer();
-
-            Containers.dropContents(level, pos, working);
-            if (focusContainer != null)
-            {
-                Containers.dropContents(level, pos, focusContainer);
-            }
-
-            level.updateNeighbourForOutputSignal(pos, this);
-        }
-        super.onRemove(state, level, pos, newState, movedByPiston);
+        level.updateNeighbourForOutputSignal(pos, this);
+        super.affectNeighborsAfterRemoval(state, level, pos, movedByPiston);
     }
 
     /**
@@ -165,7 +153,7 @@ public class AbstractBlockPetWorkingLocation extends Block implements EntityBloc
                             @Nullable LivingEntity placer, @Nonnull ItemStack stack)
     {
         super.setPlacedBy(level, pos, state, placer, stack);
-        if (level.isClientSide) return;
+        if (level.isClientSide()) return;
 
         // LOGGER.info("In setPlacedBy checking for custom name at {}", pos.toShortString());
 
@@ -195,7 +183,7 @@ public class AbstractBlockPetWorkingLocation extends Block implements EntityBloc
      * @return the result of the interaction
      */
     @Override
-    public ItemInteractionResult useItemOn(
+    public InteractionResult useItemOn(
         @Nonnull ItemStack stack,
         @Nonnull BlockState state,
         @Nonnull Level level,
@@ -204,7 +192,11 @@ public class AbstractBlockPetWorkingLocation extends Block implements EntityBloc
         @Nonnull InteractionHand hand,
         @Nonnull BlockHitResult hit)
     {
-        return handleInteraction(level, pos, player);
+        final InteractionResult result = handleInteraction(level, pos, player);
+        // "No special handling" from useItemOn should let vanilla retry with an empty hand (was
+        // ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION); useWithoutItem below wants the
+        // same "nothing happened" case to just resolve to a plain PASS instead.
+        return result == InteractionResult.PASS ? InteractionResult.TRY_WITH_EMPTY_HAND : result;
     }
 
     /**
@@ -224,37 +216,29 @@ public class AbstractBlockPetWorkingLocation extends Block implements EntityBloc
         @Nonnull Player player,
         @Nonnull BlockHitResult hit)
     {
-        ItemInteractionResult result = handleInteraction(level, pos, player);
-        
-        // Convert manually to InteractionResult
-        return switch (result) {
-            case CONSUME -> InteractionResult.CONSUME;
-            case SUCCESS -> InteractionResult.SUCCESS;
-            case FAIL -> InteractionResult.FAIL;
-            default -> InteractionResult.PASS;
-        };
+        return handleInteraction(level, pos, player);
     }
 
     
     /**
      * Handles the block being right-clicked by a player. This is used to open the block's inventory GUI.
-     * If the block is on the client-side, it returns {@link ItemInteractionResult#SUCCESS} to prevent
+     * If the block is on the client-side, it returns {@link InteractionResult#SUCCESS} to prevent
      * client-side interaction result propagation to the server.
      * If the block is on the server-side and the block is an instance of {@link MenuProvider}, it opens
-     * the menu provided by the block and returns {@link ItemInteractionResult#CONSUME} to consume the
+     * the menu provided by the block and returns {@link InteractionResult#CONSUME} to consume the
      * interaction result.
-     * Otherwise, it returns {@link ItemInteractionResult#PASS_TO_DEFAULT_BLOCK_INTERACTION} to allow
-     * the default block interaction (e.g. placing a block) to occur.
+     * Otherwise, it returns {@link InteractionResult#PASS} to allow the default block interaction
+     * (e.g. placing a block) to occur; callers translate that further as needed for their own context.
      * @param level the level the block is being interacted with in
      * @param pos the position of the block being interacted with
      * @param player the player interacting with the block
      * @return the result of the interaction
      */
-    private ItemInteractionResult handleInteraction(Level level, @Nonnull BlockPos pos, Player player)
+    private InteractionResult handleInteraction(Level level, @Nonnull BlockPos pos, Player player)
     {
-        if (level.isClientSide)
+        if (level.isClientSide())
         {
-            return ItemInteractionResult.SUCCESS;
+            return InteractionResult.SUCCESS;
         }
 
         BlockEntity blockEntity = level.getBlockEntity(pos);
@@ -268,40 +252,41 @@ public class AbstractBlockPetWorkingLocation extends Block implements EntityBloc
             {
                 player.openMenu(provider);
             }
-            return ItemInteractionResult.CONSUME;
+            return InteractionResult.CONSUME;
         }
 
-        return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        return InteractionResult.PASS;
     }
 
     /**
-     * Appends information to the item's tooltip.
+     * Appends information to the item's tooltip. Block has no appendHoverText hook of its own, so this is called by
+     * {@link com.deathfrog.mctradepost.item.PetWorkingLocationBlockItem} (the BlockItem paired with these blocks) from its own
+     * {@code Item.appendHoverText} override.
      * <p>
      * This shows a short line of text, and if Shift is held, provides additional information.
      * </p>
      * @param stack the item stack to generate the tooltip for
      * @param context the tooltip context
-     * @param tooltip the list of components to append to
+     * @param tooltip the tooltip line consumer
      * @param flag the tooltip flag
      */
-    @Override
     public void appendHoverText(@Nonnull ItemStack stack,
                                 @Nonnull Item.TooltipContext context,
-                                @Nonnull List<Component> tooltip,
-                                @Nonnull TooltipFlag flag) 
+                                @Nonnull Consumer<Component> tooltip,
+                                @Nonnull TooltipFlag flag)
     {
         String suffix = this.getClass().getSimpleName().toLowerCase();
 
         // Always show a short line
-        tooltip.add(Component.translatable(TOOLTIP_BASE + suffix)
+        tooltip.accept(Component.translatable(TOOLTIP_BASE + suffix)
                 .withStyle(ChatFormatting.GRAY));
 
         // Optional: show more when Shift is held
-        if (Screen.hasShiftDown()) {
-            tooltip.add(Component.translatable(TOOLTIP_EXPANDED_BASE + suffix)
+        if (Minecraft.getInstance().hasShiftDown()) {
+            tooltip.accept(Component.translatable(TOOLTIP_EXPANDED_BASE + suffix)
                     .withStyle(ChatFormatting.DARK_GRAY));
         } else {
-            tooltip.add(Component.literal("<shift> for more info")
+            tooltip.accept(Component.translatable("com.mctradepost.tooltip.shift_more_info")
                     .withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));
         }
     }
@@ -309,7 +294,7 @@ public class AbstractBlockPetWorkingLocation extends Block implements EntityBloc
     @Override
     public <T extends BlockEntity> BlockEntityTicker<T> getTicker(@Nonnull Level level, @Nonnull BlockState state, @Nonnull BlockEntityType<T> type)
     {
-        return level.isClientSide ? null :
+        return level.isClientSide() ? null :
             (type == MCTradePostTileEntities.PET_WORK_LOCATION.get() ?
                 (lvl, pos, st, be) -> PetWorkingBlockEntity.serverTick(lvl, pos, st, (PetWorkingBlockEntity) be) :
                 null);

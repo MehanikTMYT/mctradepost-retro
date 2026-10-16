@@ -3,12 +3,13 @@ package com.deathfrog.mctradepost.core.generation;
 import com.deathfrog.mctradepost.MCTradePostMod;
 import com.google.common.hash.HashCode;
 import com.mojang.blaze3d.platform.NativeImage;
-import net.minecraft.Util;
+import net.minecraft.util.ARGB;
+import net.minecraft.util.Util;
 import net.minecraft.data.CachedOutput;
 import net.minecraft.data.DataGenerator;
 import net.minecraft.data.DataProvider;
 import net.minecraft.data.PackOutput;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -18,7 +19,6 @@ import org.jetbrains.annotations.NotNull;
 import javax.annotation.Nonnull;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -51,11 +51,10 @@ public class MCTPEntityIconProvider implements DataProvider
     }
 
     @SubscribeEvent
-    public static void gatherData(final GatherDataEvent event)
+    public static void gatherData(final GatherDataEvent.Client event)
     {
         final DataGenerator generator = event.getGenerator();
-        generator.addProvider(event.includeClient(),
-            new MCTPEntityIconProvider(generator.getPackOutput(), SOURCE_FOLDER));
+        event.addProvider(new MCTPEntityIconProvider(generator.getPackOutput(), SOURCE_FOLDER));
     }
 
     @Override
@@ -106,7 +105,7 @@ public class MCTPEntityIconProvider implements DataProvider
 
             if (idPath == null) throw new IllegalArgumentException("Bad idPath from file name: " + fileName);
 
-            final ResourceLocation outputId = ResourceLocation.fromNamespaceAndPath(OUTPUT_NAMESPACE, idPath);
+            final Identifier outputId = Identifier.fromNamespaceAndPath(OUTPUT_NAMESPACE, idPath);
 
             if (outputId == null) throw new IllegalArgumentException("Null output ID for output namespace " + OUTPUT_NAMESPACE + ":" + idPath);
 
@@ -132,13 +131,13 @@ public class MCTPEntityIconProvider implements DataProvider
 
         for (int i = 0; i < 16; ++i)
         {
-            icon.blendPixel(0, i, 0x80000000);
-            icon.blendPixel(15, i, 0x80000000);
+            icon.setPixel(0, i, ARGB.alphaBlend(icon.getPixel(0, i), 0x80000000));
+            icon.setPixel(15, i, ARGB.alphaBlend(icon.getPixel(15, i), 0x80000000));
 
             if (i > 0 && i < 15)
             {
-                icon.blendPixel(i, 0, 0x80000000);
-                icon.blendPixel(i, 15, 0x80000000);
+                icon.setPixel(i, 0, ARGB.alphaBlend(icon.getPixel(i, 0), 0x80000000));
+                icon.setPixel(i, 15, ARGB.alphaBlend(icon.getPixel(i, 15), 0x80000000));
             }
         }
 
@@ -146,13 +145,10 @@ public class MCTPEntityIconProvider implements DataProvider
     }
 
     @SuppressWarnings("null")
-    private void saveIcon(final @Nonnull ResourceLocation id, final NativeImage icon, final CachedOutput cache) throws IOException
+    private void saveIcon(final @Nonnull Identifier id, final NativeImage icon, final CachedOutput cache) throws IOException
     {
-        final BufferedImage image;
-        try (ByteArrayInputStream stream = new ByteArrayInputStream(icon.asByteArray()))
-        {
-            image = ImageIO.read(stream);
-        }
+        final BufferedImage image = new BufferedImage(icon.getWidth(), icon.getHeight(), BufferedImage.TYPE_INT_ARGB);
+        image.setRGB(0, 0, icon.getWidth(), icon.getHeight(), icon.getPixels(), 0, icon.getWidth());
 
         final BufferedImage optimized = new BufferedImage(
             image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_RGB);

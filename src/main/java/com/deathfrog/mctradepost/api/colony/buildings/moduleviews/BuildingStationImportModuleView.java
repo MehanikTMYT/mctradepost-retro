@@ -9,9 +9,7 @@ import com.minecolonies.api.crafting.ItemStorage;
 import com.minecolonies.api.util.Utils;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
+import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
@@ -46,7 +44,6 @@ public class BuildingStationImportModuleView extends AbstractBuildingModuleView
     }
 
     @Override
-    @OnlyIn(Dist.CLIENT)
     public BOWindow getWindow()
     {
         return new WindowStationImportModule(buildingView, this);
@@ -78,9 +75,9 @@ public class BuildingStationImportModuleView extends AbstractBuildingModuleView
      * @return the icon to show.
      */
    @Override
-    public ResourceLocation getIconResourceLocation()
+    public Identifier getIconResourceLocation()
     {
-        return ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "textures/gui/modules/import.png");
+        return Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "textures/gui/modules/import.png");
     }
 
     /**

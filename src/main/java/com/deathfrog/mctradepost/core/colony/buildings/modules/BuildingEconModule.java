@@ -1,7 +1,7 @@
 package com.deathfrog.mctradepost.core.colony.buildings.modules;
 
 
-import com.deathfrog.mctradepost.core.client.gui.modules.WindowEconModule;
+import com.deathfrog.mctradepost.api.util.EconomicConstants;
 import com.minecolonies.api.colony.buildings.modules.AbstractBuildingModule;
 import com.minecolonies.api.colony.buildings.modules.IPersistentModule;
 import com.minecolonies.api.colony.managers.interfaces.IStatisticsManager;
@@ -78,11 +78,22 @@ public class BuildingEconModule extends AbstractBuildingModule implements IPersi
      * Deposits a given count of coins into the building's economy, adding the corresponding amount of value to the economy.
      * @param count the count to deposit
      */
-    public void deposit(final int count)
+    public boolean deposit(final int count)
     {
-        statisticsManager.incrementBy(WindowEconModule.CURRENT_BALANCE, count, building.getColony().getDay());  // Building stats
-        building.getColony().getStatisticsManager().incrementBy(WindowEconModule.CURRENT_BALANCE, count, building.getColony().getDay());         // Colony stats (the official current balance)
+        long totalValue = getTotalBalance();
+
+        if (totalValue + count > Integer.MAX_VALUE)
+        {
+            long limitedDeposit = Integer.MAX_VALUE - totalValue;
+            deposit((int)limitedDeposit);
+            return false;
+        }
+
+        statisticsManager.incrementBy(EconomicConstants.CURRENT_BALANCE, count, building.getColony().getDay());  // Building stats
+        building.getColony().getStatisticsManager().incrementBy(EconomicConstants.CURRENT_BALANCE, count, building.getColony().getDay());         // Colony stats (the official current balance)
         markDirty();
+        
+        return true;
     }
 
     /**
@@ -115,6 +126,6 @@ public class BuildingEconModule extends AbstractBuildingModule implements IPersi
     public int getTotalBalance()
     {
         IStatisticsManager statsManager = building.getColony().getStatisticsManager();
-        return statsManager.getStatTotal(WindowEconModule.CURRENT_BALANCE);
+        return statsManager.getStatTotal(EconomicConstants.CURRENT_BALANCE);
     }
 }

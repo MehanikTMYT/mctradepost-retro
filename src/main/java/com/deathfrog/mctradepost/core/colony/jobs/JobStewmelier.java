@@ -5,7 +5,7 @@ import com.deathfrog.mctradepost.core.entity.ai.workers.EntityAIWorkStewmelier;
 import com.minecolonies.api.colony.ICitizenData;
 import com.minecolonies.core.colony.jobs.AbstractJob;
 
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 public class JobStewmelier extends AbstractJob<EntityAIWorkStewmelier, JobStewmelier>
 {
@@ -151,7 +151,7 @@ public class JobStewmelier extends AbstractJob<EntityAIWorkStewmelier, JobStewme
     }
 
     @Override
-    public ResourceLocation getModel()
+    public Identifier getModel()
     {
         return ModModelTypes.STEWMELIER_MODEL_ID;
     }

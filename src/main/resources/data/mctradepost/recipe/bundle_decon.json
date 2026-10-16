@@ -1,9 +1,27 @@
 {
   "type": "mctradepost:deconstruction",
-  "input": { "item": "minecraft:bundle" },
+  "input": "minecraft:bundle",
   "results": [
-    { "item": { "id": "minecraft:leather", "count": 7 }, "chance": 1.0 },
-    { "item": { "id": "minecraft:chest", "count": 7 }, "chance": 1.0 },
-    { "item": { "id": "minecraft:string", "count": 1 }, "chance": 1.0 }
+    {
+      "item": {
+        "id": "minecraft:leather",
+        "count": 7
+      },
+      "chance": 1.0
+    },
+    {
+      "item": {
+        "id": "minecraft:chest",
+        "count": 7
+      },
+      "chance": 1.0
+    },
+    {
+      "item": {
+        "id": "minecraft:string",
+        "count": 1
+      },
+      "chance": 1.0
+    }
   ]
 }

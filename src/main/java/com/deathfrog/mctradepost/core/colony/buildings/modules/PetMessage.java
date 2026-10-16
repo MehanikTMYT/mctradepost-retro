@@ -24,7 +24,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.level.portal.DimensionTransition;
+import net.minecraft.world.level.portal.TeleportTransition;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
@@ -116,7 +116,7 @@ public class PetMessage extends AbstractBuildingServerMessage<IBuilding>
     {
         ServerLevel level = (ServerLevel) colony.getWorld();
 
-        if (level == null || level.isClientSide)
+        if (level == null || level.isClientSide())
         {
             return;
         }
@@ -301,13 +301,13 @@ public class PetMessage extends AbstractBuildingServerMessage<IBuilding>
         }
 
         @SuppressWarnings("null")
-        Entity changedEntity = entity.changeDimension(new DimensionTransition(
+        Entity changedEntity = entity.teleport(new TeleportTransition(
             targetLevel,
             new Vec3(x, y, z),
             Vec3.ZERO,
             entity.getYRot(),
             entity.getXRot(),
-            DimensionTransition.DO_NOTHING));
+            TeleportTransition.DO_NOTHING));
         return changedEntity == null ? entity : changedEntity;
     }
 

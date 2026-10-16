@@ -14,7 +14,7 @@ import com.deathfrog.mctradepost.core.ModTags;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -48,8 +48,8 @@ import net.minecraft.world.level.block.state.BlockState;
 public class MushroomScavengeProfile<P extends Animal & ITradePostPet> implements IScavengeProfile<P>
 {
     private static final String LOOT_BASE = "pet/mushroom_scavenge";
-    private static final ResourceLocation FORAGE_TABLE =
-        ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, LOOT_BASE + "/forage");
+    private static final Identifier FORAGE_TABLE =
+        Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, LOOT_BASE + "/forage");
 
     /**
      * Land mushroom scavenging is tied to the mushroom scavenging base/work location.
@@ -169,7 +169,7 @@ public class MushroomScavengeProfile<P extends Animal & ITradePostPet> implement
      */
     @SuppressWarnings("null")
     @Override
-    public @Nullable ResourceLocation lootTableFor(final ServerLevel level, final BlockPos pos, @Nonnull final BlockState state)
+    public @Nullable Identifier lootTableFor(final ServerLevel level, final BlockPos pos, @Nonnull final BlockState state)
     {
         if (!isHarvestable(level, pos, state))
         {
@@ -179,8 +179,8 @@ public class MushroomScavengeProfile<P extends Animal & ITradePostPet> implement
         if (state.is(ModTags.BLOCKS.MUSHROOM_SCAVENGE_BLOCK_TAG))
         {
             final Block block = state.getBlock();
-            final ResourceLocation blockId = BuiltInRegistries.BLOCK.getKey(block);
-            return ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, LOOT_BASE + "/" + blockId.getPath());
+            final Identifier blockId = BuiltInRegistries.BLOCK.getKey(block);
+            return Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, LOOT_BASE + "/" + blockId.getPath());
         }
 
         return FORAGE_TABLE;
@@ -267,6 +267,6 @@ public class MushroomScavengeProfile<P extends Animal & ITradePostPet> implement
         final BlockState belowState = level.getBlockState(below);
 
         return belowState.is(NullnessBridge.assumeNonnull(BlockTags.DIRT))
-            || belowState.is(NullnessBridge.assumeNonnull(BlockTags.MUSHROOM_GROW_BLOCK));
+            || belowState.is(NullnessBridge.assumeNonnull(BlockTags.OVERRIDES_MUSHROOM_LIGHT_REQUIREMENT));
     }
 }

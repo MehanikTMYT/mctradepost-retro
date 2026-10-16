@@ -8,9 +8,8 @@ import io.netty.buffer.ByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.api.distmarker.OnlyIn;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 import java.util.Map;
@@ -18,14 +17,14 @@ import java.util.Map;
 /**
  * One-shot packet: sends the complete list of RitualDefinitions from server to client.
  */
-public record RitualPacket(Map<ResourceLocation, RitualDefinition> rituals) implements CustomPacketPayload
+public record RitualPacket(Map<Identifier, RitualDefinition> rituals) implements CustomPacketPayload
 {
     @SuppressWarnings("null")
     public static final CustomPacketPayload.Type<RitualPacket> TYPE =
-        new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "sync_rituals"));
+        new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "sync_rituals"));
 
     @SuppressWarnings("null")
-    public static final Codec<RitualPacket> CODEC = Codec.unboundedMap(ResourceLocation.CODEC, RitualDefinition.CODEC)
+    public static final Codec<RitualPacket> CODEC = Codec.unboundedMap(Identifier.CODEC, RitualDefinition.CODEC)
         .fieldOf("rituals")
         .codec()
         .xmap(RitualPacket::new, RitualPacket::rituals);
@@ -44,19 +43,13 @@ public record RitualPacket(Map<ResourceLocation, RitualDefinition> rituals) impl
      *
      * @param ctx the payload context
      */
-    @OnlyIn(net.neoforged.api.distmarker.Dist.CLIENT)
     public void handleDataInClientOnMain(IPayloadContext ctx)
     {
-        rituals.forEach((id, def) -> {
-                if (def != null)    
-                {
-                    RitualManager.putRitual(id, new RitualDefinitionHelper(id, def));
-                }
-            });
+        RitualManager.replaceRituals(rituals);
 
         MCTradePostMod.LOGGER.info("Received {} rituals on client", rituals.size());
 
-        CompatHooks.refreshRitualsJei();
+        CompatHooks.refreshRitualsEmi();
     }
 
     /**

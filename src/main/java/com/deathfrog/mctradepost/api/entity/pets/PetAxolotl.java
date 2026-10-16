@@ -19,7 +19,10 @@ import com.minecolonies.api.colony.IAnimalData;
 import com.minecolonies.api.colony.buildings.IBuilding;
 import com.minecolonies.api.colony.managers.interfaces.IAnimalDataView;
 import com.minecolonies.api.colony.managers.interfaces.IManagedAnimal;
+import com.minecolonies.api.entity.pathfinding.registry.IPathNavigateRegistry;
 import com.minecolonies.api.util.constant.NbtTagConstants;
+import com.minecolonies.core.entity.pathfinding.navigation.AbstractAdvancedPathNavigate;
+import com.minecolonies.api.util.ValueIOUtils;
 import com.minecolonies.core.entity.pathfinding.navigation.MinecoloniesAdvancedPathNavigate;
 import com.mojang.logging.LogUtils;
 import net.minecraft.core.BlockPos;
@@ -30,6 +33,8 @@ import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -222,9 +227,11 @@ public class PetAxolotl extends Axolotl implements ITradePostPet, IHerdingPet, I
     }
 
     @Override
-    public void addAdditionalSaveData(@Nonnull CompoundTag compound)
+    public void addAdditionalSaveData(@Nonnull ValueOutput output)
     {
-        super.addAdditionalSaveData(compound);
+        super.addAdditionalSaveData(output);
+
+        final CompoundTag compound = new CompoundTag();
 
         if (petData != null)
         {
@@ -240,6 +247,8 @@ public class PetAxolotl extends Axolotl implements ITradePostPet, IHerdingPet, I
         {
             compound.putInt(NbtTagConstants.TAG_MANAGED_ANIMALID, getManagedAnimalId());
         }
+
+        output.store(compound);
     }
 
     /**
@@ -249,26 +258,28 @@ public class PetAxolotl extends Axolotl implements ITradePostPet, IHerdingPet, I
      * @param compound the CompoundTag containing the serialized state of the BaseTradePostPet.
      */
     @Override
-    public void readAdditionalSaveData(@Nonnull CompoundTag compound)
+    public void readAdditionalSaveData(@Nonnull ValueInput input)
     {
         try
         {
-            super.readAdditionalSaveData(compound);
+            super.readAdditionalSaveData(input);
         }
         catch (Exception e)
         {
-            // LOGGER.warn("Failed to deserialize parent entity data from tag: {}", compound, e);
+            // LOGGER.warn("Failed to deserialize parent entity data from tag: {}", input, e);
         }
+
+        final CompoundTag compound = ValueIOUtils.readAsTag(input);
 
         petData = new PetData<>(this, compound);
 
         if (compound.contains(NbtTagConstants.TAG_COLONY_ID))
         {
-            setColonyId(compound.getInt(NbtTagConstants.TAG_COLONY_ID));
+            setColonyId(compound.getIntOr(NbtTagConstants.TAG_COLONY_ID, 0));
         }
         if (compound.contains(NbtTagConstants.TAG_MANAGED_ANIMALID))
         {
-            setManagedAnimalId(compound.getInt(NbtTagConstants.TAG_MANAGED_ANIMALID));
+            setManagedAnimalId(compound.getIntOr(NbtTagConstants.TAG_MANAGED_ANIMALID, 0));
         }
 
         // Reset and safely re-register goals
@@ -350,7 +361,7 @@ public class PetAxolotl extends Axolotl implements ITradePostPet, IHerdingPet, I
 
                 if (this.isLeashed())
                 {
-                    this.dropLeash(true, false);
+                    this.removeLeash();
                 }
             }
             case UNLOADED_TO_CHUNK, CHANGED_DIMENSION -> {
@@ -433,7 +444,7 @@ public class PetAxolotl extends Axolotl implements ITradePostPet, IHerdingPet, I
     @Override
     protected PathNavigation createNavigation(@Nonnull Level level)
     {
-        MinecoloniesAdvancedPathNavigate pathNavigation = new MinecoloniesAdvancedPathNavigate(this, level);
+        AbstractAdvancedPathNavigate pathNavigation = IPathNavigateRegistry.getInstance().getNavigateFor(this);
         pathNavigation.getPathingOptions().setEnterDoors(true);
         pathNavigation.getPathingOptions().setCanOpenDoors(true);
         pathNavigation.getPathingOptions().setEnterGates(true);
@@ -493,16 +504,14 @@ public class PetAxolotl extends Axolotl implements ITradePostPet, IHerdingPet, I
      * @return whether the damage was successfully applied
      */
     @Override
-    public boolean hurt(@Nonnull DamageSource damageSource, float damage)
+    public boolean hurtServer(@Nonnull ServerLevel level, @Nonnull DamageSource damageSource, float damage)
     {
-        if (this.level().isClientSide) return false;
-
         if (petData != null)
         {
             damage = petData.adjustDamage(damageSource, damage);
         }
 
-        return super.hurt(damageSource, damage);
+        return super.hurtServer(level, damageSource, damage);
     }
 
     @Override
@@ -525,7 +534,7 @@ public class PetAxolotl extends Axolotl implements ITradePostPet, IHerdingPet, I
     public void resetGoals()
     {
         // Never do AI goal surgery on the client.
-        if (level() == null || level().isClientSide)
+        if (level() == null || level().isClientSide())
         {
             return;
         }
@@ -563,7 +572,7 @@ public class PetAxolotl extends Axolotl implements ITradePostPet, IHerdingPet, I
     @Override
     public InteractionResult mobInteract(@Nonnull Player player, @Nonnull InteractionHand hand)
     {
-        if (!level().isClientSide && hand == InteractionHand.MAIN_HAND)
+        if (!level().isClientSide() && hand == InteractionHand.MAIN_HAND)
         {
             ItemStackHandlerContainerWrapper inventoryWrapper = new ItemStackHandlerContainerWrapper(this.getInventory());
 

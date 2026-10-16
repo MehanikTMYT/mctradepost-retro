@@ -11,10 +11,12 @@ import org.jetbrains.annotations.NotNull;
 import com.deathfrog.mctradepost.MCTradePostMod;
 import com.deathfrog.mctradepost.api.items.datacomponent.DimensionalLinkageRecord;
 import com.deathfrog.mctradepost.api.util.NullnessBridge;
+import com.deathfrog.mctradepost.core.colony.buildings.workerbuildings.BuildingStation;
 import com.deathfrog.mctradepost.core.entity.ai.workers.trade.DimPos;
 import com.deathfrog.mctradepost.item.DimensionalLinkageItem;
 import com.minecolonies.api.colony.buildings.modules.AbstractBuildingModule;
 import com.minecolonies.api.colony.buildings.modules.IPersistentModule;
+import com.minecolonies.api.util.Utils;
 
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -219,7 +221,7 @@ public class BuildingStationConnectionModule extends AbstractBuildingModule impl
             return LinkageStatus.UNLOADED;
         }
 
-        if (!DimensionalLinkageItem.isTrackBlock(level, endpoint.pos()))
+        if (!DimensionalLinkageItem.isValidTransportAnchor(level, endpoint.pos()))
         {
             return LinkageStatus.MISSING_TRACK;
         }
@@ -250,21 +252,22 @@ public class BuildingStationConnectionModule extends AbstractBuildingModule impl
             buf.writeUtf(validation.messageKey());
         }
         buf.writeInt(getDimensionalLinkageLimit());
+        buf.writeBoolean(building instanceof BuildingStation station && station.getStationmaster() != null);
     }
 
     @Override
     public void deserializeNBT(@NotNull HolderLookup.Provider provider, CompoundTag compound)
     {
         dimensionalLinkages.clear();
-        ListTag list = compound.getList(TAG_LINKAGES, Tag.TAG_COMPOUND);
+        ListTag list = compound.getListOrEmpty(TAG_LINKAGES);
         for (int i = 0; i < list.size(); i++)
         {
             if (provider == null) continue;
-            CompoundTag stackTag = list.getCompound(i).getCompound(TAG_STACK);
+            CompoundTag stackTag = list.getCompoundOrEmpty(i).getCompoundOrEmpty(TAG_STACK);
 
-            if (stackTag == null) continue;
+            if (stackTag.isEmpty()) continue;
 
-            ItemStack stack = ItemStack.parseOptional(provider, stackTag);
+            ItemStack stack = Utils.parseOptionalItemStack(provider, stackTag);
             if (!stack.isEmpty() && stack.is(NullnessBridge.assumeNonnull(MCTradePostMod.DIMENSIONAL_LINKAGE.get())))
             {
                 dimensionalLinkages.add(stack.copyWithCount(1));
@@ -285,7 +288,7 @@ public class BuildingStationConnectionModule extends AbstractBuildingModule impl
             }
 
             CompoundTag entry = new CompoundTag();
-            entry.put(TAG_STACK, stack.copyWithCount(1).saveOptional(provider));
+            entry.put(TAG_STACK, Utils.saveOptionalItemStack(provider, stack.copyWithCount(1)));
             list.add(entry);
         }
         compound.put(TAG_LINKAGES, list);
@@ -305,12 +308,12 @@ public class BuildingStationConnectionModule extends AbstractBuildingModule impl
         {
             return ItemStack.EMPTY;
         }
-        return ItemStack.parseOptional(buf.registryAccess(), stackTag);
+        return Utils.parseOptionalItemStack(buf.registryAccess(), stackTag);
     }
 
     @SuppressWarnings("null")
     private static void writeItemStack(@Nonnull RegistryFriendlyByteBuf buf, @Nonnull ItemStack stack)
     {
-        buf.writeNbt(stack.copyWithCount(1).saveOptional(buf.registryAccess()));
+        buf.writeNbt(Utils.saveOptionalItemStack(buf.registryAccess(), stack.copyWithCount(1)));
     }
 }

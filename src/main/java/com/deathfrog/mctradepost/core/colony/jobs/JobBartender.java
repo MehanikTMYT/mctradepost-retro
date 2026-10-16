@@ -4,7 +4,7 @@ import com.deathfrog.mctradepost.core.entity.ai.workers.crafting.EntityAIWorkBar
 import com.minecolonies.api.colony.ICitizenData;
 import com.minecolonies.core.colony.jobs.AbstractJobCrafter;
 
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 public class JobBartender extends AbstractJobCrafter<EntityAIWorkBartender, JobBartender> 
 {
@@ -21,7 +21,7 @@ public class JobBartender extends AbstractJobCrafter<EntityAIWorkBartender, JobB
     }
     
     @Override
-    public ResourceLocation getModel()
+    public Identifier getModel()
     {
         return super.getModel();
     }

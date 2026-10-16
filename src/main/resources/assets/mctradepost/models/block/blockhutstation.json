@@ -8,7 +8,8 @@
 		"glass": "block/glass",
 		"output": "block/iron_block",
 		"bottom": "block/smooth_stone",
-		"gear": "block/chiseled_stone_bricks"
+		"gear": "block/chiseled_stone_bricks",
+		"particle": "block/gray_shulker_box"
 	},
 	"elements": [
 		{

@@ -2,8 +2,9 @@ package com.deathfrog.mctradepost.api.util;
 
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.core.Holder;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Item;
@@ -12,6 +13,7 @@ import net.minecraft.world.level.block.Block;
 import java.util.ArrayList;
 import java.util.List;
 import com.deathfrog.mctradepost.MCTradePostMod;
+import com.minecolonies.api.util.Utils;
 
 public class DomumOrnamentumHelper
 {
@@ -35,45 +37,45 @@ public class DomumOrnamentumHelper
         }
 
         // Get the NBT from the item stack.
-        CompoundTag tag = (CompoundTag) stack.save(registryAccess);
+        CompoundTag tag = (CompoundTag) Utils.saveOptionalItemStack(registryAccess, stack);
 
-        CompoundTag componentsTag = tag.getCompound("components");
-        if (componentsTag == null || componentsTag.isEmpty())
+        CompoundTag componentsTag = tag.getCompoundOrEmpty("components");
+        if (componentsTag.isEmpty())
         {
             // MCTradePostMod.LOGGER.info("No 'components' found within {} while evaluating domum textures.", tag);
             return textures;
         }
 
         // Ensure the custom block entity data exists
-        if (!componentsTag.contains(DOMUM_ORNAMENTUM_TEXTURE_TAG, Tag.TAG_COMPOUND))
+        if (componentsTag.getCompound(DOMUM_ORNAMENTUM_TEXTURE_TAG).isEmpty())
         {
             // MCTradePostMod.LOGGER.info("No 'domum_ornamentum:texture_data' found within {} while evaluating domum textures.",
             // componentsTag);
             return textures;
         }
 
-        CompoundTag innerTag = componentsTag.getCompound(DOMUM_ORNAMENTUM_TEXTURE_TAG);
+        CompoundTag innerTag = componentsTag.getCompoundOrEmpty(DOMUM_ORNAMENTUM_TEXTURE_TAG);
 
-        for (String key : innerTag.getAllKeys())
+        for (String key : innerTag.keySet())
         {
             if (key == null)
             {
                 continue;
             }
 
-            if (innerTag.contains(key, Tag.TAG_STRING))
+            if (innerTag.getString(key).isPresent())
             {
-                String blockId = innerTag.getString(key);
+                String blockId = innerTag.getStringOr(key, "");
 
                 if (blockId == null)
                 {
                     continue;
                 }
 
-                ResourceLocation rl = ResourceLocation.tryParse(blockId);
+                Identifier rl = Identifier.tryParse(blockId);
                 if (rl != null)
                 {
-                    Block block = registryAccess.registryOrThrow(NullnessBridge.assumeNonnull(Registries.BLOCK)).get(rl);
+                    Block block = registryAccess.lookupOrThrow(NullnessBridge.assumeNonnull(Registries.BLOCK)).get(rl).map(Holder::value).orElse(null);
                     if (block != null && block != net.minecraft.world.level.block.Blocks.AIR)
                     {
                         Item item = block.asItem();

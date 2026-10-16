@@ -9,9 +9,11 @@ import com.deathfrog.mctradepost.core.colony.buildings.workerbuildings.BuildingM
 import com.deathfrog.mctradepost.core.entity.CoinEntity;
 import com.deathfrog.mctradepost.core.event.wishingwell.ritual.CommunityRitualProcessor;
 import com.deathfrog.mctradepost.core.event.wishingwell.ritual.OutpostRitualProcessor;
+import com.deathfrog.mctradepost.core.event.wishingwell.ritual.KnowledgeRitualProcessor;
 import com.deathfrog.mctradepost.core.event.wishingwell.ritual.RitualDefinitionHelper;
 import com.deathfrog.mctradepost.core.event.wishingwell.ritual.RitualManager;
 import com.deathfrog.mctradepost.core.event.wishingwell.ritual.RitualState;
+import com.deathfrog.mctradepost.core.event.wishingwell.ritual.ResurrectionRitualProcessor;
 import com.deathfrog.mctradepost.core.event.wishingwell.ritual.RitualState.RitualResult;
 import com.deathfrog.mctradepost.core.event.wishingwell.ritual.SummonRitualProcessor;
 import com.deathfrog.mctradepost.core.event.wishingwell.ritual.TransformRitualProcessor;
@@ -31,6 +33,7 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LightningBolt;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -238,10 +241,10 @@ public class WishingWellHandler
     public static void showRitualEffect(@Nonnull ServerLevel level, @Nonnull BlockPos pos)
     {
         // Lightning visual
-        LightningBolt lightning = EntityType.LIGHTNING_BOLT.create(level);
+        LightningBolt lightning = EntityType.LIGHTNING_BOLT.create(level, EntitySpawnReason.TRIGGERED);
         if (lightning != null)
         {
-            lightning.moveTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5);
+            lightning.setPos(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5);
             lightning.setVisualOnly(true);
             level.addFreshEntity(lightning);
         }
@@ -419,7 +422,7 @@ public class WishingWellHandler
 
         for (RitualDefinitionHelper ritual : rituals)
         {
-            Item effectCompanion = BuiltInRegistries.ITEM.get(ritual.companionItem());
+            Item effectCompanion = BuiltInRegistries.ITEM.getValue(ritual.companionItem());
 
             if (effectCompanion.equals(companionItem))
             {
@@ -483,6 +486,14 @@ public class WishingWellHandler
                         result = OutpostRitualProcessor.processRitualOutpost(marketplace, pos, ritual, state);
                         break;
 
+                    case RitualManager.RITUAL_EFFECT_KNOWLEDGE:
+                        result = KnowledgeRitualProcessor.processRitualKnowledge(marketplace, pos, ritual, state);
+                        break;
+
+                    case RitualManager.RITUAL_EFFECT_RESURRECTION:
+                        result = ResurrectionRitualProcessor.process(marketplace, pos, state);
+                        break;
+
                     default:
                         LOGGER.warn("Unknown ritual effect: {}", ritual.effect());
                         break;
@@ -522,8 +533,8 @@ public class WishingWellHandler
             entity.discard(); // remove from well
 
             // Random offset from well (2–4 blocks away, random direction)
-            double angle = level.random.nextDouble() * 2 * Math.PI;
-            double distance = 2.0 + level.random.nextDouble() * 2.0; // between 2 and 4 blocks
+            double angle = level.getRandom().nextDouble() * 2 * Math.PI;
+            double distance = 2.0 + level.getRandom().nextDouble() * 2.0; // between 2 and 4 blocks
             double xOffset = Math.cos(angle) * distance;
             double zOffset = Math.sin(angle) * distance;
 

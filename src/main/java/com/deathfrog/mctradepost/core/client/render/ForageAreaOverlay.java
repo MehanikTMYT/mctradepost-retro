@@ -1,6 +1,5 @@
 package com.deathfrog.mctradepost.core.client.render;
 
-import java.util.OptionalDouble;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -17,16 +16,28 @@ import com.deathfrog.mctradepost.api.entity.pets.goals.scavenge.ScavengeHarvesta
 import com.deathfrog.mctradepost.api.entity.pets.goals.scavenge.VegetationForageRange;
 import com.deathfrog.mctradepost.api.entity.pets.PetRoles;
 import com.deathfrog.mctradepost.core.entity.pets.scavenge.PetForagingJeiCache;
+import com.mojang.blaze3d.pipeline.BlendFunction;
+import com.mojang.blaze3d.pipeline.ColorTargetState;
+import com.mojang.blaze3d.pipeline.DepthStencilState;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.blaze3d.platform.CompareOp;
+import com.mojang.blaze3d.shaders.UniformType;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import net.minecraft.client.renderer.MultiBufferSource.BufferSource;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.LevelRenderer;
-import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.ShapeRenderer;
+import net.minecraft.client.renderer.rendertype.LayeringTransform;
+import net.minecraft.client.renderer.rendertype.OutputTarget;
+import net.minecraft.client.renderer.rendertype.RenderSetup;
+import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.util.ARGB;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.Block;
@@ -34,6 +45,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.Shapes;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -55,6 +67,29 @@ public final class ForageAreaOverlay
 {
     private static final int MAX_TARGET_HIGHLIGHTS = 2048;
     /**
+     * Shared pipeline plumbing for {@code core/rendertype_lines}: the same shaders, uniforms, blend function, vertex
+     * format and culling that vanilla's own {@code RenderPipelines.LINES}/{@code LINES_TRANSLUCENT} use. Only the depth
+     * test differs between the obscured and visible passes below.
+     */
+    private static RenderPipeline.Builder linesPipeline(String path)
+    {
+        return RenderPipeline.builder()
+            // withLocation(String) treats its whole argument as a bare path under the "minecraft"
+            // namespace (it calls Identifier.withDefaultNamespace(), which rejects the ':' in
+            // "mctradepost:pipeline/..."); use the Identifier overload to namespace it under this mod.
+            .withLocation(net.minecraft.resources.Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, path))
+            .withVertexShader("core/rendertype_lines")
+            .withFragmentShader("core/rendertype_lines")
+            .withUniform("DynamicTransforms", UniformType.UNIFORM_BUFFER)
+            .withUniform("Projection", UniformType.UNIFORM_BUFFER)
+            .withUniform("Fog", UniformType.UNIFORM_BUFFER)
+            .withUniform("Globals", UniformType.UNIFORM_BUFFER)
+            .withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT))
+            .withCull(false)
+            .withVertexFormat(DefaultVertexFormat.POSITION_COLOR_NORMAL_LINE_WIDTH, VertexFormat.Mode.LINES);
+    }
+
+    /**
      * Main-target line type that draws only fragments behind existing world
      * depth. This makes obscured boundary segments visible without allowing the
      * bright pass to show through terrain.
@@ -62,19 +97,14 @@ public final class ForageAreaOverlay
     @SuppressWarnings("null")
     private static final RenderType OBSCURED_LINES = RenderType.create(
         "mctradepost_forage_area_obscured_lines",
-        DefaultVertexFormat.POSITION_COLOR_NORMAL,
-        VertexFormat.Mode.LINES,
-        1536,
-        RenderType.CompositeState.builder()
-            .setShaderState(RenderType.RENDERTYPE_LINES_SHADER)
-            .setLineState(new RenderType.LineStateShard(OptionalDouble.empty()))
-            .setLayeringState(RenderType.VIEW_OFFSET_Z_LAYERING)
-            .setTransparencyState(RenderType.TRANSLUCENT_TRANSPARENCY)
-            .setOutputState(RenderType.MAIN_TARGET)
-            .setDepthTestState(RenderType.GREATER_DEPTH_TEST)
-            .setWriteMaskState(RenderType.COLOR_WRITE)
-            .setCullState(RenderType.NO_CULL)
-            .createCompositeState(false));
+        RenderSetup.builder(
+                linesPipeline("pipeline/forage_area_obscured_lines")
+                    .withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN, false))
+                    .build())
+            .setLayeringTransform(LayeringTransform.VIEW_OFFSET_Z_LAYERING)
+            .setOutputTarget(OutputTarget.MAIN_TARGET)
+            .bufferSize(1536)
+            .createRenderSetup());
 
     /**
      * Main-target line type that explicitly tests against the world depth
@@ -84,19 +114,14 @@ public final class ForageAreaOverlay
     @SuppressWarnings("null")
     private static final RenderType VISIBLE_LINES = RenderType.create(
         "mctradepost_forage_area_visible_lines",
-        DefaultVertexFormat.POSITION_COLOR_NORMAL,
-        VertexFormat.Mode.LINES,
-        1536,
-        RenderType.CompositeState.builder()
-            .setShaderState(RenderType.RENDERTYPE_LINES_SHADER)
-            .setLineState(new RenderType.LineStateShard(OptionalDouble.empty()))
-            .setLayeringState(RenderType.VIEW_OFFSET_Z_LAYERING)
-            .setTransparencyState(RenderType.TRANSLUCENT_TRANSPARENCY)
-            .setOutputState(RenderType.MAIN_TARGET)
-            .setDepthTestState(RenderType.LEQUAL_DEPTH_TEST)
-            .setWriteMaskState(RenderType.COLOR_WRITE)
-            .setCullState(RenderType.NO_CULL)
-            .createCompositeState(false));
+        RenderSetup.builder(
+                linesPipeline("pipeline/forage_area_visible_lines")
+                    .withDepthStencilState(new DepthStencilState(CompareOp.LESS_THAN_OR_EQUAL, false))
+                    .build())
+            .setLayeringTransform(LayeringTransform.VIEW_OFFSET_Z_LAYERING)
+            .setOutputTarget(OutputTarget.MAIN_TARGET)
+            .bufferSize(1536)
+            .createRenderSetup());
 
     /** Dimension containing the currently selected working block. */
     private static ResourceKey<Level> dimension;
@@ -239,7 +264,7 @@ public final class ForageAreaOverlay
         PetForagingJeiCache.getEntries().stream()
             .filter(entry -> entry.role() == role)
             .filter(entry -> entry.outputs().stream().anyMatch(output -> output.getItem() == focusItem))
-            .forEach(entry -> sources.add(BuiltInRegistries.BLOCK.get(entry.sourceBlock())));
+            .forEach(entry -> sources.add(BuiltInRegistries.BLOCK.getValue(entry.sourceBlock())));
         snapshotRole = role;
         snapshotSources = Set.copyOf(sources);
         if (sources.isEmpty()) return List.of();
@@ -295,13 +320,12 @@ public final class ForageAreaOverlay
      */
     @SuppressWarnings("null")
     @SubscribeEvent
-    public static void render(RenderLevelStageEvent event)
+    public static void render(RenderLevelStageEvent.AfterOpaqueFeatures event)
     {
         BlockPos localOrigin = origin;
 
         if (localOrigin == null) return;
 
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_BLOCK_ENTITIES || origin == null) return;
         final Minecraft minecraft = Minecraft.getInstance();
         final Level level = minecraft.level;
         if (level == null || !level.dimension().equals(dimension) || !level.isLoaded(localOrigin)) return;
@@ -332,46 +356,57 @@ public final class ForageAreaOverlay
         final AABB area = new AABB(
             localOrigin.getX() - radius, localOrigin.getY() + minY, localOrigin.getZ() - radius,
             localOrigin.getX() + radius + 1, localOrigin.getY() + maxY + 1, localOrigin.getZ() + radius + 1);
-        final Vec3 camera = event.getCamera().getPosition();
+        final Vec3 camera = event.getLevelRenderState().cameraRenderState.pos;
         final PoseStack pose = event.getPoseStack();
         pose.pushPose();
         pose.translate(-camera.x, -camera.y, -camera.z);
-        final var buffers = minecraft.renderBuffers().bufferSource();
+        final BufferSource buffers = minecraft.renderBuffers().bufferSource();
+        final float lineWidth = minecraft.gameRenderer.getGameRenderState().windowRenderState.appropriateLineWidth;
 
         // Complementary depth tests split the boundary into obscured and
         // directly visible fragments without relying on draw-order overlap.
-        LevelRenderer.renderLineBox(pose, buffers.getBuffer(OBSCURED_LINES), area,
-            0.04F, 0.28F, 0.07F, 0.65F);
+        renderLineBox(pose, buffers.getBuffer(OBSCURED_LINES), area,
+            0.04F, 0.28F, 0.07F, 0.65F, lineWidth);
         buffers.endBatch(OBSCURED_LINES);
-        LevelRenderer.renderLineBox(pose, buffers.getBuffer(VISIBLE_LINES), area,
-            0.2F, 1.0F, 0.25F, 0.9F);
+        renderLineBox(pose, buffers.getBuffer(VISIBLE_LINES), area,
+            0.2F, 1.0F, 0.25F, 0.9F, lineWidth);
         buffers.endBatch(VISIBLE_LINES);
 
         for (BlockPos target : immatureTargets)
         {
-            LevelRenderer.renderLineBox(pose, buffers.getBuffer(OBSCURED_LINES),
-                new AABB(target).inflate(0.003D), 0.24F, 0.035F, 0.012F, 0.68F);
+            renderLineBox(pose, buffers.getBuffer(OBSCURED_LINES),
+                new AABB(target).inflate(0.003D), 0.24F, 0.035F, 0.012F, 0.68F, lineWidth);
         }
         buffers.endBatch(OBSCURED_LINES);
         for (BlockPos target : immatureTargets)
         {
-            LevelRenderer.renderLineBox(pose, buffers.getBuffer(VISIBLE_LINES),
-                new AABB(target).inflate(0.003D), 0.78F, 0.16F, 0.045F, 0.92F);
+            renderLineBox(pose, buffers.getBuffer(VISIBLE_LINES),
+                new AABB(target).inflate(0.003D), 0.78F, 0.16F, 0.045F, 0.92F, lineWidth);
         }
         buffers.endBatch(VISIBLE_LINES);
 
         for (BlockPos target : readyTargets)
         {
-            LevelRenderer.renderLineBox(pose, buffers.getBuffer(OBSCURED_LINES),
-                new AABB(target).inflate(0.003D), 0.32F, 0.16F, 0.02F, 0.7F);
+            renderLineBox(pose, buffers.getBuffer(OBSCURED_LINES),
+                new AABB(target).inflate(0.003D), 0.32F, 0.16F, 0.02F, 0.7F, lineWidth);
         }
         buffers.endBatch(OBSCURED_LINES);
         for (BlockPos target : readyTargets)
         {
-            LevelRenderer.renderLineBox(pose, buffers.getBuffer(VISIBLE_LINES),
-                new AABB(target).inflate(0.003D), 1.0F, 0.62F, 0.08F, 0.95F);
+            renderLineBox(pose, buffers.getBuffer(VISIBLE_LINES),
+                new AABB(target).inflate(0.003D), 1.0F, 0.62F, 0.08F, 0.95F, lineWidth);
         }
         buffers.endBatch(VISIBLE_LINES);
         pose.popPose();
+    }
+
+    /**
+     * Draws an AABB wireframe. Replaces the vanilla {@code LevelRenderer.renderLineBox} helper, which was removed when
+     * line rendering moved onto {@link ShapeRenderer}'s per-vertex line-width vertex format.
+     */
+    private static void renderLineBox(
+        PoseStack pose, VertexConsumer buffer, AABB box, float red, float green, float blue, float alpha, float width)
+    {
+        ShapeRenderer.renderShape(pose, buffer, Shapes.create(box), 0.0, 0.0, 0.0, ARGB.colorFromFloat(alpha, red, green, blue), width);
     }
 }

@@ -17,7 +17,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Registry;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.Level;
 
 public abstract class MCTPBaseBlockHut extends AbstractBlockHut<MCTPBaseBlockHut>
@@ -33,7 +33,7 @@ public abstract class MCTPBaseBlockHut extends AbstractBlockHut<MCTPBaseBlockHut
      * 
      * @return the key.
      */
-    public @Nonnull ResourceLocation getRegistryName()
+    public @Nonnull Identifier getRegistryName()
     {
         String name = this.getHutName();
 
@@ -42,7 +42,7 @@ public abstract class MCTPBaseBlockHut extends AbstractBlockHut<MCTPBaseBlockHut
             throw new IllegalStateException("Block hut has no name");
         }
 
-        ResourceLocation resLoc = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, name);
+        Identifier resLoc = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, name);
         return NullnessBridge.assumeNonnull(resLoc);
     }
 

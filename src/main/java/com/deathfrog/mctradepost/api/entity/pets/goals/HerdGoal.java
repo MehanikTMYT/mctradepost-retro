@@ -208,7 +208,7 @@ public class  HerdGoal<P extends Animal & ITradePostPet & IHerdingPet> extends G
     {
         final Level level = pet.level();
         
-        if (!level.isClientSide)
+        if (!level.isClientSide())
         {
             tryPickupNearbyDrops(level);
         }

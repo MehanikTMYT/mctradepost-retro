@@ -1,12 +1,8 @@
 {
   "type": "minecraft:crafting_shapeless",
   "ingredients": [
-    {
-      "item": "minecraft:bricks"
-    },
-    {
-      "item": "minecraft:gravel"
-    }
+    "minecraft:bricks",
+    "minecraft:gravel"
   ],
   "result": {
     "id": "mctradepost:rough_brick",

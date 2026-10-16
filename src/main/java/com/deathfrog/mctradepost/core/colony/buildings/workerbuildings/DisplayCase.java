@@ -6,6 +6,7 @@ import javax.annotation.Nonnull;
 
 import com.deathfrog.mctradepost.item.SouvenirItem;
 import com.minecolonies.api.util.NBTUtils;
+import com.minecolonies.api.util.Utils;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
@@ -116,7 +117,7 @@ public class DisplayCase
 
         if (!stack.isEmpty()) 
         {
-            Tag stackTag = stack.save(provider);
+            Tag stackTag = Utils.saveOptionalItemStack(provider, stack);
 
             if (stackTag != null) 
             {
@@ -148,13 +149,13 @@ public class DisplayCase
         ItemStack stack = ItemStack.CODEC.parse(NbtOps.INSTANCE, tag.get("Contents"))
                             .result()
                             .orElse(ItemStack.EMPTY);
-        int tickCount = tag.getInt("TickCount");
+        int tickCount = tag.getIntOr("TickCount", 0);
         UUID frameID = null;
         if (tag.contains("FrameIdMost") && tag.contains("FrameIdLeast")) {
-            frameID = new UUID(tag.getLong("FrameIdMost"), tag.getLong("FrameIdLeast"));
+            frameID = new UUID(tag.getLongOr("FrameIdMost", 0L), tag.getLongOr("FrameIdLeast", 0L));
         }
         DisplayCase fromCase = new DisplayCase(pos, frameID, stack, tickCount);
-        int order = tag.getInt("SaleState");
+        int order = tag.getIntOr("SaleState", 0);
 
         if (order <= 0 || order >= SaleState.values().length) 
         {

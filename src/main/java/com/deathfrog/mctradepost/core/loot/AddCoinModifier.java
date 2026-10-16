@@ -36,9 +36,9 @@ public class AddCoinModifier extends LootModifier
 
     private final float baseChance;
 
-    public AddCoinModifier(LootItemCondition[] conditions, float chance) 
+    public AddCoinModifier(LootItemCondition[] conditions, int priority, float chance)
     {
-        super(conditions);
+        super(conditions, priority);
         this.baseChance = chance;
     }
 
@@ -47,7 +47,7 @@ public class AddCoinModifier extends LootModifier
     protected ObjectArrayList<ItemStack> doApply(@Nonnull ObjectArrayList<ItemStack> generatedLoot, @Nonnull LootContext ctx)
     {
         // The entity whose loot is being generated
-        Entity e = ctx.getParamOrNull(NullnessBridge.assumeNonnull(LootContextParams.THIS_ENTITY));
+        Entity e = ctx.getOptionalParameter(NullnessBridge.assumeNonnull(LootContextParams.THIS_ENTITY));
         
         // LOGGER.info("Checking coin loot on {}", e);
 

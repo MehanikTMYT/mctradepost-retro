@@ -2,34 +2,15 @@
   "type": "minecraft:crafting_shapeless",
   "category": "building",
   "ingredients": [
-    {
-      "item": "mctradepost:end_mortar"
-    },
-    {
-      "item": "mctradepost:end_mortar"
-    },
-    {
-      "item": "mctradepost:end_mortar"
-    },
-    {
-      "item": "mctradepost:end_mortar"
-    },
-    {
-      "item": "minecraft:amethyst_shard"
-    },
-    {
-      "item": "minecraft:amethyst_shard"
-    },
-    {
-      "item": "minecraft:amethyst_shard"
-    },
-    {
-      "item": "minecraft:amethyst_shard"
-    },
-    {
-      "item": "minecraft:amethyst_shard"
-    }
-
+    "mctradepost:end_mortar",
+    "mctradepost:end_mortar",
+    "mctradepost:end_mortar",
+    "mctradepost:end_mortar",
+    "minecraft:amethyst_shard",
+    "minecraft:amethyst_shard",
+    "minecraft:amethyst_shard",
+    "minecraft:amethyst_shard",
+    "minecraft:amethyst_shard"
   ],
   "result": {
     "count": 8,

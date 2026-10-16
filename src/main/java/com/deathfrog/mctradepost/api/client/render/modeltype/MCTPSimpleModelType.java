@@ -7,18 +7,16 @@ import com.minecolonies.api.client.render.modeltype.ISimpleModelType;
 import com.minecolonies.api.client.render.modeltype.SimpleModelType;
 import com.minecolonies.api.entity.citizen.AbstractEntityCitizen;
 import net.minecraft.client.Minecraft;
-import net.minecraft.resources.ResourceLocation;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
+import net.minecraft.resources.Identifier;
 import static com.minecolonies.api.entity.citizen.AbstractEntityCitizen.DATA_TEXTURE_SUFFIX;
 import static com.minecolonies.api.entity.citizen.AbstractEntityCitizen.DATA_STYLE;
 
 public class MCTPSimpleModelType extends SimpleModelType
 {
-    public MCTPSimpleModelType(ResourceLocation name,
+    public MCTPSimpleModelType(Identifier name,
         int numTextures,
-        CitizenModel<AbstractEntityCitizen> maleModel,
-        CitizenModel<AbstractEntityCitizen> femaleModel)
+        CitizenModel maleModel,
+        CitizenModel femaleModel)
     {
         super(name, numTextures, maleModel, femaleModel);
     }
@@ -31,8 +29,7 @@ public class MCTPSimpleModelType extends SimpleModelType
      * @param entityCitizen The citizen in question to get the path.
      * @return The path to the citizen.
      */
-    @OnlyIn(Dist.CLIENT)
-    public ResourceLocation getTexture(@NotNull final AbstractEntityCitizen entityCitizen)
+    public Identifier getTexture(@NotNull final AbstractEntityCitizen entityCitizen)
     {
         // return super.getTexture(entityCitizen);
 
@@ -45,7 +42,7 @@ public class MCTPSimpleModelType extends SimpleModelType
         final String textureIdentifier = getName().getPath() + (entityCitizen.isFemale() ? "female" : "male") +
             moddedTextureId +
             entityCitizen.getEntityData().get(DATA_TEXTURE_SUFFIX);
-        final ResourceLocation modified = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID,
+        final Identifier modified = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID,
             ISimpleModelType.BASE_FOLDER + style + "/" + textureIdentifier + ".png");
 
         if (modified != null && Minecraft.getInstance().getResourceManager().getResource(modified).isPresent())
@@ -53,7 +50,7 @@ public class MCTPSimpleModelType extends SimpleModelType
             return modified;
         }
 
-        return ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID,
+        return Identifier.fromNamespaceAndPath(MCTradePostMod.MODID,
             ISimpleModelType.BASE_FOLDER + ISimpleModelType.DEFAULT_FOLDER + "/" + textureIdentifier + ".png");
     }
 }

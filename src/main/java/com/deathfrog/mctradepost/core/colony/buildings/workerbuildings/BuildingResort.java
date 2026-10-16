@@ -1,5 +1,7 @@
 package com.deathfrog.mctradepost.core.colony.buildings.workerbuildings;
 
+import com.deathfrog.mctradepost.core.colony.buildings.modules.CitizenIncentiveModule;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -280,7 +282,7 @@ public class BuildingResort extends AbstractBuilding
         }
 
         if (guest.getTargetLevel() > 0
-            && citizenData.getCitizenSkillHandler().getLevel(guest.getBurntSkill()) >= guest.getTargetLevel())
+            && CitizenIncentiveModule.getNormalLevel(citizenData, guest.getBurntSkill()) >= guest.getTargetLevel())
         {
             return false;
         }
@@ -319,12 +321,12 @@ public class BuildingResort extends AbstractBuilding
         super.deserializeNBT(provider, compound);
         guests.clear();
 
-        ListTag guestTagList = compound.getList(GUEST_TAG_ID, 10);
+        ListTag guestTagList = compound.getListOrEmpty(GUEST_TAG_ID);
 
         for (int i = 0; i < guestTagList.size(); ++i)
         {
-            CompoundTag vacationCompound = guestTagList.getCompound(i);
-            int guestId = vacationCompound.getInt("id");
+            CompoundTag vacationCompound = guestTagList.getCompoundOrEmpty(i);
+            int guestId = vacationCompound.getIntOr("id", 0);
             if (!this.guests.containsKey(guestId))
             {
                 Vacationer guestFile = new Vacationer(vacationCompound);

@@ -1,21 +1,17 @@
 package com.deathfrog.mctradepost.core.blocks;
 
-import java.util.Map;
-
 import javax.annotation.Nonnull;
 
-import com.deathfrog.mctradepost.MCTradePostMod;
 import com.deathfrog.mctradepost.api.util.NullnessBridge;
 import com.deathfrog.mctradepost.core.colony.buildings.modules.StewmelierIngredientModule;
 import com.mojang.serialization.MapCodec;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.cauldron.CauldronInteraction.InteractionMap;
+import net.minecraft.core.cauldron.CauldronInteraction;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -35,10 +31,10 @@ public class StewpotBlock extends AbstractCauldronBlock
         private StewpotBehaviors() {}
 
         /**
-         * Behavior map passed to AbstractCauldronBlock.
+         * Behavior dispatcher passed to AbstractCauldronBlock. Left empty: all player interactions for this block are
+         * handled directly in {@link StewpotBlock#useItemOn}, which never delegates to this dispatcher.
          */
-        public static final @Nonnull InteractionMap BEHAVIORS = 
-            new InteractionMap("stewpot", NullnessBridge.assumeNonnull(Map.of()));
+        public static final @Nonnull CauldronInteraction.Dispatcher BEHAVIORS = new CauldronInteraction.Dispatcher();
 
         /**
          * A no-op interaction function.
@@ -57,6 +53,7 @@ public class StewpotBlock extends AbstractCauldronBlock
     }
 
     public static final @Nonnull IntegerProperty LEVEL = NullnessBridge.assumeNonnull(BlockStateProperties.LEVEL_CAULDRON);
+    public static final @Nonnull IntegerProperty STEW_TIER = NullnessBridge.assumeNonnull(IntegerProperty.create("stew_tier", 1, 3));
 
     /**
      * Required in 1.21+: blocks provide a codec used by registry/serialization plumbing.
@@ -70,7 +67,7 @@ public class StewpotBlock extends AbstractCauldronBlock
         super(props, StewpotBehaviors.BEHAVIORS);
 
         // Pick whatever default makes sense visually. 1 is fine (has visible contents).
-        BlockState stewlevel = this.stateDefinition.any().setValue(LEVEL, 1);
+        BlockState stewlevel = this.stateDefinition.any().setValue(LEVEL, 1).setValue(STEW_TIER, 1);
 
         if (stewlevel != null) this.registerDefaultState(stewlevel);
     }
@@ -78,7 +75,7 @@ public class StewpotBlock extends AbstractCauldronBlock
     @Override
     protected void createBlockStateDefinition(@Nonnull StateDefinition.Builder<Block, BlockState> builder)
     {
-        builder.add(LEVEL);
+        builder.add(LEVEL, STEW_TIER);
     }
 
     /**
@@ -119,7 +116,7 @@ public class StewpotBlock extends AbstractCauldronBlock
      * @return the result of the interaction
      */
     @Override
-    protected ItemInteractionResult useItemOn(
+    protected InteractionResult useItemOn(
         @Nonnull ItemStack stack,
         @Nonnull BlockState state,
         @Nonnull Level level,
@@ -131,26 +128,26 @@ public class StewpotBlock extends AbstractCauldronBlock
 
         if (pos == null || level == null || player == null)
         {
-            return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+            return InteractionResult.TRY_WITH_EMPTY_HAND;
         }
 
-        final ItemInteractionResult bowlResult =
+        final InteractionResult bowlResult =
             tryFillBowlWithPerpetualStew(stack, state, level, pos, player, hand);
 
-        if (bowlResult != ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION)
+        if (bowlResult != InteractionResult.TRY_WITH_EMPTY_HAND)
         {
             return bowlResult;
         }
 
         // No player interactions for stewpot. Let other handlers proceed.
-        return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        return InteractionResult.TRY_WITH_EMPTY_HAND;
     }
 
     /**
      * If the player is holding an empty bowl, replace one bowl with one PerpetualStew.
      * Returns a non-PASS result if it handled the interaction.
      */
-    private static ItemInteractionResult tryFillBowlWithPerpetualStew(
+    private static InteractionResult tryFillBowlWithPerpetualStew(
         final ItemStack held,
         final BlockState state,
         final Level level,
@@ -159,27 +156,33 @@ public class StewpotBlock extends AbstractCauldronBlock
         final InteractionHand hand)
     {
         // Only act on server; client will get the success result from the server-side interaction.
-        if (level.isClientSide)
-            return ItemInteractionResult.SUCCESS;
+        if (level.isClientSide())
+            return InteractionResult.SUCCESS;
 
         // Must be an empty bowl
         if (!held.is(NullnessBridge.assumeNonnull(Items.BOWL)))
-            return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+            return InteractionResult.TRY_WITH_EMPTY_HAND;
 
         // Optional: only allow if your stewpot has contents
         if (state.getValue(LEVEL) <= 0)
-            return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+            return InteractionResult.TRY_WITH_EMPTY_HAND;
 
         // Identify module from cauldron position, and reduce the stew amount in the module.
         StewmelierIngredientModule module = StewmelierIngredientModule.kitchenFromCauldronPosition(level, pos);
 
         if (module == null)
         {
-            return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+            return InteractionResult.TRY_WITH_EMPTY_HAND;
+        }
+
+        // Broth has physical volume but cannot be portioned until it qualifies as Basic stew.
+        if (module.getServableStewQuantityBowlsWorth() <= 0)
+        {
+            return InteractionResult.TRY_WITH_EMPTY_HAND;
         }
 
         // Create the filled stew item
-        final ItemStack filledStew = new ItemStack(NullnessBridge.assumeNonnull(MCTradePostMod.PERPETUAL_STEW.get()));
+        final ItemStack filledStew = new ItemStack(NullnessBridge.assumeNonnull(module.getActualStewTier().getItem()));
 
         // If not creative, consume exactly one bowl from the held stack
         if (!player.getAbilities().instabuild)
@@ -201,7 +204,7 @@ public class StewpotBlock extends AbstractCauldronBlock
         module.addStew(-1.0f);
         level.playSound(null, pos, NullnessBridge.assumeNonnull(SoundEvents.BOTTLE_FILL), SoundSource.BLOCKS, 1.0F, 1.0F);
 
-        return ItemInteractionResult.SUCCESS;
+        return InteractionResult.SUCCESS;
     }
 
 }

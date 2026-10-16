@@ -95,7 +95,7 @@ public class CommandStationRoutes extends AbstractCommands
                     String start = segment.path().isEmpty() ? "empty" : segment.path().getFirst().toShortString();
                     String end = segment.path().isEmpty() ? "empty" : segment.path().getLast().toShortString();
                     source.sendSuccess(() -> Component.literal("    [" + index + "] RAIL " +
-                        segment.dimension().location() +
+                        segment.dimension().identifier() +
                         " nodes=" + segment.path().size() +
                         " distance=" + segment.distance() +
                         " start=" + start +

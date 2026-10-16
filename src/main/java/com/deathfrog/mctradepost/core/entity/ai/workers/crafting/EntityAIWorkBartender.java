@@ -19,7 +19,7 @@ import com.minecolonies.api.util.InventoryUtils;
 import com.minecolonies.core.entity.ai.workers.crafting.AbstractEntityAICrafting;
 import com.mojang.logging.LogUtils;
 
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import static com.minecolonies.api.entity.ai.statemachine.states.AIWorkerState.*;
 import java.util.HashSet;
 import java.util.Set;
@@ -47,7 +47,7 @@ public class EntityAIWorkBartender extends AbstractEntityAICrafting<JobBartender
      * Crafting icon
      */
     private final static VisibleCitizenStatus CRAFTING =
-        new VisibleCitizenStatus(ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "textures/icons/work/bartender.png"),
+        new VisibleCitizenStatus(Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "textures/icons/work/bartender.png"),
             "com.mctradepost.gui.visiblestatus.bartender");
 
     /**

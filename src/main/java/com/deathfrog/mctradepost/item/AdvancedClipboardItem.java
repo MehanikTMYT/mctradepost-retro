@@ -21,7 +21,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
@@ -49,28 +48,28 @@ public class AdvancedClipboardItem extends ItemClipboard
      */
     @Override
     @NotNull
-    public InteractionResultHolder<ItemStack> use(final Level worldIn, final Player playerIn, final InteractionHand hand)
+    public InteractionResult use(final Level worldIn, final Player playerIn, final InteractionHand hand)
     {
         if (hand == null)
         {
-            return new InteractionResultHolder<>(InteractionResult.PASS, NullnessBridge.assumeNonnull(ItemStack.EMPTY));
+            return InteractionResult.PASS;
         }
 
         final ItemStack clipboard = playerIn.getItemInHand(hand);
 
         if (clipboard.isEmpty())
         {
-            return new InteractionResultHolder<>(InteractionResult.PASS, clipboard);
+            return InteractionResult.PASS;
         }
 
-        if (!worldIn.isClientSide)
+        if (!worldIn.isClientSide())
         {
-            return new InteractionResultHolder<>(InteractionResult.SUCCESS, clipboard);
+            return InteractionResult.SUCCESS.heldItemTransformedTo(clipboard);
         }
 
         openWindow(clipboard, worldIn, playerIn);
 
-        return new InteractionResultHolder<>(InteractionResult.SUCCESS, clipboard);
+        return InteractionResult.SUCCESS.heldItemTransformedTo(clipboard);
     }
 
     /**
@@ -125,14 +124,14 @@ public class AdvancedClipboardItem extends ItemClipboard
             {
                 buildingEntity.writeColonyToItemStack(clipboard);
 
-                if (!ctx.getLevel().isClientSide)
+                if (!ctx.getLevel().isClientSide())
                 {
                     MessageUtils.format(COM_MINECOLONIES_CLIPBOARD_COLONY_SET, buildingEntity.getColony().getName())
                         .sendTo(ctx.getPlayer());
                 }
             }
         }
-        else if (ctx.getLevel().isClientSide)
+        else if (ctx.getLevel().isClientSide())
         {
             openWindow(clipboard, ctx.getLevel(), ctx.getPlayer());
         }
@@ -158,14 +157,14 @@ public class AdvancedClipboardItem extends ItemClipboard
 
             if (compound.contains(TAG_HIDEUNIMPORTANT))
             {
-                hide = compound.getBoolean(TAG_HIDEUNIMPORTANT);
+                hide = compound.getBooleanOr(TAG_HIDEUNIMPORTANT, false);
             }
 
             new AdvancedWindowClipBoard(colonyView, hide).open();
         }
         else
         {
-            player.displayClientMessage(NullnessBridge.assumeNonnull(Component.translatableEscape(TranslationConstants.COM_MINECOLONIES_CLIPBOARD_NEED_COLONY)), true);
+            player.sendOverlayMessage(NullnessBridge.assumeNonnull(Component.translatableEscape(TranslationConstants.COM_MINECOLONIES_CLIPBOARD_NEED_COLONY)));
         }
     }
 }

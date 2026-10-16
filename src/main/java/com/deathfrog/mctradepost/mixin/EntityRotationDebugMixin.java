@@ -3,7 +3,7 @@ package com.deathfrog.mctradepost.mixin;
 import com.deathfrog.mctradepost.api.util.NullnessBridge;
 import com.minecolonies.core.entity.pathfinding.navigation.MovementHandler;
 import com.mojang.logging.LogUtils;
-import net.minecraft.Util;
+import net.minecraft.util.Util;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -142,7 +142,7 @@ public abstract class EntityRotationDebugMixin
             fmtF(self.getYRot()),
             fmtF(self.getXRot()),
             safeLevel(self),
-            self.level().isClientSide,
+            self.level().isClientSide(),
             self.onGround(),
             self.isInWater(),
             new RuntimeException("First NaN origin stack trace")
@@ -210,7 +210,7 @@ public abstract class EntityRotationDebugMixin
             safeEntityBrief(self.getVehicle()),
             self.getPassengers() == null ? -1 : self.getPassengers().size(),
             safeLevel(self),
-            self.level().isClientSide
+            self.level().isClientSide()
         );
 
         // Deeper mob/nav state if applicable.
@@ -293,7 +293,7 @@ public abstract class EntityRotationDebugMixin
         try
         {
             // dimension/location info without hard dependency on server classes
-            return String.valueOf(e.level().dimension().location());
+            return String.valueOf(e.level().dimension().identifier());
         }
         catch (Throwable t)
         {

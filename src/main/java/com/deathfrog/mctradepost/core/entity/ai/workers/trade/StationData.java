@@ -4,6 +4,7 @@ import java.util.Objects;
 
 import javax.annotation.Nonnull;
 
+import com.deathfrog.mctradepost.api.util.BuildingUtil;
 import com.deathfrog.mctradepost.api.util.NullnessBridge;
 import com.deathfrog.mctradepost.core.colony.buildings.workerbuildings.BuildingOutpost;
 import com.deathfrog.mctradepost.core.colony.buildings.workerbuildings.BuildingStation;
@@ -14,15 +15,17 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
 
 public class StationData
 {
 
-    public static final ResourceLocation OVERWORLD = ResourceLocation.fromNamespaceAndPath("minecraft", "overworld");
-    public static final StationData EMPTY =
+    private static final String TAG_OUTPOST = "outpost";
+    public static final Identifier OVERWORLD = Identifier.fromNamespaceAndPath("minecraft", "overworld");
+    @SuppressWarnings("null")
+    public static final @Nonnull StationData EMPTY =
         new StationData(ResourceKey.create(NullnessBridge.assumeNonnull(Registries.DIMENSION), NullnessBridge.assumeNonnull(OVERWORLD)),
             -1,
             BlockPos.ZERO);
@@ -32,22 +35,41 @@ public class StationData
         CONNECTED, DISCONNECTED, UNKNOWN
     }
 
-    private BlockPos buildingposition = null;
+    private @Nonnull BlockPos buildingposition;
     private int colonyId = -1;
-    private ResourceKey<Level> dimension = null;
+    private @Nonnull ResourceKey<Level> dimension;
+    private boolean outpost;
+    private boolean outpostKnown;
 
+    /**
+     * Captures the identity and type of a trade-capable building.
+     *
+     * @param building building to describe
+     */
+    @SuppressWarnings("null")
     public StationData(ITradeCapable building)
     {
         this.buildingposition = building.getPosition();
         colonyId = building.getColony().getID();
         dimension = building.getColony().getDimension();
+        outpost = building instanceof BuildingOutpost;
+        outpostKnown = true;
     }
 
-    public StationData(ResourceKey<Level> dimension, int colonyId, BlockPos buildingpos)
+    /**
+     * Creates station data when only its persistent identity is available.
+     *
+     * @param dimension building dimension
+     * @param colonyId owning colony identifier
+     * @param buildingpos building position
+     */
+    public StationData(@Nonnull ResourceKey<Level> dimension, int colonyId, @Nonnull BlockPos buildingpos)
     {
         this.dimension = dimension;
         this.colonyId = colonyId;
         this.buildingposition = buildingpos;
+        this.outpost = false;
+        this.outpostKnown = false;
     }
 
     /**
@@ -83,7 +105,12 @@ public class StationData
      */
     public boolean isOutpost()
     {
-        return getStation() instanceof BuildingOutpost;
+        if (!outpostKnown)
+        {
+            outpost = getStation() instanceof BuildingOutpost;
+            outpostKnown = true;
+        }
+        return outpost;
     }
 
     /**
@@ -94,6 +121,16 @@ public class StationData
     public ResourceKey<Level> getDimension()
     {
         return dimension;
+    }
+
+    /**
+     * Returns the dimension-qualified building position used to identify this destination.
+     *
+     * @return dimension-qualified building position
+     */
+    public @Nonnull DimPos getDimensionalPosition()
+    {
+        return new DimPos(dimension, buildingposition);
     }
 
     /**
@@ -145,8 +182,9 @@ public class StationData
     {
         CompoundTag tag = new CompoundTag();
 
-        tag.putString("dimension", dimension.location().toString() + "");
+        tag.putString(BuildingUtil.TAG_DIMENSION, dimension.identifier().toString() + "");
         tag.putInt("colonyId", colonyId);
+        tag.putBoolean(TAG_OUTPOST, outpost);
 
         BlockPosUtil.write(tag, "buildingposition", buildingposition);
 
@@ -159,10 +197,10 @@ public class StationData
      * the x, y, and z coordinates of the station's block position. - The game time at which the track connection status was last
      * updated, in milliseconds.
      *
-     * @param level The level in which the station is located.
      * @param tag   The tag containing the serialized station data.
      * @return The deserialized station data.
      */
+    @SuppressWarnings("null")
     public static StationData fromNBT(CompoundTag tag)
     {
         BlockPos buildingposition = BlockPos.ZERO;
@@ -171,7 +209,7 @@ public class StationData
 
         if (tag.contains("colonyId"))
         {
-            colonyId = tag.getInt("colonyId");
+            colonyId = tag.getIntOr("colonyId", -1);
         }
 
         buildingposition = BlockPosUtil.read(tag, "buildingposition");
@@ -182,12 +220,17 @@ public class StationData
             return null;
         }
 
-        String dimension = tag.getString("dimension") + "";
-        ResourceLocation level = ResourceLocation.parse(dimension);
+        String dimension = tag.getStringOr(BuildingUtil.TAG_DIMENSION, "") + "";
+        Identifier level = Identifier.parse(dimension);
 
         ResourceKey<Level> levelKey = ResourceKey.create(NullnessBridge.assumeNonnull(Registries.DIMENSION), NullnessBridge.requireNonnull(level, "Null dimension: " + dimension));
 
         data = new StationData(levelKey, colonyId, buildingposition);
+        if (tag.contains(TAG_OUTPOST))
+        {
+            data.outpost = tag.getBooleanOr(TAG_OUTPOST, false);
+            data.outpostKnown = true;
+        }
 
         // BuildingStation.LOGGER.info("Deserialized station data: {}", data);
 

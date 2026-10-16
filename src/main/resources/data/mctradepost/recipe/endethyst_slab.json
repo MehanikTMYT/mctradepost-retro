@@ -5,9 +5,7 @@
     "###"
   ],
   "key": {
-    "#": {
-      "item": "mctradepost:endethyst"
-    }
+    "#": "mctradepost:endethyst"
   },
   "result": {
     "id": "mctradepost:endethyst_slab",

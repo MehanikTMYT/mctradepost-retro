@@ -21,6 +21,8 @@ import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.neoforge.items.wrapper.InvWrapper;
 import net.neoforged.neoforge.items.wrapper.SidedInvWrapper;
+import net.neoforged.neoforge.transfer.ResourceHandler;
+import net.neoforged.neoforge.transfer.item.ItemResource;
 
 import static com.deathfrog.mctradepost.api.util.TraceUtils.TRACE_OUTPOST_REQUESTS;
 
@@ -67,8 +69,8 @@ public final class ItemHandlerHelpers
         if (state != null)
         {
             @SuppressWarnings("null")
-            IItemHandler cap = level.getCapability(Capabilities.ItemHandler.BLOCK, pos, state, be, side);
-            if (cap != null) return Optional.of(cap);
+            ResourceHandler<ItemResource> cap = level.getCapability(Capabilities.Item.BLOCK, pos, state, be, side);
+            if (cap != null) return Optional.of(IItemHandler.of(cap));
         }
 
         // 2) Wrap a vanilla Container if present

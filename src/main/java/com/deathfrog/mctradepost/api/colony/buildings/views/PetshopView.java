@@ -44,7 +44,7 @@ public class PetshopView extends AbstractBuildingView
             final CompoundTag compound = buf.readNbt();
             if (compound != null)
             {   
-                String animalType = compound.getString(PetData.TAG_ANIMAL_TYPE);
+                String animalType = compound.getStringOr(PetData.TAG_ANIMAL_TYPE, "");
                 PetTypes petType = PetTypes.fromPetString(animalType);
                 PetData<?> pet = PetTypes.createPetDataForType(petType, compound);
 

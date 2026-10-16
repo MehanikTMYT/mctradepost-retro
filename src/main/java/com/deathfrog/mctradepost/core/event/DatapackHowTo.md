@@ -8,7 +8,7 @@ See BurnoutRemedyManager.java for an implementation of all steps excep registeri
 * Logic for how to access the information defined in your datafiles will be in this manager.
 
 ## Register a Listener
-* Create a class that has a method with this signature, annotated with @SubscribeEvent: public static void methodName(@NotNull final AddReloadListenerEvent event)
+* Create a class that has a method with this signature, annotated with @SubscribeEvent: public static void methodName(@NotNull final AddServerReloadListenersEvent event)
 * In the mod constructor, register this class with the Event Bus: NeoForge.EVENT_BUS.register(MyListenerClass.class);
 * Add a listener to the event, telling it what the 'Manager' of this logic will be (the class defined above): event.addListener(new MyManager())
 

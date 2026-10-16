@@ -1,19 +1,18 @@
 {
-    "type": "minecraft:crafting_shaped",
-    "category": "building",
-    "key": {
-      "C": { "item": "mctradepost:mctp_coin_gold" },
-      "G": { "item": "minecraft:cooked_chicken" },
-      "B": { "item": "minecraft:bread" }
-    },
-    "pattern": [
-      "GBG",
-      "BCB",
-      "GBG"
-    ],
-    "result": {
-      "count": 1,
-      "id": "mctradepost:wish_plenty"
-    }
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "key": {
+    "C": "mctradepost:mctp_coin_gold",
+    "G": "minecraft:cooked_chicken",
+    "B": "minecraft:bread"
+  },
+  "pattern": [
+    "GBG",
+    "BCB",
+    "GBG"
+  ],
+  "result": {
+    "count": 1,
+    "id": "mctradepost:wish_plenty"
+  }
 }
-  

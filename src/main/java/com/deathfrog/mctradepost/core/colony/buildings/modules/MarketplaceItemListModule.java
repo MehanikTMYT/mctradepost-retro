@@ -56,17 +56,17 @@ public class MarketplaceItemListModule extends ItemListModule implements IAlters
 
       itemOptionSet.clear();
 
-      final ListTag filterableList = compound.getList(OPTION_SET, Tag.TAG_COMPOUND);
+      final ListTag filterableList = compound.getListOrEmpty(OPTION_SET);
 
       for (int i = 0; i < filterableList.size(); i++)
       {
-         final CompoundTag itemTag = filterableList.getCompound(i);
+         final CompoundTag itemTag = filterableList.getCompoundOrEmpty(i);
          if (itemTag.isEmpty())
          {
                continue;
          }
 
-         itemOptionSet.add(new ItemStorage(ItemStack.parseOptional(
+         itemOptionSet.add(new ItemStorage(Utils.parseOptionalItemStack(
                NullnessBridge.assumeNonnull(provider), itemTag
          )));
       }
@@ -97,7 +97,7 @@ public class MarketplaceItemListModule extends ItemListModule implements IAlters
       {
          ItemStorage item = (ItemStorage) optionsIterator.next();
 
-         filteredItems.add(item.getItemStack().saveOptional(NullnessBridge.assumeNonnull(provider)));
+         filteredItems.add(Utils.saveOptionalItemStack(NullnessBridge.assumeNonnull(provider), item.getItemStack()));
       }
    
       // LOGGER.info("Saving OPTION_SET {} entries", filteredItems.size());
@@ -197,7 +197,8 @@ public class MarketplaceItemListModule extends ItemListModule implements IAlters
       {
          for (ItemStorage data : getList())
          {
-            int quantity = data.getItemStack().getMaxStackSize();
+            // Leave anything sellable behind.
+            int quantity = Integer.MAX_VALUE;
             consumer.accept(stack -> ItemStackUtils.compareItemStacksIgnoreStackSize(stack, data.getItemStack(), false, true),
                quantity,
                false);

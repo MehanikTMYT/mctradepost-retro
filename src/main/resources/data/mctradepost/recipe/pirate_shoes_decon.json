@@ -1,8 +1,20 @@
 {
   "type": "mctradepost:deconstruction",
-  "input": { "item": "minecolonies:pirate_shoes" },
+  "input": "minecolonies:pirate_shoes",
   "results": [
-    { "item": { "id": "minecraft:leather", "count": 4 }, "chance": 1.0 },
-    { "item": { "id": "minecraft:iron_nugget", "count": 2 }, "chance": 1.0 }
+    {
+      "item": {
+        "id": "minecraft:leather",
+        "count": 4
+      },
+      "chance": 1.0
+    },
+    {
+      "item": {
+        "id": "minecraft:iron_nugget",
+        "count": 2
+      },
+      "chance": 1.0
+    }
   ]
 }

@@ -1,5 +1,6 @@
 package com.deathfrog.mctradepost.core.client.gui;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import javax.annotation.Nonnull;
@@ -7,17 +8,20 @@ import javax.annotation.Nonnull;
 import com.deathfrog.mctradepost.api.util.NullnessBridge;
 import com.deathfrog.mctradepost.core.inventory.PetWorkingMenu;
 import com.deathfrog.mctradepost.core.client.render.ForageAreaOverlay;
-import com.mojang.blaze3d.systems.RenderSystem;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.narration.NarratedElementType;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.input.InputWithModifiers;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.util.ARGB;
 import net.minecraft.world.entity.player.Inventory;
 
 /**
@@ -25,14 +29,15 @@ import net.minecraft.world.entity.player.Inventory;
  */
 public class PetWorkingScreen extends AbstractContainerScreen<PetWorkingMenu>
 {
-    private static final ResourceLocation TEXTURE =
-        ResourceLocation.withDefaultNamespace("textures/gui/container/generic_54.png");
-    private static final ResourceLocation FOCUS_SLOT_TEXTURE =
-        ResourceLocation.fromNamespaceAndPath("mctradepost", "textures/gui/sniff.png");
-    private static final ResourceLocation HIGHLIGHT_OFF_TEXTURE =
-        ResourceLocation.fromNamespaceAndPath("mctradepost", "textures/gui/highlight_off.png");
-    private static final ResourceLocation HIGHLIGHT_ON_TEXTURE =
-        ResourceLocation.fromNamespaceAndPath("mctradepost", "textures/gui/highlight_on.png");
+    private static final int TOOLTIP_MAX_WIDTH = 220;
+    private static final Identifier TEXTURE =
+        Identifier.withDefaultNamespace("textures/gui/container/generic_54.png");
+    private static final Identifier FOCUS_SLOT_TEXTURE =
+        Identifier.fromNamespaceAndPath("mctradepost", "textures/gui/sniff.png");
+    private static final Identifier HIGHLIGHT_OFF_TEXTURE =
+        Identifier.fromNamespaceAndPath("mctradepost", "textures/gui/highlight_off.png");
+    private static final Identifier HIGHLIGHT_ON_TEXTURE =
+        Identifier.fromNamespaceAndPath("mctradepost", "textures/gui/highlight_on.png");
     private ForageAreaCheckbox forageAreaCheckbox;
 
     /**
@@ -44,9 +49,7 @@ public class PetWorkingScreen extends AbstractContainerScreen<PetWorkingMenu>
      */
     public PetWorkingScreen(PetWorkingMenu menu, Inventory inventory, Component title)
     {
-        super(menu, inventory, title);
-        imageWidth = 212;
-        imageHeight = 168;
+        super(menu, inventory, title, 212, 168);
         inventoryLabelY = 74;
     }
 
@@ -57,7 +60,7 @@ public class PetWorkingScreen extends AbstractContainerScreen<PetWorkingMenu>
         final BlockPos pos = menu.workingPosition();
 
         Minecraft localMc = minecraft;
-        
+
         if (pos != null && localMc != null)
         {
             forageAreaCheckbox = addRenderableWidget(new ForageAreaCheckbox(leftPos + 184, topPos + 43,
@@ -86,15 +89,17 @@ public class PetWorkingScreen extends AbstractContainerScreen<PetWorkingMenu>
      * slot extension.
      *
      * @param graphics GUI drawing context
-     * @param partialTick partial client tick
      * @param mouseX current mouse X position
      * @param mouseY current mouse Y position
+     * @param partialTick partial client tick
      */
     @Override
-    protected void renderBg(@Nonnull GuiGraphics graphics, float partialTick, int mouseX, int mouseY)
+    public void extractBackground(@Nonnull GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick)
     {
-        graphics.blit(NullnessBridge.assumeNonnull(TEXTURE), leftPos, topPos, 0, 0, 176, 71);
-        graphics.blit(NullnessBridge.assumeNonnull(TEXTURE), leftPos, topPos + 71, 0, 126, 176, 96);
+        super.extractBackground(graphics, mouseX, mouseY, partialTick);
+
+        graphics.blit(RenderPipelines.GUI_TEXTURED, NullnessBridge.assumeNonnull(TEXTURE), leftPos, topPos, 0, 0, 176, 71, 256, 256);
+        graphics.blit(RenderPipelines.GUI_TEXTURED, NullnessBridge.assumeNonnull(TEXTURE), leftPos, topPos + 71, 0, 126, 176, 96, 256, 256);
         graphics.fill(leftPos + 176, topPos, leftPos + imageWidth, topPos + 71, 0xffc6c6c6);
 
         // Match the recessed bevel used by vanilla inventory slots: shadow on
@@ -105,9 +110,9 @@ public class PetWorkingScreen extends AbstractContainerScreen<PetWorkingMenu>
         graphics.fill(leftPos + 201, topPos + 17, leftPos + 202, topPos + 36, 0xffffffff);
         graphics.fill(leftPos + 184, topPos + 18, leftPos + 201, topPos + 35,
             menu.isFocusEnabled() ? 0xff8b8b8b : 0xff6b6b6b);
-        RenderSystem.enableBlend();
-        graphics.setColor(1.0F, 1.0F, 1.0F, 0.75F);
+        // RenderPipelines.GUI_TEXTURED already blends (BlendFunction.TRANSLUCENT), so no explicit blend toggle is needed.
         graphics.blit(
+            RenderPipelines.GUI_TEXTURED,
             NullnessBridge.assumeNonnull(FOCUS_SLOT_TEXTURE),
             leftPos + 184,
             topPos + 18,
@@ -116,9 +121,8 @@ public class PetWorkingScreen extends AbstractContainerScreen<PetWorkingMenu>
             16,
             16,
             16,
-            16);
-        graphics.setColor(1.0F, 1.0F, 1.0F, 1.0F);
-        RenderSystem.disableBlend();
+            16,
+            ARGB.white(0.75F));
 
         if (!menu.isFocusEnabled())
         {
@@ -136,15 +140,30 @@ public class PetWorkingScreen extends AbstractContainerScreen<PetWorkingMenu>
      */
     @SuppressWarnings("null")
     @Override
-    protected void renderLabels(@Nonnull GuiGraphics graphics, int mouseX, int mouseY)
+    protected void extractLabels(@Nonnull GuiGraphicsExtractor graphics, int mouseX, int mouseY)
     {
-        super.renderLabels(graphics, mouseX, mouseY);
+        super.extractLabels(graphics, mouseX, mouseY);
 
         final Component focusTitle = Component.translatable("gui.mctradepost.focused_foraging.title");
         final int sidePanelStart = 176;
         final int sidePanelWidth = imageWidth - sidePanelStart;
         final int titleX = sidePanelStart + (sidePanelWidth - font.width(focusTitle)) / 2;
-        graphics.drawString(font, focusTitle, titleX, 6, 0x404040, false);
+        graphics.text(font, focusTitle, titleX, 6, 0x404040, false);
+    }
+
+    /**
+     * Suppresses the default hovered-item tooltip for the focus slot: {@link #extractRenderState}
+     * always shows a custom tooltip for that slot instead (including when it is empty, which the
+     * default vanilla tooltip never renders for).
+     */
+    @Override
+    protected void extractTooltip(@Nonnull GuiGraphicsExtractor graphics, int mouseX, int mouseY)
+    {
+        final boolean focusSlotHovered = hoveredSlot == menu.slots.get(PetWorkingMenu.FOCUS_SLOT);
+        if (!focusSlotHovered)
+        {
+            super.extractTooltip(graphics, mouseX, mouseY);
+        }
     }
 
     /**
@@ -157,16 +176,11 @@ public class PetWorkingScreen extends AbstractContainerScreen<PetWorkingMenu>
      */
     @SuppressWarnings("null")
     @Override
-    public void render(@Nonnull GuiGraphics graphics, int mouseX, int mouseY, float partialTick)
+    public void extractRenderState(@Nonnull GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick)
     {
-        super.render(graphics, mouseX, mouseY, partialTick);
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
 
         final boolean focusSlotHovered = hoveredSlot == menu.slots.get(PetWorkingMenu.FOCUS_SLOT);
-        if (!focusSlotHovered)
-        {
-            renderTooltip(graphics, mouseX, mouseY);
-        }
-
         if (focusSlotHovered)
         {
             final List<Component> tooltip;
@@ -190,8 +204,17 @@ public class PetWorkingScreen extends AbstractContainerScreen<PetWorkingMenu>
             {
                 tooltip = List.of(Component.translatable("gui.mctradepost.focused_foraging.research_required"));
             }
-            graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
+            graphics.setTooltipForNextFrame(font, wrapTooltip(tooltip), mouseX, mouseY);
         }
+    }
+
+    /** Wraps tooltip components without discarding formatting or explicit line breaks. */
+    @SuppressWarnings("null")
+    private List<FormattedCharSequence> wrapTooltip(final List<Component> tooltip)
+    {
+        final List<FormattedCharSequence> wrapped = new ArrayList<>();
+        tooltip.forEach(line -> wrapped.addAll(font.split(line, TOOLTIP_MAX_WIDTH)));
+        return wrapped;
     }
 
     /** Compact image toggle sized for the working block's narrow focus side panel. */
@@ -206,10 +229,10 @@ public class PetWorkingScreen extends AbstractContainerScreen<PetWorkingMenu>
         }
 
         @Override
-        public void onPress()
+        public void onPress(final InputWithModifiers input)
         {
             Minecraft localMc = minecraft;
-            
+
             if (localMc != null)
             {
                 selected = !selected;
@@ -219,13 +242,15 @@ public class PetWorkingScreen extends AbstractContainerScreen<PetWorkingMenu>
 
         @SuppressWarnings("null")
         @Override
-        protected void renderWidget(@Nonnull GuiGraphics graphics, int mouseX, int mouseY, float partialTick)
+        protected void extractContents(@Nonnull GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick)
         {
-            graphics.blit(selected ? HIGHLIGHT_ON_TEXTURE : HIGHLIGHT_OFF_TEXTURE,
-                getX(), getY(), width, height, 0.0F, 0.0F, 18, 18, 18, 18);
+            graphics.blit(RenderPipelines.GUI_TEXTURED, selected ? HIGHLIGHT_ON_TEXTURE : HIGHLIGHT_OFF_TEXTURE,
+                getX(), getY(), 0.0F, 0.0F, width, height, 18, 18);
             if (isHovered())
             {
-                graphics.renderTooltip(font, Component.translatable("gui.mctradepost.forage_area.tooltip"), mouseX, mouseY);
+                graphics.setTooltipForNextFrame(font,
+                    wrapTooltip(List.of(Component.translatable("gui.mctradepost.forage_area.tooltip"))),
+                    mouseX, mouseY);
             }
         }
 

@@ -10,7 +10,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimplePreparableReloadListener;
@@ -18,16 +18,16 @@ import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraft.world.item.Item;
 import java.io.Reader;
 
-public final class ItemValueManager extends SimplePreparableReloadListener<Map<ResourceLocation, Integer>>
+public final class ItemValueManager extends SimplePreparableReloadListener<Map<Identifier, Integer>>
 {
     private static final Gson GSON = new Gson();
-    private static final ResourceLocation FILE = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "item_values.json");
-    private static volatile Map<ResourceLocation, Integer> VALUES = Map.of();
+    private static final Identifier FILE = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "item_values.json");
+    private static volatile Map<Identifier, Integer> VALUES = Map.of();
 
     @Override
-    protected Map<ResourceLocation, Integer> prepare(@Nonnull ResourceManager rm, @Nonnull ProfilerFiller profiler)
+    protected Map<Identifier, Integer> prepare(@Nonnull ResourceManager rm, @Nonnull ProfilerFiller profiler)
     {
-        Map<ResourceLocation, Integer> merged = new HashMap<>();
+        Map<Identifier, Integer> merged = new HashMap<>();
 
         for (Resource res : rm.getResourceStack(NullnessBridge.assumeNonnull(FILE)))
         { // low priority -> high priority
@@ -47,7 +47,7 @@ public final class ItemValueManager extends SimplePreparableReloadListener<Map<R
                     
                     if (keyString == null) continue;
 
-                    ResourceLocation location = ResourceLocation.tryParse(keyString);
+                    Identifier location = Identifier.tryParse(keyString);
 
                     if (location == null) 
                     {
@@ -79,7 +79,7 @@ public final class ItemValueManager extends SimplePreparableReloadListener<Map<R
     }
 
     @Override
-    protected void apply(@Nonnull Map<ResourceLocation, Integer> prepared,
+    protected void apply(@Nonnull Map<Identifier, Integer> prepared,
         @Nonnull ResourceManager rm,
         @Nonnull ProfilerFiller profiler)
     {
@@ -87,13 +87,13 @@ public final class ItemValueManager extends SimplePreparableReloadListener<Map<R
     }
 
     /** Returns the immutable, unscaled value snapshot currently loaded on this side. */
-    public static Map<ResourceLocation, Integer> getBaseValues()
+    public static Map<Identifier, Integer> getBaseValues()
     {
         return VALUES;
     }
 
     /** Atomically installs a complete server-authoritative value snapshot on the client. */
-    public static void replaceFromServer(Map<ResourceLocation, Integer> values)
+    public static void replaceFromServer(Map<Identifier, Integer> values)
     {
         VALUES = Map.copyOf(values);
     }

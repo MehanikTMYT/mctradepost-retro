@@ -1,22 +1,12 @@
 {
-  "type": "minecraft:crafting_shapeless",
+  "type": "mctradepost:durable_tool_shapeless",
   "category": "misc",
   "ingredients": [
-    {
-      "item": "minecraft:ice"
-    },
-    {
-      "item": "minecraft:sweet_berries"
-    },
-    {
-      "item": "minecolonies:large_empty_bottle"
-    },
-    {
-      "item": "minecraft:sugar"
-    },
-    {
-      "item": "mctradepost:immersion_blender"
-    }
+    "minecraft:ice",
+    "minecraft:sweet_berries",
+    "minecolonies:large_empty_bottle",
+    "minecraft:sugar",
+    "mctradepost:immersion_blender"
   ],
   "result": {
     "count": 8,

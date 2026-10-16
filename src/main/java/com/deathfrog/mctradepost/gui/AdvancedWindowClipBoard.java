@@ -19,7 +19,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Vec3i;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 import com.google.common.reflect.TypeToken;
 import com.ldtteam.blockui.Color;
@@ -29,11 +29,6 @@ import java.util.*;
 import java.util.function.Supplier;
 
 import static com.minecolonies.api.util.constant.WindowConstants.CLIPBOARD_TOGGLE;
-import net.neoforged.api.distmarker.OnlyIn;
-import net.neoforged.api.distmarker.Dist;
-
-
-@OnlyIn(Dist.CLIENT)
 public class AdvancedWindowClipBoard extends AbstractWindowSkeleton 
 {
     public static final String ADVANCED_CLIPBOARD_TOGGLE = "playeronly";
@@ -58,7 +53,7 @@ public class AdvancedWindowClipBoard extends AbstractWindowSkeleton
      */
     public AdvancedWindowClipBoard(final IColonyView colony, boolean showImportant)
     {
-        super(ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "gui/advancedwindowclipboard.xml"));
+        super(Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "gui/advancedwindowclipboard.xml"));
         this.showImportant = showImportant;
         this.requestTreeWindowModule = registerLayoutModule(ClipboardRequestTreeWindowModule::new, new ClipboardRequestTreeWindowModule.Options(colony, () -> this.showImportant, () -> this.playerOnly), 16, 44);
 

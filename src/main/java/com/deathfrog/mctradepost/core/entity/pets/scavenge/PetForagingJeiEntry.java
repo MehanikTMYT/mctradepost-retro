@@ -8,7 +8,7 @@ import com.deathfrog.mctradepost.api.entity.pets.PetRoles;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 
 /**
@@ -28,12 +28,12 @@ import net.minecraft.world.item.ItemStack;
  * @param noteKey translation key for a short contextual note in JEI
  */
 public record PetForagingJeiEntry(
-    ResourceLocation id,
+    Identifier id,
     PetRoles role,
-    ResourceLocation workLocationBlock,
-    ResourceLocation sourceBlock,
-    ResourceLocation sourceTag,
-    ResourceLocation lootTable,
+    Identifier workLocationBlock,
+    Identifier sourceBlock,
+    Identifier sourceTag,
+    Identifier lootTable,
     List<ItemStack> outputs,
     String noteKey)
 {
@@ -51,12 +51,12 @@ public record PetForagingJeiEntry(
             @Override
             public PetForagingJeiEntry decode(final RegistryFriendlyByteBuf buf)
             {
-                final ResourceLocation id = ResourceLocation.STREAM_CODEC.decode(buf);
+                final Identifier id = Identifier.STREAM_CODEC.decode(buf);
                 final PetRoles role = PetRoles.values()[buf.readVarInt()];
-                final ResourceLocation workLocationBlock = ResourceLocation.STREAM_CODEC.decode(buf);
-                final ResourceLocation sourceBlock = ResourceLocation.STREAM_CODEC.decode(buf);
-                final ResourceLocation sourceTag = ResourceLocation.STREAM_CODEC.decode(buf);
-                final ResourceLocation lootTable = ResourceLocation.STREAM_CODEC.decode(buf);
+                final Identifier workLocationBlock = Identifier.STREAM_CODEC.decode(buf);
+                final Identifier sourceBlock = Identifier.STREAM_CODEC.decode(buf);
+                final Identifier sourceTag = Identifier.STREAM_CODEC.decode(buf);
+                final Identifier lootTable = Identifier.STREAM_CODEC.decode(buf);
                 final List<ItemStack> outputs = new ArrayList<>();
                 final int outputCount = buf.readVarInt();
                 for (int i = 0; i < outputCount; i++)
@@ -71,12 +71,12 @@ public record PetForagingJeiEntry(
             @Override
             public void encode(final RegistryFriendlyByteBuf buf, final PetForagingJeiEntry entry)
             {
-                ResourceLocation.STREAM_CODEC.encode(buf, entry.id());
+                Identifier.STREAM_CODEC.encode(buf, entry.id());
                 buf.writeVarInt(entry.role().ordinal());
-                ResourceLocation.STREAM_CODEC.encode(buf, entry.workLocationBlock());
-                ResourceLocation.STREAM_CODEC.encode(buf, entry.sourceBlock());
-                ResourceLocation.STREAM_CODEC.encode(buf, entry.sourceTag());
-                ResourceLocation.STREAM_CODEC.encode(buf, entry.lootTable());
+                Identifier.STREAM_CODEC.encode(buf, entry.workLocationBlock());
+                Identifier.STREAM_CODEC.encode(buf, entry.sourceBlock());
+                Identifier.STREAM_CODEC.encode(buf, entry.sourceTag());
+                Identifier.STREAM_CODEC.encode(buf, entry.lootTable());
                 buf.writeVarInt(entry.outputs().size());
                 for (ItemStack output : entry.outputs())
                 {

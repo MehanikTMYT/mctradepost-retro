@@ -4,12 +4,14 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.TooltipDisplay;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
+import java.util.function.Consumer;
 
 import java.util.List;
 
@@ -53,7 +55,7 @@ public class SouvenirItem extends Item
          */
         public Item asOriginalItem()
         {
-            return BuiltInRegistries.ITEM.getOptional(ResourceLocation.parse(originalItem)).orElse(net.minecraft.world.item.Items.AIR);
+            return BuiltInRegistries.ITEM.getOptional(Identifier.parse(originalItem)).orElse(net.minecraft.world.item.Items.AIR);
         }
     }
 
@@ -126,7 +128,7 @@ public class SouvenirItem extends Item
             return ItemStack.EMPTY;
         }
 
-        ResourceLocation registryName = BuiltInRegistries.ITEM.getKey(originalItem);
+        Identifier registryName = BuiltInRegistries.ITEM.getKey(originalItem);
         ItemStack stack = new ItemStack(NullnessBridge.assumeNonnull(MCTradePostMod.SOUVENIR.get()));
         stack.setCount(original.getCount());
 
@@ -158,9 +160,9 @@ public class SouvenirItem extends Item
      * @param flag the tooltip flag
      */
     @Override
-    public void appendHoverText(@Nonnull ItemStack stack, @Nonnull TooltipContext context, @Nonnull List<Component> tooltip, @Nonnull TooltipFlag flag)
+    public void appendHoverText(@Nonnull ItemStack stack, @Nonnull TooltipContext context, @Nonnull TooltipDisplay display, @Nonnull Consumer<Component> tooltip, @Nonnull TooltipFlag flag)
     {
-        super.appendHoverText(stack, context, tooltip, flag);
+        super.appendHoverText(stack, context, display, tooltip, flag);
 
         final SouvenirRecord rec = stack.get(souvenirComponent());
         if (rec == null)
@@ -184,10 +186,10 @@ public class SouvenirItem extends Item
             boolean hasCustomName = stack.has(NullnessBridge.assumeNonnull(DataComponents.CUSTOM_NAME));
             if (!hasCustomName) 
             {
-                Component display = buildSouvenirDisplayName(stack);
-                if (display != null) 
+                Component souvenirName = buildSouvenirDisplayName(stack);
+                if (souvenirName != null)
                 {
-                    tooltip.add(display.copy().withStyle(ChatFormatting.GRAY));
+                    tooltip.accept(souvenirName.copy().withStyle(ChatFormatting.GRAY));
                 }
             }
         }
@@ -195,7 +197,7 @@ public class SouvenirItem extends Item
         int value = getSouvenirValue(stack);
         if (value > 0)
         {
-            tooltip.add(Component.translatable("item.mctradepost.tooltip.souvenir_value", value).withStyle(ChatFormatting.DARK_GREEN));
+            tooltip.accept(Component.translatable("item.mctradepost.tooltip.souvenir_value", value).withStyle(ChatFormatting.DARK_GREEN));
         }
     }
 

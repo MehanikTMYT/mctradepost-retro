@@ -1,17 +1,16 @@
 {
-    "type": "minecraft:crafting_shaped",
-    "category": "building",
-    "key": {
-      "S": { "item": "mctradepost:endmarine_brick" }
-    },
-    "pattern": [
-      "   ",
-      "SSS",
-      "SSS"
-    ],
-    "result": {
-      "count": 6,
-      "id": "mctradepost:endmarine_brick_wall"
-    }
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "key": {
+    "S": "mctradepost:endmarine_brick"
+  },
+  "pattern": [
+    "   ",
+    "SSS",
+    "SSS"
+  ],
+  "result": {
+    "count": 6,
+    "id": "mctradepost:endmarine_brick_wall"
+  }
 }
-  

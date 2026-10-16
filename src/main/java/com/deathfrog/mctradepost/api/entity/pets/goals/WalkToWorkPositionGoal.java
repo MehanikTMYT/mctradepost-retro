@@ -87,7 +87,7 @@ public class WalkToWorkPositionGoal<P extends Animal & ITradePostPet> extends Go
         if (!mob.level().isLoaded(localTargetPos)) return false; 
         if (!mob.level().isInWorldBounds(localTargetPos)) return false; 
 
-        final long timeOfDay = mob.level().getDayTime() % 24000L;
+        final long timeOfDay = mob.level().getOverworldClockTime() % 24000L;
 
         long today = currentDay();
         if (hasRunToday(today)) return false;
@@ -336,7 +336,7 @@ public class WalkToWorkPositionGoal<P extends Animal & ITradePostPet> extends Go
         CompoundTag tag = mob.getPersistentData();
         if (!tag.contains(NBT_LAST_RUN_DAY)) return false; // never ran yet
 
-        return tag.getLong(NBT_LAST_RUN_DAY) == today;
+        return tag.getLongOr(NBT_LAST_RUN_DAY, 0L) == today;
     }
 
     /**

@@ -1,18 +1,17 @@
 {
-    "type": "minecraft:crafting_shaped",
-    "category": "equipment",
-    "key": {
-      "C": { "item": "mctradepost:mctp_coin" },
-      "G": { "item": "minecraft:gold_ingot" }
-    },
-    "pattern": [
-      "CCC",
-      "CGC",
-      "CCC"
-    ],
-    "result": {
-      "count": 1,
-      "id": "mctradepost:mctp_coin_gold"
-    }
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "C": "mctradepost:mctp_coin",
+    "G": "minecraft:gold_ingot"
+  },
+  "pattern": [
+    "CCC",
+    "CGC",
+    "CCC"
+  ],
+  "result": {
+    "count": 1,
+    "id": "mctradepost:mctp_coin_gold"
+  }
 }
-  

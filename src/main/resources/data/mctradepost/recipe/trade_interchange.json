@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "pattern": [
+    " R ",
+    "SMS",
+    " R "
+  ],
+  "key": {
+    "R": "minecraft:rail",
+    "S": "mctradepost:mixed_stone",
+    "M": "minecraft:minecart"
+  },
+  "result": {
+    "id": "mctradepost:trade_interchange",
+    "count": 1
+  }
+}

@@ -2,10 +2,18 @@ package com.deathfrog.mctradepost.apiimp.initializer;
 
 import com.deathfrog.mctradepost.MCTradePostMod;
 import com.deathfrog.mctradepost.api.util.NullnessBridge;
+import com.deathfrog.mctradepost.core.blocks.huts.BlockHutMarketplace;
+import com.deathfrog.mctradepost.core.blocks.huts.BlockHutOutpost;
+import com.deathfrog.mctradepost.core.blocks.huts.BlockHutPetShop;
+import com.deathfrog.mctradepost.core.blocks.huts.BlockHutRecycling;
+import com.deathfrog.mctradepost.core.blocks.huts.BlockHutResort;
+import com.deathfrog.mctradepost.core.blocks.huts.BlockHutStation;
 import com.minecolonies.api.blocks.ModBlocks;
 
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -136,11 +144,25 @@ public final class ModBlocksInitializer
      */
     public static void registerBlockItem(final Registry<Item> registry)
     {
-        MCTradePostMod.blockHutMarketplace.get().registerBlockItem(registry, new Item.Properties());
-        MCTradePostMod.blockHutResort.get().registerBlockItem(registry, new Item.Properties());
-        MCTradePostMod.blockHutRecycling.get().registerBlockItem(registry, new Item.Properties());
-        MCTradePostMod.blockHutStation.get().registerBlockItem(registry, new Item.Properties());
-        MCTradePostMod.blockHutPetShop.get().registerBlockItem(registry, new Item.Properties());
-        MCTradePostMod.blockHutOutpost.get().registerBlockItem(registry, new Item.Properties());
+        MCTradePostMod.blockHutMarketplace.get().registerBlockItem(registry, hutItemProps(BlockHutMarketplace.HUT_NAME));
+        MCTradePostMod.blockHutResort.get().registerBlockItem(registry, hutItemProps(BlockHutResort.HUT_NAME));
+        MCTradePostMod.blockHutRecycling.get().registerBlockItem(registry, hutItemProps(BlockHutRecycling.HUT_NAME));
+        MCTradePostMod.blockHutStation.get().registerBlockItem(registry, hutItemProps(BlockHutStation.HUT_NAME));
+        MCTradePostMod.blockHutPetShop.get().registerBlockItem(registry, hutItemProps(BlockHutPetShop.HUT_NAME));
+        MCTradePostMod.blockHutOutpost.get().registerBlockItem(registry, hutItemProps(BlockHutOutpost.HUT_NAME));
+    }
+
+    // As of 26.1.2, Item's constructor requires Properties.setId() to have been called (it computes
+    // its description id eagerly). These hut BlockItems are registered directly via Registry.register
+    // rather than through MCTradePostMod's DeferredRegister-based registerItem()/itemProps() helpers,
+    // so they need their own id stamped on here instead. useBlockDescriptionPrefix() mirrors
+    // MineColonies' own propertiesForItem() (see its ModBlocksInitializer): without it, Item.Properties
+    // defaults to an item.<ns>.<path> description id even for a BlockItem, leaving these hut items
+    // asking for a lang entry no one ships instead of resolving against their block's own
+    // block.<ns>.<path> name.
+    private static Item.Properties hutItemProps(final String hutName)
+    {
+        return new Item.Properties().setId(ResourceKey.create(Registries.ITEM, Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, hutName)))
+            .useBlockDescriptionPrefix();
     }
 }

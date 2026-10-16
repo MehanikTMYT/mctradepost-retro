@@ -1,16 +1,14 @@
 {
   "type": "mctradepost:deconstruction",
-  "input": {
-    "item": "cataclysm:athame"
-  },
+  "input": "cataclysm:athame",
   "neoforge:conditions": [
     {
       "type": "neoforge:mod_loaded",
       "modid": "cataclysm"
     },
     {
-      "type": "neoforge:item_exists",
-      "item": "cataclysm:athame"
+      "type": "neoforge:registered",
+      "value": "cataclysm:athame"
     }
   ],
   "results": [
@@ -28,7 +26,7 @@
       },
       "chance": 1.0
     },
-      {
+    {
       "item": {
         "id": "minecraft:redstone",
         "count": 1

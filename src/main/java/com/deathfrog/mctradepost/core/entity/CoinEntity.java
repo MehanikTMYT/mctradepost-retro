@@ -61,7 +61,7 @@ public class CoinEntity extends ItemEntity
 
         Level localLevel = level();
 
-        if (!localLevel.isClientSide)
+        if (!localLevel.isClientSide())
         {
             if (--wellSearchCooldown > 0) return;
             if (checkedPos != null && checkedPos.equals(this.blockPosition())) return;

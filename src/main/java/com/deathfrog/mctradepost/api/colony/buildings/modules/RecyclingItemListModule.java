@@ -18,6 +18,7 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.world.item.ItemStack;
 import com.minecolonies.api.util.Utils;
+import com.deathfrog.mctradepost.api.util.RecyclableItemMatcher;
 import java.util.UUID;
 
 public class RecyclingItemListModule extends ItemListModule
@@ -99,7 +100,7 @@ public class RecyclingItemListModule extends ItemListModule
     {
         for (PendingWarehouseRequest request : pendingWarehouseRequests)
         {
-            if (request.item().equals(item))
+            if (matches(request.item(), item))
             {
                 return request;
             }
@@ -146,7 +147,7 @@ public class RecyclingItemListModule extends ItemListModule
      */
     public void removePendingWarehouseRequestFor(ItemStorage item)
     {
-        pendingWarehouseRequests.removeIf(request -> request.item().equals(item));
+        pendingWarehouseRequests.removeIf(request -> matches(request.item(), item));
     }
 
     /**
@@ -185,13 +186,26 @@ public class RecyclingItemListModule extends ItemListModule
     {
         for (ItemStorage accepted : acceptedRecyclingInputs)
         {
-            if (accepted.equals(item))
+            if (matches(accepted, item))
             {
                 return accepted;
             }
         }
 
         return null;
+    }
+
+    /**
+     * Compares two recycler entries using recycler-specific category rules.
+     *
+     * @param definition the stored recyclable definition.
+     * @param candidate  the entry to test against the definition.
+     * @return true if both belong to the same recyclable category.
+     */
+    public static boolean matches(ItemStorage definition, ItemStorage candidate)
+    {
+        return definition != null && candidate != null
+            && RecyclableItemMatcher.matches(definition.getItemStack(), candidate.getItemStack());
     }
 
     /**
@@ -224,12 +238,12 @@ public class RecyclingItemListModule extends ItemListModule
         pendingWarehouseRequests.clear();
         acceptedRecyclingInputs.clear();
 
-        ListTag pendingRequests = compound.getList(TAG_PENDING_WAREHOUSE_REQUESTS, 10);
+        ListTag pendingRequests = compound.getListOrEmpty(TAG_PENDING_WAREHOUSE_REQUESTS);
         for (int i = 0; i < pendingRequests.size(); ++i)
         {
-            CompoundTag listItem = pendingRequests.getCompound(i);
+            CompoundTag listItem = pendingRequests.getCompoundOrEmpty(i);
 
-            if (listItem == null || listItem.isEmpty() || !listItem.contains(TAG_ITEM))
+            if (listItem.isEmpty() || !listItem.contains(TAG_ITEM))
             {
                 continue;
             }
@@ -237,44 +251,44 @@ public class RecyclingItemListModule extends ItemListModule
             IToken<?> token = null;
             if (listItem.contains(TAG_TOKEN))
             {
-                CompoundTag tokenTag = listItem.getCompound(TAG_TOKEN);
-                token = new StandardToken(new UUID(tokenTag.getLong(TAG_TOKEN_MSB), tokenTag.getLong(TAG_TOKEN_LSB)));
+                CompoundTag tokenTag = listItem.getCompoundOrEmpty(TAG_TOKEN);
+                token = new StandardToken(new UUID(tokenTag.getLongOr(TAG_TOKEN_MSB, 0L), tokenTag.getLongOr(TAG_TOKEN_LSB, 0L)));
             }
 
-            CompoundTag tag = listItem.getCompound(TAG_ITEM);
+            CompoundTag tag = listItem.getCompoundOrEmpty(TAG_ITEM);
 
-            if (tag == null) continue;
+            if (tag.isEmpty()) continue;
 
-            pendingWarehouseRequests.add(new PendingWarehouseRequest(token, new ItemStorage(ItemStack.parseOptional(nnProvider, tag))));
+            pendingWarehouseRequests.add(new PendingWarehouseRequest(token, new ItemStorage(Utils.parseOptionalItemStack(nnProvider, tag))));
         }
 
-        ListTag acceptedInputs = compound.getList(TAG_ACCEPTED_RECYCLING_INPUTS, 10);
+        ListTag acceptedInputs = compound.getListOrEmpty(TAG_ACCEPTED_RECYCLING_INPUTS);
         for (int i = 0; i < acceptedInputs.size(); ++i)
         {
-            CompoundTag listItem = acceptedInputs.getCompound(i);
+            CompoundTag listItem = acceptedInputs.getCompoundOrEmpty(i);
 
-            if (listItem == null || listItem.isEmpty())
+            if (listItem.isEmpty())
             {
                 continue;
             }
 
-            acceptedRecyclingInputs.add(new ItemStorage(ItemStack.parseOptional(nnProvider, listItem)));
+            acceptedRecyclingInputs.add(new ItemStorage(Utils.parseOptionalItemStack(nnProvider, listItem)));
         }
 
         // Migrate older saves. These entries have no request token, so the
         // reconciliation pass will clear them once no matching request exists.
-        ListTag filterableList = compound.getList(TAG_LEGACY_PENDING_LIST, 10);
+        ListTag filterableList = compound.getListOrEmpty(TAG_LEGACY_PENDING_LIST);
 
         for (int i = 0; i < filterableList.size(); ++i)
         {
-            CompoundTag listItem = filterableList.getCompound(i);
+            CompoundTag listItem = filterableList.getCompoundOrEmpty(i);
 
-            if (listItem == null || listItem.isEmpty())
+            if (listItem.isEmpty())
             {
                 continue;
             }
-            
-            pendingWarehouseRequests.add(new PendingWarehouseRequest(null, new ItemStorage(ItemStack.parseOptional(nnProvider, listItem))));
+
+            pendingWarehouseRequests.add(new PendingWarehouseRequest(null, new ItemStorage(Utils.parseOptionalItemStack(nnProvider, listItem))));
         }
     }
 
@@ -309,7 +323,7 @@ public class RecyclingItemListModule extends ItemListModule
                 }
             }
 
-            requestTag.put(TAG_ITEM, request.item().getItemStack().saveOptional(provider));
+            requestTag.put(TAG_ITEM, Utils.saveOptionalItemStack(provider, request.item().getItemStack()));
             pendingRequests.add(requestTag);
         }
 
@@ -321,7 +335,7 @@ public class RecyclingItemListModule extends ItemListModule
         while (acceptedIterator.hasNext())
         {
             ItemStorage item = acceptedIterator.next();
-            acceptedItems.add(item.getItemStack().saveOptional(provider));
+            acceptedItems.add(Utils.saveOptionalItemStack(provider, item.getItemStack()));
         }
 
         compound.put(TAG_ACCEPTED_RECYCLING_INPUTS, acceptedItems);

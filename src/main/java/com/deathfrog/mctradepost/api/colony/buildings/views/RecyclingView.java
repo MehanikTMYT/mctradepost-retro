@@ -2,8 +2,6 @@ package com.deathfrog.mctradepost.api.colony.buildings.views;
 
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -14,6 +12,7 @@ import org.jetbrains.annotations.NotNull;
 import com.deathfrog.mctradepost.core.entity.ai.workers.crafting.EntityAIWorkRecyclingEngineer;
 import com.minecolonies.api.colony.IColonyView;
 import com.minecolonies.api.crafting.ItemStorage;
+import com.minecolonies.api.util.Utils;
 import com.minecolonies.core.colony.buildings.views.AbstractBuildingView;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 
@@ -21,8 +20,6 @@ import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
  * ✅ Best Practice If a field should: Be visible on the client UI → put it in serializeNBT() in the building and deserializeNBT() both
  * in the building and deserialize here in the view.
  */
-
-@OnlyIn(Dist.CLIENT)
 public class RecyclingView extends AbstractBuildingView
 {
     protected Set<ItemStorage> allItems = new java.util.HashSet<>();
@@ -62,14 +59,14 @@ public class RecyclingView extends AbstractBuildingView
 
         if (tag != null && tag.contains(EntityAIWorkRecyclingEngineer.RECYCLING_LIST))
         {
-            ListTag outputTag = tag.getList(EntityAIWorkRecyclingEngineer.RECYCLING_LIST, Tag.TAG_COMPOUND);
+            ListTag outputTag = tag.getListOrEmpty(EntityAIWorkRecyclingEngineer.RECYCLING_LIST);
 
             for (int i = 0; i < outputTag.size(); i++)
             {
-                CompoundTag itemTag = outputTag.getCompound(i);
-                CompoundTag stackTag = itemTag.getCompound("stack");
-                ItemStack stack = stackTag == null || stackTag.isEmpty() ? ItemStack.EMPTY : ItemStack.parseOptional(provider, stackTag);
-                int count = itemTag.getInt("count");
+                CompoundTag itemTag = outputTag.getCompoundOrEmpty(i);
+                CompoundTag stackTag = itemTag.getCompoundOrEmpty("stack");
+                ItemStack stack = stackTag.isEmpty() ? ItemStack.EMPTY : Utils.parseOptionalItemStack(provider, stackTag);
+                int count = itemTag.getIntOr("count", 0);
 
                 if (!stack.isEmpty())
                 {

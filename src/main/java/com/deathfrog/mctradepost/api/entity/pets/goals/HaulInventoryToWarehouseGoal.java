@@ -68,7 +68,7 @@ public class HaulInventoryToWarehouseGoal<P extends Animal & ITradePostPet> exte
     public boolean canUse()
     {
         Level level = pet.level();
-        if (level == null || level.isClientSide) return false;
+        if (level == null || level.isClientSide()) return false;
         if (cooldownTicks-- > 0) return false;
         if (!PetRoles.HAULING.equals(pet.getPetData().roleFromWorkLocation(level))) return false;
 
@@ -79,7 +79,7 @@ public class HaulInventoryToWarehouseGoal<P extends Animal & ITradePostPet> exte
     public boolean canContinueToUse()
     {
         Level level = pet.level();
-        if (level == null || level.isClientSide) return false;
+        if (level == null || level.isClientSide()) return false;
         if (done || failed || ticksRunning > MAX_RUN_TICKS) return false;
         if (targetPos == null) return false;
 
@@ -95,7 +95,7 @@ public class HaulInventoryToWarehouseGoal<P extends Animal & ITradePostPet> exte
         replanAttempts = 0;
 
         Level level = pet.level();
-        if (level == null || level.isClientSide)
+        if (level == null || level.isClientSide())
         {
             failed = true;
             return;
@@ -118,7 +118,7 @@ public class HaulInventoryToWarehouseGoal<P extends Animal & ITradePostPet> exte
     public void tick()
     {
         Level level = pet.level();
-        if (level == null || level.isClientSide) return;
+        if (level == null || level.isClientSide()) return;
 
         ticksRunning++;
 

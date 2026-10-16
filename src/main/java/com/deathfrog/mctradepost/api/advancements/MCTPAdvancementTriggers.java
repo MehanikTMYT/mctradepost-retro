@@ -15,14 +15,23 @@ public class MCTPAdvancementTriggers
     public static final String ADV_RECYCLE_ITEM = "recycle_item";
     public static final String ADV_COMPLETE_VACATION = "complete_vacation";
     public static final String ADV_MAKE_WISH = "make_wish";
+    public static final String ADV_RESURRECT_CITIZEN_WISH = "resurrect_citizen_wish";
     public static final String ADV_RUNS_ON_STEW = "runs_on_stew";
     public static final String ADV_RARE_FIND = "rare_find";
+    public static final String ADV_EXPORTER = "exporter";
+    public static final String ADV_IMPORTER = "importer";
+    public static final String ADV_EXPRESS_DELIVERY = "express_delivery";
 
     public static final DeferredHolder<CriterionTrigger<?>, TrainPetTrigger>          PET_TRAINED           = DEFERRED_REGISTER.register(ADV_PET_TRAINED, TrainPetTrigger::new);
     public static final DeferredHolder<CriterionTrigger<?>, ConnectColonyTrigger>     COLONY_CONNECTED      = DEFERRED_REGISTER.register(ADV_COLONY_CONNECTED, ConnectColonyTrigger::new);
     public static final DeferredHolder<CriterionTrigger<?>, RecycleItemTrigger>       RECYCLE_ITEM          = DEFERRED_REGISTER.register(ADV_RECYCLE_ITEM, RecycleItemTrigger::new);
     public static final DeferredHolder<CriterionTrigger<?>, CompleteVacationTrigger>  COMPLETE_VACATION     = DEFERRED_REGISTER.register(ADV_COMPLETE_VACATION, CompleteVacationTrigger::new);
     public static final DeferredHolder<CriterionTrigger<?>, MakeWishTrigger>          MAKE_WISH             = DEFERRED_REGISTER.register(ADV_MAKE_WISH, MakeWishTrigger::new);
+    public static final DeferredHolder<CriterionTrigger<?>, ResurrectCitizenWishTrigger> RESURRECT_CITIZEN_WISH =
+        DEFERRED_REGISTER.register(ADV_RESURRECT_CITIZEN_WISH, ResurrectCitizenWishTrigger::new);
     public static final DeferredHolder<CriterionTrigger<?>, RunsOnStewTrigger>        RUNS_ON_STEW          = DEFERRED_REGISTER.register(ADV_RUNS_ON_STEW, RunsOnStewTrigger::new);
     public static final DeferredHolder<CriterionTrigger<?>, RareFindTrigger>          RARE_FIND             = DEFERRED_REGISTER.register(ADV_RARE_FIND, RareFindTrigger::new);
+    public static final DeferredHolder<CriterionTrigger<?>, ShipmentTrigger>          EXPORTER              = DEFERRED_REGISTER.register(ADV_EXPORTER, ShipmentTrigger::new);
+    public static final DeferredHolder<CriterionTrigger<?>, ShipmentTrigger>          IMPORTER              = DEFERRED_REGISTER.register(ADV_IMPORTER, ShipmentTrigger::new);
+    public static final DeferredHolder<CriterionTrigger<?>, ShipmentTrigger>          EXPRESS_DELIVERY      = DEFERRED_REGISTER.register(ADV_EXPRESS_DELIVERY, ShipmentTrigger::new);
 }

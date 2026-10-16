@@ -2,18 +2,10 @@
   "type": "minecraft:crafting_shapeless",
   "category": "misc",
   "ingredients": [
-    {
-      "item": "minecraft:ice"
-    },
-    {
-      "item": "minecraft:ice"
-    },
-    {
-      "item": "minecolonies:large_milk_bottle"
-    },
-    {
-      "item": "minecraft:sugar"
-    }
+    "minecraft:ice",
+    "minecraft:ice",
+    "minecolonies:large_milk_bottle",
+    "minecraft:sugar"
   ],
   "result": {
     "count": 8,

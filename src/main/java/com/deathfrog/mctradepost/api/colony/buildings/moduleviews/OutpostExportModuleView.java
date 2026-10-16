@@ -13,7 +13,7 @@ import com.minecolonies.api.util.Utils;
 import com.minecolonies.core.colony.buildings.moduleviews.ItemListModuleView;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 public class OutpostExportModuleView extends ItemListModuleView
 {
@@ -44,8 +44,8 @@ public class OutpostExportModuleView extends ItemListModuleView
     }
 
     @Override
-    public ResourceLocation getIconResourceLocation()
+    public Identifier getIconResourceLocation()
     {
-        return ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "textures/gui/modules/export.png");
+        return Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "textures/gui/modules/export.png");
     }
 }

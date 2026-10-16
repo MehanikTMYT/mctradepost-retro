@@ -19,9 +19,8 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import net.minecraft.core.Holder;
-import net.minecraft.core.HolderSet;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.tags.TagKey;
@@ -32,11 +31,11 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.Property;
 
 /**
- * Builds display-only JEI entries for pet foraging from the server's active datapack state.
+ * Builds JEI entries and Focused Foraging source data from the server's active datapack state.
  * <p>
  * The builder intentionally mirrors the path conventions used by the runtime scavenge profiles while staying display-oriented:
  * expand each source block tag, derive the matching loot-table id, then flatten simple item entries from the loot-table JSON into
- * possible JEI outputs. When a custom forage table does not exist, the source block's normal loot table is inspected instead.
+ * possible outputs, following referenced tables. When a custom forage table does not exist, the source block's normal loot table is inspected instead.
  * </p>
  */
 public final class PetForagingJeiDataBuilder
@@ -63,8 +62,11 @@ public final class PetForagingJeiDataBuilder
         if (server == null) return List.of();
 
         final List<PetForagingJeiEntry> entries = new ArrayList<>();
+        final ForagingLootReader reader = new ForagingLootReader(
+            id -> readLootTable(server, Identifier.parse(id)),
+            message -> MCTradePostMod.LOGGER.warn("{}", message));
 
-        addTaggedEntries(server, entries,
+        addTaggedEntries(server, reader, entries,
             new SourceDefinition(
                 PetRoles.SCAVENGE_VEGETATION,
                 blockId(MCTradePostMod.FEEDER.get()),
@@ -72,7 +74,7 @@ public final class PetForagingJeiDataBuilder
                 "pet/vegetation_scavenge/fruit",
                 NOTE_VEGETATION_FRUIT));
 
-        addTaggedEntries(server, entries,
+        addTaggedEntries(server, reader, entries,
             new SourceDefinition(
                 PetRoles.SCAVENGE_VEGETATION,
                 blockId(MCTradePostMod.FEEDER.get()),
@@ -80,7 +82,7 @@ public final class PetForagingJeiDataBuilder
                 "pet/vegetation_scavenge/leaves",
                 NOTE_VEGETATION_LEAVES));
 
-        addTaggedEntries(server, entries,
+        addTaggedEntries(server, reader, entries,
             new SourceDefinition(
                 PetRoles.SCAVENGE_VEGETATION,
                 blockId(MCTradePostMod.FEEDER.get()),
@@ -88,7 +90,7 @@ public final class PetForagingJeiDataBuilder
                 "pet/vegetation_scavenge/groundcover",
                 NOTE_VEGETATION_GROUNDCOVER));
 
-        addTaggedEntries(server, entries,
+        addTaggedEntries(server, reader, entries,
             new SourceDefinition(
                 PetRoles.SCAVENGE_WATER,
                 blockId(MCTradePostMod.DREDGER.get()),
@@ -96,7 +98,7 @@ public final class PetForagingJeiDataBuilder
                 "pet/amphibious_scavenge",
                 NOTE_WATER));
 
-        addTaggedEntries(server, entries,
+        addTaggedEntries(server, reader, entries,
             new SourceDefinition(
                 PetRoles.SCAVENGE_LAND,
                 blockId(MCTradePostMod.SCAVENGE.get()),
@@ -112,36 +114,39 @@ public final class PetForagingJeiDataBuilder
     /**
      * Expands one source definition into JEI entries, one per block in the configured source tag.
      */
-    private static void addTaggedEntries(final MinecraftServer server, final List<PetForagingJeiEntry> entries, final SourceDefinition definition)
+    private static void addTaggedEntries(final MinecraftServer server, final ForagingLootReader reader, final List<PetForagingJeiEntry> entries, final SourceDefinition definition)
     {
         @SuppressWarnings("null")
-        final Optional<HolderSet.Named<Block>> tag = BuiltInRegistries.BLOCK.getTag(definition.sourceTag());
-        if (tag.isEmpty()) return;
+        final Iterable<Holder<Block>> tag = BuiltInRegistries.BLOCK.getTagOrEmpty(definition.sourceTag());
 
-        for (Holder<Block> holder : tag.get())
+        for (Holder<Block> holder : tag)
         {
             final Block sourceBlock = holder.value();
 
             if (sourceBlock == null) continue;
 
-            final ResourceLocation sourceBlockId = blockId(sourceBlock);
+            final Identifier sourceBlockId = blockId(sourceBlock);
             if (sourceBlockId == null) continue;
 
-            final ResourceLocation customLootTableId =
-                ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, definition.lootPathPrefix() + "/" + sourceBlockId.getPath());
+            final Identifier customLootTableId =
+                Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, definition.lootPathPrefix() + "/" + sourceBlockId.getPath());
             final BlockState representativeState = ScavengeBlockStateHelper.representativeState(sourceBlock);
 
-            ResourceLocation effectiveLootTableId = customLootTableId;
-            List<ItemStack> outputs = readLootOutputs(server, customLootTableId, representativeState);
+            Identifier effectiveLootTableId = customLootTableId;
+            List<ItemStack> outputs;
             if (!lootTableExists(server, customLootTableId))
             {
                 effectiveLootTableId = normalBlockLootTableId(sourceBlockId);
-                outputs = readLootOutputs(server, effectiveLootTableId, representativeState);
+                outputs = readLootOutputs(reader, effectiveLootTableId, representativeState);
+            }
+            else
+            {
+                outputs = readLootOutputs(reader, customLootTableId, representativeState);
             }
             final List<ItemStack> displayOutputs = outputs.isEmpty() ? fallbackOutput(sourceBlock) : outputs;
             if (displayOutputs.isEmpty()) continue;
 
-            final ResourceLocation id = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID,
+            final Identifier id = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID,
                 "pet_foraging/" + definition.sourceTag().location().getPath() + "/" + sourceBlockId.getPath());
 
             entries.add(new PetForagingJeiEntry(
@@ -163,9 +168,9 @@ public final class PetForagingJeiDataBuilder
      * @return the block's normal loot-table id
      */
     @SuppressWarnings("null")
-    private static ResourceLocation normalBlockLootTableId(final ResourceLocation sourceBlockId)
+    private static Identifier normalBlockLootTableId(final Identifier sourceBlockId)
     {
-        return ResourceLocation.fromNamespaceAndPath(sourceBlockId.getNamespace(), "blocks/" + sourceBlockId.getPath());
+        return Identifier.fromNamespaceAndPath(sourceBlockId.getNamespace(), "blocks/" + sourceBlockId.getPath());
     }
 
     /**
@@ -176,7 +181,7 @@ public final class PetForagingJeiDataBuilder
      * @return {@code true} when the corresponding JSON resource exists
      */
     @SuppressWarnings("null")
-    private static boolean lootTableExists(final MinecraftServer server, final ResourceLocation lootTableId)
+    private static boolean lootTableExists(final MinecraftServer server, final Identifier lootTableId)
     {
         return server.getResourceManager().getResource(lootTableResourceId(lootTableId)).isPresent();
     }
@@ -188,88 +193,50 @@ public final class PetForagingJeiDataBuilder
      * @return datapack resource id for the loot-table JSON
      */
     @SuppressWarnings("null")
-    private static ResourceLocation lootTableResourceId(final ResourceLocation lootTableId)
+    private static Identifier lootTableResourceId(final Identifier lootTableId)
     {
-        return ResourceLocation.fromNamespaceAndPath(
+        return Identifier.fromNamespaceAndPath(
             lootTableId.getNamespace(),
             "loot_table/" + lootTableId.getPath() + ".json");
     }
 
     /**
-     * Reads possible item outputs from a simple loot-table JSON resource.
-     * <p>
-     * This is not a full loot-table evaluator. It is a deterministic display flattener for the item-entry structure used by the pet
-     * scavenge tables, with light support for {@code minecraft:set_count}.
-     * </p>
+     * Loads one active datapack table; the build-scoped reader caches this result.
      */
-    @SuppressWarnings("null")
-    private static List<ItemStack> readLootOutputs(
-        final MinecraftServer server,
-        final ResourceLocation lootTableId,
-        final BlockState sourceState)
+    private static Optional<JsonObject> readLootTable(final MinecraftServer server, final Identifier id)
     {
-        final ResourceLocation resourceId = lootTableResourceId(lootTableId);
+        final Identifier lootTableResourceID = lootTableResourceId(id);
 
-        final Optional<Resource> resource = server.getResourceManager().getResource(resourceId);
-        if (resource.isEmpty()) return List.of();
+        if (lootTableResourceID == null)
+        {
+            return Optional.empty();
+        }
 
-        final List<ItemStack> outputs = new ArrayList<>();
-
+        final Optional<Resource> resource = server.getResourceManager().getResource(lootTableResourceID);
+        if (resource.isEmpty()) return Optional.empty();
         try (InputStreamReader reader = new InputStreamReader(resource.get().open(), StandardCharsets.UTF_8))
         {
             final JsonElement root = JsonParser.parseReader(reader);
-            if (!root.isJsonObject()) return List.of();
-
-            final JsonArray pools = root.getAsJsonObject().getAsJsonArray("pools");
-            if (pools == null) return List.of();
-
-            for (JsonElement poolElement : pools)
-            {
-                if (!poolElement.isJsonObject()) continue;
-                final JsonObject pool = poolElement.getAsJsonObject();
-                if (!conditionsMatch(pool, sourceState)) continue;
-                collectItemOutputs(pool.getAsJsonArray("entries"), outputs, sourceState);
-            }
+            return root.isJsonObject() ? Optional.of(root.getAsJsonObject()) : Optional.empty();
         }
-        catch (Exception e)
+        catch (Exception exception)
         {
-            MCTradePostMod.LOGGER.warn("Unable to read pet foraging JEI loot table {}", lootTableId, e);
-            return List.of();
+            MCTradePostMod.LOGGER.warn("Unable to read pet foraging loot table {}", id, exception);
+            return Optional.empty();
         }
-
-        return outputs;
     }
 
-    /**
-     * Recursively collects direct item entries from loot-table entry arrays.
-     */
-    private static void collectItemOutputs(
-        final JsonArray entries,
-        final List<ItemStack> outputs,
-        final BlockState sourceState)
+    /** Collects possible items using the same source state throughout nested tables. */
+    private static List<ItemStack> readLootOutputs(
+        final ForagingLootReader reader, final Identifier lootTableId, final BlockState sourceState)
     {
-        if (entries == null) return;
-
-        for (JsonElement entryElement : entries)
-        {
-            if (!entryElement.isJsonObject()) continue;
-
-            final JsonObject entry = entryElement.getAsJsonObject();
-            if (!conditionsMatch(entry, sourceState)) continue;
-            final String type = stringValue(entry, "type");
-
-            if ("item".equals(type) || "minecraft:item".equals(type))
-            {
-                final ResourceLocation itemId = ResourceLocation.parse(stringValue(entry, "name"));
-                final Item item = BuiltInRegistries.ITEM.get(itemId);
-
-                outputs.add(new ItemStack(item, outputCount(entry)));
-                continue;
-            }
-
-            collectItemOutputs(entry.getAsJsonArray("children"), outputs, sourceState);
-            collectItemOutputs(entry.getAsJsonArray("entries"), outputs, sourceState);
-        }
+        final List<ItemStack> outputs = new ArrayList<>();
+        reader.collect(lootTableId.toString(), owner -> conditionsMatch(owner, sourceState), entry -> {
+            final Item item = BuiltInRegistries.ITEM.getValue(Identifier.parse(stringValue(entry, "name")));
+            final ItemStack output = new ItemStack(item, outputCount(entry));
+            if (!output.isEmpty()) outputs.add(output);
+        });
+        return outputs;
     }
 
     /**
@@ -414,7 +381,7 @@ public final class PetForagingJeiDataBuilder
     /**
      * Resolves a block's registry id.
      */
-    private static ResourceLocation blockId(@Nonnull final Block block)
+    private static Identifier blockId(@Nonnull final Block block)
     {
         return BuiltInRegistries.BLOCK.getKey(block);
     }
@@ -424,7 +391,7 @@ public final class PetForagingJeiDataBuilder
      */
     private record SourceDefinition(
         PetRoles role,
-        ResourceLocation workLocationBlock,
+        Identifier workLocationBlock,
         TagKey<Block> sourceTag,
         String lootPathPrefix,
         String noteKey)

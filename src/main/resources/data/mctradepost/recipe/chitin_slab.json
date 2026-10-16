@@ -5,9 +5,7 @@
     "###"
   ],
   "key": {
-    "#": {
-      "item": "mctradepost:chitin"
-    }
+    "#": "mctradepost:chitin"
   },
   "result": {
     "id": "mctradepost:chitin_slab",

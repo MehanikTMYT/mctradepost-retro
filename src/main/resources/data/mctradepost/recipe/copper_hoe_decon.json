@@ -1,16 +1,14 @@
 {
   "type": "mctradepost:deconstruction",
-  "input": {
-    "item": "everythingcopper:copper_hoe"
-  },
+  "input": "everythingcopper:copper_hoe",
   "neoforge:conditions": [
     {
       "type": "neoforge:mod_loaded",
       "modid": "everythingcopper"
     },
     {
-      "type": "neoforge:item_exists",
-      "item": "everythingcopper:copper_hoe"
+      "type": "neoforge:registered",
+      "value": "everythingcopper:copper_hoe"
     }
   ],
   "results": [

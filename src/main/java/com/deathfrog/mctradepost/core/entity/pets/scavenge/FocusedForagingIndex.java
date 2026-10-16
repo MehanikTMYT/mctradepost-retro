@@ -67,7 +67,7 @@ public final class FocusedForagingIndex
         final List<PetForagingJeiEntry> entries = PetForagingJeiDataBuilder.build(server);
         for (PetForagingJeiEntry entry : entries)
         {
-            final Block source = BuiltInRegistries.BLOCK.get(entry.sourceBlock());
+            final Block source = BuiltInRegistries.BLOCK.getValue(entry.sourceBlock());
             
             for (ItemStack output : entry.outputs())
             {

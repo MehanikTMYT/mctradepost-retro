@@ -5,7 +5,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtAccounter;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.Tag;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.server.packs.resources.ResourceManager;
 
@@ -27,7 +27,7 @@ public final class StructureLootScanner
      * @param lootTable referenced loot table ID
      * @param nbtPath diagnostic path to the reference
      */
-    public record Reference(ResourceLocation structure, ResourceLocation lootTable, String nbtPath) { }
+    public record Reference(Identifier structure, Identifier lootTable, String nbtPath) { }
 
     /**
      * Aggregate structure scan output.
@@ -35,7 +35,7 @@ public final class StructureLootScanner
      * @param references every discovered loot-table occurrence
      * @param allStructures every successfully enumerated structure template ID
      */
-    public record Result(List<Reference> references, Set<ResourceLocation> allStructures) { }
+    public record Result(List<Reference> references, Set<Identifier> allStructures) { }
 
     /** Prevents instantiation of this utility class. */
     private StructureLootScanner() { }
@@ -50,11 +50,11 @@ public final class StructureLootScanner
     public static Result scan(final ResourceManager manager)
     {
         final List<Reference> references = new ArrayList<>();
-        final Set<ResourceLocation> structures = new HashSet<>();
-        final Map<ResourceLocation, Resource> files = manager.listResources("structure", id -> id.getPath().endsWith(".nbt"));
-        for (final Map.Entry<ResourceLocation, Resource> entry : files.entrySet())
+        final Set<Identifier> structures = new HashSet<>();
+        final Map<Identifier, Resource> files = manager.listResources("structure", id -> id.getPath().endsWith(".nbt"));
+        for (final Map.Entry<Identifier, Resource> entry : files.entrySet())
         {
-            final ResourceLocation structure = structureId(entry.getKey());
+            final Identifier structure = structureId(entry.getKey());
             structures.add(structure);
             try (InputStream input = entry.getValue().open())
             {
@@ -82,19 +82,19 @@ public final class StructureLootScanner
      * @param output discovered-reference accumulator
      */
     @SuppressWarnings("null")
-    private static void scanTag(final Tag tag, final ResourceLocation structure, final String path,
+    private static void scanTag(final Tag tag, final Identifier structure, final String path,
                                 final List<Reference> output)
     {
         if (tag instanceof CompoundTag compound)
         {
-            for (final String key : compound.getAllKeys())
+            for (final String key : compound.keySet())
             {
                 if (key == null) continue;
 
                 final Tag child = compound.get(key);
                 if ("LootTable".equals(key) && child != null)
                 {
-                    final ResourceLocation table = ResourceLocation.tryParse(child.getAsString());
+                    final Identifier table = Identifier.tryParse(child.asString().orElse(""));
                     if (table != null) output.add(new Reference(structure, table, path + ".LootTable"));
                 }
                 if (child != null) scanTag(child, structure, path + "." + key, output);
@@ -113,10 +113,10 @@ public final class StructureLootScanner
      * @return logical structure template ID
      */
     @SuppressWarnings("null")
-    private static ResourceLocation structureId(final ResourceLocation file)
+    private static Identifier structureId(final Identifier file)
     {
         final String path = file.getPath();
-        return ResourceLocation.fromNamespaceAndPath(file.getNamespace(),
+        return Identifier.fromNamespaceAndPath(file.getNamespace(),
             path.substring("structure/".length(), path.length() - ".nbt".length()));
     }
 }

@@ -4,7 +4,7 @@ import com.deathfrog.mctradepost.MCTradePostMod;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.item.Item;
 
@@ -19,7 +19,7 @@ import static net.minecraft.core.registries.BuiltInRegistries.ITEM;
 /** Loads authoritative item values that are available to economy generation. */
 public final class ExistingItemValueLoader
 {
-    private static final ResourceLocation FILE = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "item_values.json");
+    private static final Identifier FILE = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "item_values.json");
     private static final String GENERATED_PACK = "mctp_generated";
 
     private ExistingItemValueLoader() { }
@@ -49,7 +49,7 @@ public final class ExistingItemValueLoader
                 MCTradePostMod.LOGGER.warn("Unable to read item values from pack {}", resource.sourcePackId(), ex);
             }
         });
-        final Map<ResourceLocation, Integer> merged = merge(documents);
+        final Map<Identifier, Integer> merged = merge(documents);
         final Map<Item, Integer> result = new HashMap<>();
         merged.forEach((id, value) -> ITEM.getOptional(id).ifPresent(item -> result.put(item, value)));
         MCTradePostMod.LOGGER.info("Loaded {} authoritative item values for economy generation", result.size());
@@ -57,9 +57,9 @@ public final class ExistingItemValueLoader
     }
 
     /** Package-visible merge seam used by focused tests. */
-    static Map<ResourceLocation, Integer> merge(final List<ValueDocument> documents)
+    static Map<Identifier, Integer> merge(final List<ValueDocument> documents)
     {
-        final Map<ResourceLocation, Integer> result = new HashMap<>();
+        final Map<Identifier, Integer> result = new HashMap<>();
         for (final ValueDocument document : documents)
         {
             if (isGeneratedPack(document.packId())) continue;
@@ -72,7 +72,7 @@ public final class ExistingItemValueLoader
 
                 if (entryVal == null) continue;
 
-                final ResourceLocation id = ResourceLocation.tryParse(entryVal);
+                final Identifier id = Identifier.tryParse(entryVal);
                 if (id == null) continue;
                 try
                 {

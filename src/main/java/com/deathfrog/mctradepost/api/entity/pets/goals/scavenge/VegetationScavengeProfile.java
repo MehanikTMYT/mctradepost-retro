@@ -16,7 +16,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
@@ -161,7 +161,7 @@ public class VegetationScavengeProfile<P extends Animal & ITradePostPet> impleme
      * @return the loot table location for the given block state, or null if none
      */
     @Override
-    public @Nullable ResourceLocation lootTableFor(final ServerLevel level, final BlockPos pos, @Nonnull final BlockState state)
+    public @Nullable Identifier lootTableFor(final ServerLevel level, final BlockPos pos, @Nonnull final BlockState state)
     {
 
         Block block = state.getBlock();
@@ -171,21 +171,21 @@ public class VegetationScavengeProfile<P extends Animal & ITradePostPet> impleme
             return null;
         }
 
-        final ResourceLocation key = BuiltInRegistries.BLOCK.getKey(block);
+        final Identifier key = BuiltInRegistries.BLOCK.getKey(block);
 
         if (state.is(ModTags.BLOCKS.TAG_FRUIT))
         {
-            return ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "pet/" + LOOT_BASE + "/fruit/" + key.getPath());
+            return Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "pet/" + LOOT_BASE + "/fruit/" + key.getPath());
         }
 
         if (state.is(ModTags.BLOCKS.TAG_SCAVENGE_LEAVES))
         {
-            return ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "pet/" + LOOT_BASE + "/leaves/" + key.getPath());
+            return Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "pet/" + LOOT_BASE + "/leaves/" + key.getPath());
         }
 
         if (state.is(ModTags.BLOCKS.TAG_GROUNDCOVER))
         {
-            return ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "pet/" + LOOT_BASE + "/groundcover/" + key.getPath());
+            return Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "pet/" + LOOT_BASE + "/groundcover/" + key.getPath());
         }
 
         return null;

@@ -1,18 +1,17 @@
 {
-    "type": "minecraft:crafting_shaped",
-    "category": "building",
-    "key": {
-      "K": { "item": "minecraft:kelp" },
-      "S": { "item": "minecraft:string" }
-    },
-    "pattern": [
-      "SKS",
-      "KSK",
-      "SKS"
-    ],
-    "result": {
-      "count": 2,
-      "id": "mctradepost:woven_kelp"
-    }
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "key": {
+    "K": "minecraft:kelp",
+    "S": "minecraft:string"
+  },
+  "pattern": [
+    "SKS",
+    "KSK",
+    "SKS"
+  ],
+  "result": {
+    "count": 2,
+    "id": "mctradepost:woven_kelp"
+  }
 }
-  

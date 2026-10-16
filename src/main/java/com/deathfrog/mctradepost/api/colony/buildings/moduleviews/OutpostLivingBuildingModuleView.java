@@ -8,7 +8,7 @@ import com.ldtteam.blockui.views.BOWindow;
 import com.minecolonies.core.colony.buildings.moduleviews.LivingBuildingModuleView;
 
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 public class OutpostLivingBuildingModuleView extends LivingBuildingModuleView
 {
@@ -37,8 +37,8 @@ public class OutpostLivingBuildingModuleView extends LivingBuildingModuleView
      * @return the icon to show.
      */
     @Override
-    public ResourceLocation getIconResourceLocation()
+    public Identifier getIconResourceLocation()
     {
-        return ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "textures/gui/modules/home.png");
+        return Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "textures/gui/modules/home.png");
     }
 }

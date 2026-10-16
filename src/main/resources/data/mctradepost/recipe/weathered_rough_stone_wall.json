@@ -1,17 +1,16 @@
 {
-    "type": "minecraft:crafting_shaped",
-    "category": "building",
-    "key": {
-      "S": { "item": "mctradepost:weathered_rough_stone" }
-    },
-    "pattern": [
-      "   ",
-      "SSS",
-      "SSS"
-    ],
-    "result": {
-      "count": 6,
-      "id": "mctradepost:weathered_rough_stone_wall"
-    }
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "key": {
+    "S": "mctradepost:weathered_rough_stone"
+  },
+  "pattern": [
+    "   ",
+    "SSS",
+    "SSS"
+  ],
+  "result": {
+    "count": 6,
+    "id": "mctradepost:weathered_rough_stone_wall"
+  }
 }
-  

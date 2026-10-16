@@ -1,18 +1,17 @@
 {
-    "type": "minecraft:crafting_shaped",
-    "category": "building",
-    "key": {
-      "W": { "item": "minecraft:wheat" },
-      "S": { "item": "minecraft:stick" }
-    },
-    "pattern": [
-      "WSW",
-      "SWS",
-      "WSW"
-    ],
-    "result": {
-      "count": 2,
-      "id": "mctradepost:thatch"
-    }
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "key": {
+    "W": "minecraft:wheat",
+    "S": "minecraft:stick"
+  },
+  "pattern": [
+    "WSW",
+    "SWS",
+    "WSW"
+  ],
+  "result": {
+    "count": 2,
+    "id": "mctradepost:thatch"
+  }
 }
-  

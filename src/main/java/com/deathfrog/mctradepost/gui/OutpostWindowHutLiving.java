@@ -14,7 +14,7 @@ import com.minecolonies.api.colony.ICitizenDataView;
 import com.minecolonies.api.util.constant.Constants;
 
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 public class OutpostWindowHutLiving extends AbstractModuleWindow<OutpostLivingBuildingModuleView>
 {
@@ -25,7 +25,7 @@ public class OutpostWindowHutLiving extends AbstractModuleWindow<OutpostLivingBu
 
     public OutpostWindowHutLiving(OutpostView buildingView, OutpostLivingBuildingModuleView homeModule)
     {
-        super(homeModule, ResourceLocation.fromNamespaceAndPath(Constants.MOD_ID, "gui/windowhuthome.xml"));
+        super(homeModule, Identifier.fromNamespaceAndPath(Constants.MOD_ID, "gui/windowhuthome.xml"));
         super.registerButton("assign", this::assignClicked);
         super.registerButton("recall", this::recallClicked);
         this.outpostView = buildingView;

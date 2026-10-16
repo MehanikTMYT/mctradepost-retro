@@ -1,6 +1,6 @@
 package com.deathfrog.mctradepost.core.rarefinds.generation;
 
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 import java.util.List;
 import java.util.Map;
@@ -21,16 +21,16 @@ import java.util.Set;
  * @param manualConflicts items manually assigned to more than one definitive tier
  */
 public record RareFindGenerationReport(
-    Map<ResourceLocation, ItemResult> items,
-    Map<RareFindTier, Set<ResourceLocation>> generatedTiers,
+    Map<Identifier, ItemResult> items,
+    Map<RareFindTier, Set<Identifier>> generatedTiers,
     Set<String> blacklistedNamespaces,
     Map<String, RareFindTier> namespaceTierFloors,
-    Set<ResourceLocation> generatedBlacklist,
-    Set<ResourceLocation> spawnEggs,
-    Set<ResourceLocation> tierWithoutValue,
-    Set<ResourceLocation> undefinedStructures,
+    Set<Identifier> generatedBlacklist,
+    Set<Identifier> spawnEggs,
+    Set<Identifier> tierWithoutValue,
+    Set<Identifier> undefinedStructures,
     List<StructureLootScanner.Reference> structureLootReferences,
-    Map<ResourceLocation, List<RareFindTier>> manualConflicts)
+    Map<Identifier, List<RareFindTier>> manualConflicts)
 {
     /**
      * The classification and provenance retained for one item.

@@ -2,8 +2,6 @@ package com.deathfrog.mctradepost.api.colony.buildings.views;
 
 
 import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
 import net.minecraft.core.BlockPos;
 import org.jetbrains.annotations.NotNull;
 
@@ -16,8 +14,6 @@ import com.minecolonies.core.colony.buildings.views.AbstractBuildingView;
 * Be visible on the client UI → put it in serializeNBT() in the building and deserializeNBT() both in the building and deserialize here in the view.
 * 
 */
-
-@OnlyIn(Dist.CLIENT)
 public class ResortView extends AbstractBuildingView 
 {
 

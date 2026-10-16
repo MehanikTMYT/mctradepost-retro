@@ -18,7 +18,7 @@ import com.minecolonies.api.colony.buildings.views.IBuildingView;
 import com.minecolonies.core.client.gui.AbstractModuleWindow;
 
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 
 public class WindowRecyclerProgressModule extends AbstractModuleWindow<RecyclerProgressView>
@@ -41,7 +41,7 @@ public class WindowRecyclerProgressModule extends AbstractModuleWindow<RecyclerP
 
     public WindowRecyclerProgressModule(final IBuildingView buildingView, RecyclerProgressView moduleView, int maxProcessors)
     {
-        super(moduleView, ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, RECYCPROGRESSWINDOW_RESOURCE_SUFFIX));
+        super(moduleView, Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, RECYCPROGRESSWINDOW_RESOURCE_SUFFIX));
         this.buildingView = buildingView;
 
         processorDisplayList = findPaneOfTypeByID(WindowConstants.WINDOW_ID_LIST_REQUESTS, ScrollingList.class);
@@ -74,10 +74,11 @@ public class WindowRecyclerProgressModule extends AbstractModuleWindow<RecyclerP
             @Override
             public int getElementCount()
             {
-                capacityPane.setText(Component.literal(recyclingProcessors.size() + " of " + maxProcessors + " in use."));
+                capacityPane.setText(Component.translatable("mctradepost.recycler.processors_in_use", recyclingProcessors.size(), maxProcessors));
                 return recyclingProcessors.size();
             }
 
+            @SuppressWarnings("null")
             @Override
             public void updateElement(final int index, final Pane rowPane)
             {
@@ -100,6 +101,15 @@ public class WindowRecyclerProgressModule extends AbstractModuleWindow<RecyclerP
                 final ItemStack inputStack = processor.processingItem;
 
                 drawProgressBar(wrapperBox, progressBar, processor);
+
+                if (processor.scrapMode)
+                {
+                    final ItemIcon scrapDisplay = rowPane.findPaneOfTypeByID("outputStack0", ItemIcon.class);
+                    scrapDisplay.setVisible(true);
+                    final int indicativeCount = Math.max(1,
+                        (int) Math.floor(processor.scrapPoints / moduleView.getScrapPointsPerPile()));
+                    scrapDisplay.setItem(new ItemStack(MCTradePostMod.SCRAP_PILE.get(), indicativeCount));
+                }
 
                 final Button cancelButton = rowPane.findPaneOfTypeByID(CANCEL_RECYCLING, Button.class);
                 PaneBuilders.tooltipBuilder().hoverPane(cancelButton).build().setText(Component.translatable(CANCEL_RECYCLING_TOOLTIP));

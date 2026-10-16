@@ -7,25 +7,19 @@ import com.minecolonies.api.colony.ICitizenDataView;
 import com.minecolonies.api.colony.IColonyView;
 import com.minecolonies.api.items.component.ColonyId;
 import com.minecolonies.api.util.Log;
-import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.client.IItemDecorator;
-import net.neoforged.api.distmarker.OnlyIn;
-import net.neoforged.api.distmarker.Dist;
-
-
-@OnlyIn(Dist.CLIENT)
 public class AdvancedClipBoardDecorator implements IItemDecorator {
     private static IColonyView colonyView;
     private static boolean     render = false;
     private        long        lastChange;
 
     @Override
-    public boolean render(@Nonnull GuiGraphics graphics, @Nonnull Font font,@Nonnull ItemStack stack, int xOffset, int yOffset)
+    public boolean render(@Nonnull GuiGraphicsExtractor graphics, @Nonnull Font font,@Nonnull ItemStack stack, int xOffset, int yOffset)
     {
         @SuppressWarnings("null")
         final long gametime = Minecraft.getInstance().level.getGameTime();
@@ -54,15 +48,14 @@ public class AdvancedClipBoardDecorator implements IItemDecorator {
 
                     if (count > 0)
                     {
-                        final PoseStack ps = graphics.pose();
-                        ps.pushPose();
-                        ps.translate(0, 0, 500);
-                        graphics.drawCenteredString(font,
+                        // nextStratum() replaces the old PoseStack z-translate trick for guaranteeing
+                        // this draws above the item/stack-count layers already rendered by this point.
+                        graphics.nextStratum();
+                        graphics.centeredText(font,
                             NullnessBridge.assumeNonnull(Component.literal(count + "")),
                             xOffset + 15,
                             yOffset - 2,
                             0xFF4500 | (255 << 24));
-                        ps.popPose();
                         return true;
                     }
                 }

@@ -26,7 +26,7 @@ import com.minecolonies.core.util.ChunkDataHelper;
 import com.mojang.logging.LogUtils;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 
@@ -69,7 +69,7 @@ public class OutpostRitualProcessor
             return RitualResult.FAILED;
         }
 
-        final ResourceLocation hutResearch = marketplace.getColony().getResearchManager().getResearchEffectIdFrom(MCTradePostMod.blockHutOutpost.get());
+        final Identifier hutResearch = marketplace.getColony().getResearchManager().getResearchEffectIdFrom(MCTradePostMod.blockHutOutpost.get());
         double outpostClaimLevel = marketplace.getColony().getResearchManager().getResearchEffects().getEffectStrength(hutResearch);
         
         // LOGGER.info("Research effect {} with level {}.", hutResearch, outpostClaimLevel);

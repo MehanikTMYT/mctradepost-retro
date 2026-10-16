@@ -3,10 +3,8 @@ package com.deathfrog.mctradepost.api.colony.buildings.views;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.core.BlockPos;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,8 +16,6 @@ import com.minecolonies.core.colony.buildings.views.AbstractBuildingView;
  * ✅ Best Practice If a field should: Be visible on the client UI → put it in serializeNBT() in the building and deserializeNBT() both
  * in the building and deserialize here in the view.
  */
-
-@OnlyIn(Dist.CLIENT)
 public class MarketplaceView extends AbstractBuildingView
 {
     private boolean displayShelfContents = true;
@@ -38,13 +34,13 @@ public class MarketplaceView extends AbstractBuildingView
         CompoundTag compound = buf.readNbt();
         if (compound != null)
         {
-            displayShelfContents = compound.getBoolean("displayShelfContents");
+            displayShelfContents = compound.getBooleanOr("displayShelfContents", false);
 
             shelfItems.clear();
             for (int i = 0; compound.contains("ritualItem" + i); i++)
             {
-                String id = compound.getString("ritualItem" + i);
-                ItemStack stack = id == null ? ItemStack.EMPTY : new ItemStack(BuiltInRegistries.ITEM.get(ResourceLocation.tryParse(id)));
+                String id = compound.getStringOr("ritualItem" + i, "");
+                ItemStack stack = id == null ? ItemStack.EMPTY : new ItemStack(BuiltInRegistries.ITEM.getValue(Identifier.tryParse(id)));
                 shelfItems.add(stack);
             }
         }

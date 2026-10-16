@@ -16,7 +16,7 @@ import com.minecolonies.core.client.gui.AbstractWindowSkeleton;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import org.apache.commons.lang3.function.TriConsumer;
 import org.apache.commons.lang3.StringUtils;
@@ -83,7 +83,7 @@ public class WindowSelectImportResources extends AbstractWindowSkeleton
      */
     public WindowSelectImportResources(final BOWindow origin, final Predicate<ItemStack> test, final TriConsumer<ItemStack, Integer, Integer> consumer)
     {
-        super(origin, ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "gui/windowselectresfortrade.xml"));
+        super(origin, Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "gui/windowselectresfortrade.xml"));
         this.resourceList = this.findPaneOfTypeByID("resources", ScrollingList.class);
         registerButton(BUTTON_DONE, this::doneClicked);
         registerButton(BUTTON_CANCEL, this::cancelClicked);
@@ -180,7 +180,7 @@ public class WindowSelectImportResources extends AbstractWindowSkeleton
         for (final ItemStack stack : ItemStackUtils.allItemsPlusInventory(Minecraft.getInstance().player))
         {
             if (test.test(stack) && (this.filter.isEmpty()
-                                       || stack.getDescriptionId().toLowerCase(Locale.US).contains(this.filter.toLowerCase(Locale.US))
+                                       || stack.getItem().getDescriptionId().toLowerCase(Locale.US).contains(this.filter.toLowerCase(Locale.US))
                                        || stack.getHoverName().getString().toLowerCase(Locale.US).contains(filter.toLowerCase(Locale.US))))
             {
                 this.allItems.add(stack);

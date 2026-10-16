@@ -9,7 +9,7 @@ import com.deathfrog.mctradepost.MCTradePostMod;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.animal.Animal;
@@ -22,7 +22,7 @@ import net.minecraft.world.level.pathfinder.PathComputationType;
 public class PathingUtil {
     @SuppressWarnings("null")
     public static final TagKey<Block> ICY =
-        TagKey.create(Registries.BLOCK, ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "icy"));
+        TagKey.create(Registries.BLOCK, Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "icy"));
 
     /**
      * Finds the top of the water column starting at the given position. 
@@ -66,7 +66,7 @@ public class PathingUtil {
     @SuppressWarnings("null")
     public static boolean isIce(BlockState s)
     {
-        return s.is(TagKey.create(Registries.BLOCK, ResourceLocation.fromNamespaceAndPath("mctradepost", "icy")));
+        return s.is(TagKey.create(Registries.BLOCK, Identifier.fromNamespaceAndPath("mctradepost", "icy")));
     }
 
     /**

@@ -116,20 +116,20 @@ public class BuildingStationImportModule extends AbstractBuildingModule implemen
     public void deserializeNBT(@NotNull final HolderLookup.Provider provider, final CompoundTag compound)
     {
         importMap.clear();
-        final ListTag importTagList = compound.getList(TAG_IMPORTS, Tag.TAG_COMPOUND);
+        final ListTag importTagList = compound.getListOrEmpty(TAG_IMPORTS);
         for (int i = 0; i < importTagList.size(); i++)
         {
-            final CompoundTag compoundNBT = importTagList.getCompound(i);
-            final CompoundTag tradeItemTag = compoundNBT.getCompound(NbtTagConstants.STACK);
+            final CompoundTag compoundNBT = importTagList.getCompoundOrEmpty(i);
+            final CompoundTag tradeItemTag = compoundNBT.getCompoundOrEmpty(NbtTagConstants.STACK);
 
             if (tradeItemTag.isEmpty())
             {
                 continue;
             }
 
-            ItemStorage tradeItem = new ItemStorage(ItemStack.parseOptional(NullnessBridge.assumeNonnull(provider), tradeItemTag));
-            int cost = compoundNBT.getInt(ExportData.TAG_COST);
-            int quantity = compoundNBT.getInt(ExportData.TAG_QUANTITY);
+            ItemStorage tradeItem = new ItemStorage(Utils.parseOptionalItemStack(NullnessBridge.assumeNonnull(provider), tradeItemTag));
+            int cost = compoundNBT.getIntOr(ExportData.TAG_COST, 0);
+            int quantity = compoundNBT.getIntOr(ExportData.TAG_QUANTITY, 0);
             importMap.put(tradeItem, new TradeDefinition(tradeItem, cost, quantity));
         }
     }
@@ -150,7 +150,7 @@ public class BuildingStationImportModule extends AbstractBuildingModule implemen
         {
             TradeDefinition tradeDef = entry.getValue();
             final CompoundTag compoundNBT = new CompoundTag();
-            final Tag storedItem = tradeDef.tradeItem().getItemStack().saveOptional(NullnessBridge.assumeNonnull(provider));
+            final Tag storedItem = Utils.saveOptionalItemStack(NullnessBridge.assumeNonnull(provider), tradeDef.tradeItem().getItemStack());
             compoundNBT.put(NbtTagConstants.STACK, NullnessBridge.assumeNonnull(storedItem));
             compoundNBT.putInt(ExportData.TAG_COST, tradeDef.price());
             compoundNBT.putInt(ExportData.TAG_QUANTITY, tradeDef.quantity());

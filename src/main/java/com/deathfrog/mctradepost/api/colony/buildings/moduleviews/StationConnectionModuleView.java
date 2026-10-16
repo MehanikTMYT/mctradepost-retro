@@ -15,7 +15,7 @@ import com.minecolonies.api.colony.buildings.modules.AbstractBuildingModuleView;
 
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 
 /**
@@ -34,6 +34,7 @@ public class StationConnectionModuleView extends AbstractBuildingModuleView
 
     private final List<LinkageViewData> dimensionalLinkages = new ArrayList<>();
     private int dimensionalLinkageLimit = 0;
+    private boolean stationmasterEmployed;
 
     public StationConnectionModuleView() {
         super();
@@ -46,9 +47,9 @@ public class StationConnectionModuleView extends AbstractBuildingModuleView
      * @return the icon to show.
      */
    @Override
-    public ResourceLocation getIconResourceLocation()
+    public Identifier getIconResourceLocation()
     {
-        return ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "textures/gui/modules/connections.png");
+        return Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "textures/gui/modules/connections.png");
     }
 
     /**
@@ -84,6 +85,14 @@ public class StationConnectionModuleView extends AbstractBuildingModuleView
         return dimensionalLinkageLimit;
     }
 
+    /**
+     * @return whether the station currently has a stationmaster who can perform a route search
+     */
+    public boolean isStationmasterEmployed()
+    {
+        return stationmasterEmployed;
+    }
+
     @Override
     public void deserialize(@NotNull RegistryFriendlyByteBuf buf)
     {
@@ -97,6 +106,7 @@ public class StationConnectionModuleView extends AbstractBuildingModuleView
             dimensionalLinkages.add(new LinkageViewData(stack, status, messageKey));
         }
         dimensionalLinkageLimit = buf.readInt();
+        stationmasterEmployed = buf.readBoolean();
     }
 
 }

@@ -9,7 +9,7 @@ import com.deathfrog.mctradepost.api.entity.pets.ITradePostPet;
 import com.deathfrog.mctradepost.api.entity.pets.PetRoles;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.animal.Animal;
 import net.minecraft.world.item.ItemStack;
@@ -32,7 +32,7 @@ public interface IScavengeProfile<P extends Animal & ITradePostPet>
     boolean isHarvestable(ServerLevel level, BlockPos pos, BlockState state);
 
     /** Loot table key for a harvestable spot (or null if none). */
-    @Nullable ResourceLocation lootTableFor(ServerLevel level, BlockPos pos, @Nonnull BlockState state);
+    @Nullable Identifier lootTableFor(ServerLevel level, BlockPos pos, @Nonnull BlockState state);
 
     /** Applies any world changes that depend on the generated drops. */
     default void onDropsAwarded(ServerLevel level, BlockPos pos, P pet, List<ItemStack> drops) { }

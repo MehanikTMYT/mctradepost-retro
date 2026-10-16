@@ -14,6 +14,7 @@ import javax.annotation.Nullable;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import com.deathfrog.mctradepost.MCTradePostMod;
+import com.deathfrog.mctradepost.api.advancements.MCTPAdvancementTriggers;
 import com.deathfrog.mctradepost.api.colony.buildings.ModBuildings;
 import com.deathfrog.mctradepost.api.colony.buildings.jobs.MCTPModJobs;
 import com.deathfrog.mctradepost.api.entity.GhostCartEntity;
@@ -33,6 +34,8 @@ import com.deathfrog.mctradepost.core.colony.requestsystem.resolvers.TrainDelive
 import com.deathfrog.mctradepost.core.entity.ai.workers.trade.ITradeCapable;
 import com.deathfrog.mctradepost.core.entity.ai.workers.trade.StationData;
 import com.deathfrog.mctradepost.core.entity.ai.workers.trade.TrackPathConnection.TrackConnectionResult;
+import com.deathfrog.mctradepost.core.entity.ai.workers.trade.TrackPathConnection.TrackConnectionResult.FailureKind;
+import com.deathfrog.mctradepost.core.entity.ai.workers.trade.TrackPathConnection.TrackConnectionResult.RouteFailureDiagnostic;
 import com.deathfrog.mctradepost.core.entity.ai.workers.trade.DimPos;
 import com.deathfrog.mctradepost.core.entity.ai.workers.trade.TrackRoute;
 import com.deathfrog.mctradepost.core.entity.ai.workers.trade.TrackRouteConnection;
@@ -72,6 +75,7 @@ import com.minecolonies.core.datalistener.RecruitmentItemsListener;
 import com.minecolonies.core.colony.interactionhandling.RecruitmentInteraction;
 import com.minecolonies.core.colony.requestsystem.management.IStandardRequestManager;
 import com.minecolonies.core.entity.citizen.EntityCitizen;
+import com.minecolonies.core.util.AdvancementUtils;
 import com.mojang.logging.LogUtils;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
@@ -83,7 +87,7 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EquipmentSlot;
@@ -123,12 +127,15 @@ public class BuildingStation extends AbstractBuilding implements ITradeCapable, 
     private static final String TAG_CONNECTION_CLOSEST = "closest";
     private static final String TAG_CONNECTION_PATH = "path";
     private static final String TAG_CONNECTION_ROUTE = "route";
+    private static final String TAG_CONNECTION_FAILURE = "failure";
+    private static final String TAG_CONNECTION_ATTEMPTS = "connection_attempts";
+    private static final String TAG_FAILURE_POSITION = "position";
+    private static final String TAG_FAILURE_MODE = "mode";
+    private static final String TAG_FAILURE_REASON = "reason";
     private static final String TAG_ROUTE_SEGMENTS = "segments";
     private static final String TAG_ROUTE_SEGMENT_TYPE = "type";
-    private static final String TAG_ROUTE_SEGMENT_DIMENSION = "dimension";
     private static final String TAG_ROUTE_SEGMENT_TRANSFER_FROM = "transfer_from";
     private static final String TAG_ROUTE_SEGMENT_TRANSFER_TO = "transfer_to";
-    private static final String TAG_DIMPOS_DIMENSION = "dimension";
     private static final String TAG_DIMPOS_POS = "pos";
 
     /**
@@ -137,9 +144,12 @@ public class BuildingStation extends AbstractBuilding implements ITradeCapable, 
     public static final String STATION_START = "station_start";
 
     /**
-     * Map of station data for other stations (by station block position).
+     * Map of station data for other stations, keyed by dimension-qualified building position.
      */
-    private Map<BlockPos, StationData> stations = new ConcurrentHashMap<>();
+    private final Map<DimPos, StationData> stations = new ConcurrentHashMap<DimPos, StationData>();
+
+    /** Destinations for which this station is allowed to discover and maintain a trade route. */
+    private final java.util.Set<StationData> connectionAttempts = ConcurrentHashMap.newKeySet();
 
     /**
      * Map of track connection results for other trade capable buildings (by station data).
@@ -177,12 +187,11 @@ public class BuildingStation extends AbstractBuilding implements ITradeCapable, 
     }
 
     /**
-     * Retrieves the map of stations for this building. The map is keyed by BlockPos, which is the position of the station in the
-     * building. The values are the StationData objects associated with the station at that position.
+     * Retrieves known destinations keyed by their dimension-qualified building positions.
      * 
      * @return a reference to the map of stations.
      */
-    public Map<BlockPos, StationData> getStations()
+    public Map<DimPos, StationData> getStations()
     {
         return stations;
     }
@@ -204,6 +213,7 @@ public class BuildingStation extends AbstractBuilding implements ITradeCapable, 
     public void clearConnectedStations()
     {
         stations.clear();
+        connectionAttempts.clear();
     }
 
     /**
@@ -222,9 +232,9 @@ public class BuildingStation extends AbstractBuilding implements ITradeCapable, 
     }
 
     /**
-     * Adds a station to the list of stations for this building. The station is mapped to its position in the building's station map.
+     * Adds a station to the known destination map using its dimension-qualified position.
      *
-     * @param station The StationData to be added.
+     * @param sdata station data to add
      */
     public void addStation(StationData sdata)
     {
@@ -233,47 +243,82 @@ public class BuildingStation extends AbstractBuilding implements ITradeCapable, 
             LOGGER.warn("Attempted to add null station to building.");
             return;
         }
-        stations.put(sdata.getBuildingPosition(), sdata);
+        stations.put(sdata.getDimensionalPosition(), sdata);
         markDirty();
         // LOGGER.info("Adding station to building: {}. There are now {} stations with data recorded.", sdata, stations.size());
     }
 
     /**
-     * Checks if the given station is contained in the list of stations for this building.
+     * Checks whether a dimension-qualified station is known to this building.
      *
-     * @param station The StationData to check.
-     * @return true if the station is in the list, false if not.
+     * @param station station identity to check
+     * @return true when the station is known
      */
-    public boolean hasStation(StationData station)
+    public boolean hasStationAt(@Nonnull StationData station)
     {
-        if (station == null)
+        return stations.containsKey(station.getDimensionalPosition());
+    }
+
+    /**
+     * Retrieves station data by its dimension-qualified position.
+     *
+     * @param position dimension-qualified building position
+     * @return station data, or {@code null} when no station is known there
+     */
+    public StationData getStationAt(@Nonnull DimPos position)
+    {
+        return stations.get(position);
+    }
+
+    /**
+     * Tests whether route discovery is enabled for a destination. Same-colony outposts remain automatic.
+     *
+     * @param station destination station
+     * @return true when route discovery may run
+     */
+    public boolean shouldAttemptConnection(@Nonnull StationData station)
+    {
+        return station.isOutpost() || connectionAttempts.contains(station);
+    }
+
+    /**
+     * Enables or disables route discovery for a destination station.
+     *
+     * @param station destination station
+     * @param enabled whether discovery should be enabled
+     */
+    public void setConnectionAttempt(@Nonnull StationData station, boolean enabled)
+    {
+        if (station.isOutpost())
         {
-            return false;
+            return;
         }
-
-        return stations.containsKey(station.getBuildingPosition());
-    }
-
-    /**
-     * Checks if there is a station at the given BlockPos in the list of stations for this building.
-     *
-     * @param pos The BlockPos to check.
-     * @return true if a station is at the given position, false if not.
-     */
-    public boolean hasStationAt(@Nonnull BlockPos pos)
-    {
-        return stations.containsKey(pos);
-    }
-
-    /**
-     * Retrieves the station data at the specified block position.
-     *
-     * @param pos The block position to retrieve the station data from.
-     * @return The StationData object at the given position, or null if no station exists at that position.
-     */
-    public StationData getStationAt(@Nonnull BlockPos pos)
-    {
-        return stations.get(pos);
+        if (enabled)
+        {
+            connectionAttempts.add(station);
+            TrackConnectionResult existingResult = connectionresults.get(station);
+            if (existingResult != null && !existingResult.isConnected())
+            {
+                connectionresults.remove(station);
+            }
+        }
+        else
+        {
+            connectionAttempts.remove(station);
+            BuildingStationExportModule exports = getModule(MCTPBuildingModules.EXPORTS);
+            boolean shipmentActive = exports != null && exports.getExports().stream()
+                .anyMatch(export -> export.getShipDistance() >= 0 && export.getDestinationStationData().equals(station));
+            if (!shipmentActive)
+            {
+                connectionresults.remove(station);
+            }
+        }
+        markTradesDirty();
+        BuildingStationConnectionModule module = getModule(MCTPBuildingModules.STATION_CONNECTION);
+        if (module != null)
+        {
+            module.markDirty();
+        }
     }
 
     /**
@@ -313,7 +358,7 @@ public class BuildingStation extends AbstractBuilding implements ITradeCapable, 
 
             if (server == null || dimension == null)
             {
-                stations.remove(remoteStation.getBuildingPosition());
+                removeStationData(remoteStation);
                 BuildingStation.LOGGER.warn("Failed to validate station (no server): {} - removing it.", remoteStation);
                 markTradesDirty();
                 continue;
@@ -323,7 +368,7 @@ public class BuildingStation extends AbstractBuilding implements ITradeCapable, 
 
             if (level == null)
             {
-                stations.remove(remoteStation.getBuildingPosition());
+                removeStationData(remoteStation);
                 BuildingStation.LOGGER.warn("Failed to validate station (no level): {} - removing it.", remoteStation);
                 markTradesDirty();
                 continue;
@@ -333,7 +378,7 @@ public class BuildingStation extends AbstractBuilding implements ITradeCapable, 
 
             if (stationColony == null)
             {
-                stations.remove(remoteStation.getBuildingPosition());
+                removeStationData(remoteStation);
                 BuildingStation.LOGGER.warn("Failed to validate station (no colony): {} - removing it.", remoteStation);
                 markTradesDirty();
                 continue;
@@ -343,7 +388,7 @@ public class BuildingStation extends AbstractBuilding implements ITradeCapable, 
 
             if (building == null || !(building instanceof ITradeCapable))
             {
-                stations.remove(remoteStation.getBuildingPosition());
+                removeStationData(remoteStation);
                 BuildingStation.LOGGER.warn("Failed to validate station (no building): {} - removing it.", remoteStation);
                 markTradesDirty();
                 continue;
@@ -351,7 +396,11 @@ public class BuildingStation extends AbstractBuilding implements ITradeCapable, 
 
             // Restore track connection information if not present (for example, after restoring from a save)
             TrackConnectionResult tcr = getTrackConnectionResult(remoteStation);
-            if (tcr == null)
+            if (!shouldAttemptConnection(remoteStation))
+            {
+                connectionresults.remove(remoteStation);
+            }
+            else if (tcr == null)
             {
                 TraceUtils.dynamicTrace(TRACE_STATION,
                     () -> LOGGER.info("Colony {} - no track connection result between station {} and remote station {}. Repairing.", 
@@ -361,10 +410,10 @@ public class BuildingStation extends AbstractBuilding implements ITradeCapable, 
                 putTrackConnectionResult(remoteStation, trackConnectionResult);
                 markTradesDirty();
             } 
-            else if (tcr != null && tcr.connected && (tcr.path == null || tcr.path.isEmpty()))
+            else if (tcr.connected && !tcr.hasUsableRouteData())
             {
                 TraceUtils.dynamicTrace(TRACE_STATION,
-                    () -> LOGGER.info("Colony {} - allegedly connected track connection result between station {} and remote station {} has no path. Repairing.", 
+                    () -> LOGGER.info("Colony {} - allegedly connected track connection result between station {} and remote station {} has neither legacy path nor segmented route data. Repairing.",
                     building.getColony().getID(), building.getPosition(), remoteStation));
 
                 TrackConnectionResult trackConnectionResult = TrackRouteConnection.findRoute(this, remoteStation, true);
@@ -372,6 +421,13 @@ public class BuildingStation extends AbstractBuilding implements ITradeCapable, 
                 markTradesDirty();
             }
         }
+    }
+
+    private void removeStationData(StationData station)
+    {
+        stations.remove(station.getDimensionalPosition());
+        connectionAttempts.remove(station);
+        connectionresults.remove(station);
     }
 
     /**
@@ -405,7 +461,7 @@ public class BuildingStation extends AbstractBuilding implements ITradeCapable, 
                 visitorData
                     .triggerInteraction(new RecruitmentInteraction(
                         Component.translatable("com.minecolonies.coremod.gui.chat.recruitstory" +
-                            (this.getColony().getWorld().random.nextInt(MAX_STORY) + 1), visitorData.getName().split(" ")[0]),
+                            (this.getColony().getWorld().getRandom().nextInt(MAX_STORY) + 1), visitorData.getName().split(" ")[0]),
                         ChatPriority.IMPORTANT));
             }
 
@@ -441,7 +497,7 @@ public class BuildingStation extends AbstractBuilding implements ITradeCapable, 
     @Nullable
     public IVisitorData spawnVisitor()
     {
-        final int recruitLevel = this.getColony().getWorld().random.nextInt(10 * this.getBuildingLevel()) + 15;
+        final int recruitLevel = this.getColony().getWorld().getRandom().nextInt(10 * this.getBuildingLevel()) + 15;
         final RecruitmentItemsListener.RecruitCost cost = RecruitmentItemsListener.getRandomRecruitCost(recruitLevel);
         if (cost == null)
         {
@@ -569,7 +625,7 @@ public class BuildingStation extends AbstractBuilding implements ITradeCapable, 
 
         final ListTag stationTagList = new ListTag();
 
-        for (Map.Entry<BlockPos, StationData> entry : stations.entrySet())
+        for (Map.Entry<DimPos, StationData> entry : stations.entrySet())
         {
             if (entry.getValue() != null && !BlockPos.ZERO.equals(entry.getValue().getBuildingPosition()))
             {
@@ -579,6 +635,12 @@ public class BuildingStation extends AbstractBuilding implements ITradeCapable, 
 
         compound.put(TAG_STATIONS, stationTagList);
         compound.put(TAG_CONNECTION_RESULTS, serializeConnectionResults());
+        ListTag attemptTagList = new ListTag();
+        for (StationData station : connectionAttempts)
+        {
+            attemptTagList.add(station.toNBT());
+        }
+        compound.put(TAG_CONNECTION_ATTEMPTS, attemptTagList);
 
         if (trainDeliveryResolverToken != null)
         {
@@ -606,11 +668,12 @@ public class BuildingStation extends AbstractBuilding implements ITradeCapable, 
 
         stations.clear();
         connectionresults.clear();
+        connectionAttempts.clear();
 
-        ListTag stationTagList = compound.getList(TAG_STATIONS, Tag.TAG_COMPOUND);
+        ListTag stationTagList = compound.getListOrEmpty(TAG_STATIONS);
         for (int i = 0; i < stationTagList.size(); ++i)
         {
-            CompoundTag stationTag = stationTagList.getCompound(i);
+            CompoundTag stationTag = stationTagList.getCompoundOrEmpty(i);
             StationData contents = StationData.fromNBT(stationTag);
             if (contents != null)
             {
@@ -622,37 +685,95 @@ public class BuildingStation extends AbstractBuilding implements ITradeCapable, 
                 MCTradePostMod.LOGGER.warn("Failed to deserialize station data from tag: {}", stationTag);
             }
         }
-        deserializeConnectionResults(compound.getList(TAG_CONNECTION_RESULTS, Tag.TAG_COMPOUND));
+        deserializeConnectionResults(compound.getListOrEmpty(TAG_CONNECTION_RESULTS));
+
+        if (compound.getList(TAG_CONNECTION_ATTEMPTS).isPresent())
+        {
+            ListTag attemptTagList = compound.getListOrEmpty(TAG_CONNECTION_ATTEMPTS);
+            for (int i = 0; i < attemptTagList.size(); i++)
+            {
+                StationData station = StationData.fromNBT(attemptTagList.getCompoundOrEmpty(i));
+                if (station != null)
+                {
+                    connectionAttempts.add(station);
+                }
+            }
+        }
+        else
+        {
+            for (Map.Entry<StationData, TrackConnectionResult> entry : connectionresults.entrySet())
+            {
+                if (entry.getValue() != null && entry.getValue().isConnected())
+                {
+                    connectionAttempts.add(entry.getKey());
+                }
+            }
+        }
 
         if (compound.contains(NBT_TDR_TOKEN))
         {
             trainDeliveryResolverToken =
-                StandardFactoryController.getInstance().deserializeTag(provider, compound.getCompound(NBT_TDR_TOKEN));
+                StandardFactoryController.getInstance().deserializeTag(provider, compound.getCompoundOrEmpty(NBT_TDR_TOKEN));
         }
     }
 
     /**
-     * Serializes the current state of the building, including the list of stations, to the given buffer. The state of the stations is
-     * stored under the key TAG_STATIONS in the serialized CompoundTag.
+     * Serializes the current building state for its client view, including known stations, connection status, transport modes, and
+     * non-origin route dimensions.
      *
      * @param buf      The buffer to serialize the state of the building into.
      * @param fullSync Whether or not to serialize the full state of the building, or just the delta.
      */
+    @SuppressWarnings("null")
     @Override
     public void serializeToView(@NotNull final RegistryFriendlyByteBuf buf, final boolean fullSync)
     {
         super.serializeToView(buf, fullSync);
         buf.writeInt(stations.size());
-        for (final Entry<BlockPos, StationData> station : stations.entrySet())
+        for (final Entry<DimPos, StationData> station : stations.entrySet())
         {
+            boolean attemptConnection = shouldAttemptConnection(station.getValue());
             buf.writeNbt(station.getValue().toNBT());
+            buf.writeBoolean(attemptConnection);
         }
 
         buf.writeInt(connectionresults.size());
+
         for (final Map.Entry<StationData, TrackConnectionResult> e : connectionresults.entrySet())
         {
             buf.writeNbt(e.getKey().toNBT());       // key
             buf.writeBoolean(e.getValue().connected);     // value
+            TrackRoute route = e.getValue().getRoute();
+            List<TrackRoute.SegmentType> modes = route == null ? List.of() : route.transportModes();
+            buf.writeVarInt(modes.size());
+            for (TrackRoute.SegmentType mode : modes)
+            {
+                if (mode == null)
+                {
+                    continue;
+                }
+
+                buf.writeEnum(mode);
+            }
+
+            List<ResourceKey<Level>> dimensions = route == null
+                ? List.of()
+                : route.traversedDimensions(getColony().getWorld().dimension());
+
+            buf.writeVarInt(dimensions.size());
+
+            for (ResourceKey<Level> dimension : dimensions)
+            {
+                buf.writeIdentifier(dimension.identifier());
+            }
+            RouteFailureDiagnostic failure = e.getValue().failureDiagnostic;
+            buf.writeBoolean(failure != null);
+            if (failure != null)
+            {
+                DimPos.STREAM_CODEC.encode(buf, failure.position());
+                buf.writeEnum(failure.attemptedMode());
+                buf.writeEnum(failure.reason());
+            }
         }
     }
 
@@ -679,6 +800,7 @@ public class BuildingStation extends AbstractBuilding implements ITradeCapable, 
      *
      * @return NBT list containing connection results keyed by station data
      */
+    @SuppressWarnings("null")
     private @Nonnull ListTag serializeConnectionResults()
     {
         ListTag list = new ListTag();
@@ -695,16 +817,29 @@ public class BuildingStation extends AbstractBuilding implements ITradeCapable, 
             tag.put(TAG_CONNECTION_STATION, stationData.toNBT());
             tag.putBoolean(TAG_CONNECTION_CONNECTED, result.connected);
             tag.putLong(TAG_CONNECTION_LAST_CHECKED, result.lastChecked);
+
             if (result.closestPoint != null)
             {
                 BlockPosUtil.write(tag, TAG_CONNECTION_CLOSEST, result.closestPoint);
             }
+
             tag.put(TAG_CONNECTION_PATH, writeBlockPosList(result.path));
             TrackRoute route = result.getRoute();
+
             if (route != null)
             {
                 tag.put(TAG_CONNECTION_ROUTE, writeRoute(route));
             }
+
+            if (result.failureDiagnostic != null)
+            {
+                CompoundTag failureTag = new CompoundTag();
+                failureTag.put(TAG_FAILURE_POSITION, writeDimPos(result.failureDiagnostic.position()));
+                failureTag.putString(TAG_FAILURE_MODE, result.failureDiagnostic.attemptedMode().name());
+                failureTag.putString(TAG_FAILURE_REASON, result.failureDiagnostic.reason().name());
+                tag.put(TAG_CONNECTION_FAILURE, failureTag);
+            }
+
             list.add(tag);
         }
         return list;
@@ -719,25 +854,49 @@ public class BuildingStation extends AbstractBuilding implements ITradeCapable, 
     {
         for (int i = 0; i < list.size(); i++)
         {
-            CompoundTag tag = list.getCompound(i);
-            StationData stationData = StationData.fromNBT(tag.getCompound(TAG_CONNECTION_STATION));
+            CompoundTag tag = list.getCompoundOrEmpty(i);
+            StationData stationData = StationData.fromNBT(tag.getCompoundOrEmpty(TAG_CONNECTION_STATION));
             if (stationData == null)
             {
                 MCTradePostMod.LOGGER.warn("Skipping connection result with invalid station data: {}", tag);
                 continue;
             }
 
-            boolean connected = tag.getBoolean(TAG_CONNECTION_CONNECTED);
-            long lastChecked = tag.getLong(TAG_CONNECTION_LAST_CHECKED);
-            BlockPos closest = tag.contains(TAG_CONNECTION_CLOSEST, Tag.TAG_COMPOUND)
+            boolean connected = tag.getBooleanOr(TAG_CONNECTION_CONNECTED, false);
+            long lastChecked = tag.getLongOr(TAG_CONNECTION_LAST_CHECKED, 0L);
+            BlockPos closest = tag.getCompound(TAG_CONNECTION_CLOSEST).isPresent()
                 ? BlockPosUtil.read(tag, TAG_CONNECTION_CLOSEST)
                 : stationData.getBuildingPosition();
-            List<BlockPos> path = readBlockPosList(tag.getList(TAG_CONNECTION_PATH, Tag.TAG_COMPOUND));
-            TrackRoute route = tag.contains(TAG_CONNECTION_ROUTE, Tag.TAG_COMPOUND)
-                ? readRoute(tag.getCompound(TAG_CONNECTION_ROUTE))
+            List<BlockPos> path = readBlockPosList(tag.getListOrEmpty(TAG_CONNECTION_PATH));
+            TrackRoute route = tag.getCompound(TAG_CONNECTION_ROUTE).isPresent()
+                ? readRoute(tag.getCompoundOrEmpty(TAG_CONNECTION_ROUTE))
                 : null;
+            RouteFailureDiagnostic failure = readFailureDiagnostic(tag.getCompoundOrEmpty(TAG_CONNECTION_FAILURE));
 
-            connectionresults.put(stationData, new TrackConnectionResult(connected, closest, path, lastChecked, route));
+            connectionresults.put(stationData, new TrackConnectionResult(connected, closest, path, lastChecked, route, failure));
+        }
+    }
+
+    private static RouteFailureDiagnostic readFailureDiagnostic(CompoundTag tag)
+    {
+        if (tag == null || tag.getCompound(TAG_FAILURE_POSITION).isEmpty())
+        {
+            return null;
+        }
+        DimPos position = readDimPos(tag.getCompoundOrEmpty(TAG_FAILURE_POSITION));
+        if (position == null)
+        {
+            return null;
+        }
+        try
+        {
+            TrackRoute.SegmentType mode = TrackRoute.SegmentType.valueOf(tag.getStringOr(TAG_FAILURE_MODE, ""));
+            FailureKind reason = FailureKind.valueOf(tag.getStringOr(TAG_FAILURE_REASON, ""));
+            return new RouteFailureDiagnostic(position, mode, reason);
+        }
+        catch (IllegalArgumentException exception)
+        {
+            return null;
         }
     }
 
@@ -779,7 +938,7 @@ public class BuildingStation extends AbstractBuilding implements ITradeCapable, 
         List<BlockPos> positions = new ArrayList<>();
         for (int i = 0; i < list.size(); i++)
         {
-            BlockPos pos = BlockPosUtil.read(list.getCompound(i), TAG_DIMPOS_POS);
+            BlockPos pos = BlockPosUtil.read(list.getCompoundOrEmpty(i), TAG_DIMPOS_POS);
             if (pos != null)
             {
                 positions.add(pos);
@@ -803,7 +962,7 @@ public class BuildingStation extends AbstractBuilding implements ITradeCapable, 
         {
             CompoundTag segmentTag = new CompoundTag();
             segmentTag.putString(TAG_ROUTE_SEGMENT_TYPE, segment.type().name());
-            segmentTag.putString(TAG_ROUTE_SEGMENT_DIMENSION, segment.dimension().location().toString());
+            segmentTag.putString(BuildingUtil.TAG_DIMENSION, segment.dimension().identifier().toString());
             segmentTag.put(TAG_CONNECTION_PATH, writeBlockPosList(segment.path()));
             if (segment.transferFrom() != null)
             {
@@ -825,30 +984,64 @@ public class BuildingStation extends AbstractBuilding implements ITradeCapable, 
      * @param routeTag serialized route tag
      * @return restored route, or null when no valid segments were found
      */
+    @SuppressWarnings("null")
     private static TrackRoute readRoute(CompoundTag routeTag)
     {
         List<TrackRoute.Segment> segments = new ArrayList<>();
-        ListTag segmentList = routeTag.getList(TAG_ROUTE_SEGMENTS, Tag.TAG_COMPOUND);
+        ListTag segmentList = routeTag.getListOrEmpty(TAG_ROUTE_SEGMENTS);
         for (int i = 0; i < segmentList.size(); i++)
         {
-            CompoundTag segmentTag = segmentList.getCompound(i);
-            TrackRoute.SegmentType type = TrackRoute.SegmentType.valueOf(segmentTag.getString(TAG_ROUTE_SEGMENT_TYPE));
+            CompoundTag segmentTag = segmentList.getCompoundOrEmpty(i);
+            TrackRoute.SegmentType type;
+            try
+            {
+                type = TrackRoute.SegmentType.valueOf(segmentTag.getStringOr(TAG_ROUTE_SEGMENT_TYPE, ""));
+            }
+            catch (IllegalArgumentException exception)
+            {
+                LOGGER.warn("Skipping unknown route segment type '{}'.", segmentTag.getStringOr(TAG_ROUTE_SEGMENT_TYPE, ""));
+                continue;
+            }
             if (type == TrackRoute.SegmentType.TRANSFER)
             {
-                DimPos from = readDimPos(segmentTag.getCompound(TAG_ROUTE_SEGMENT_TRANSFER_FROM));
-                DimPos to = readDimPos(segmentTag.getCompound(TAG_ROUTE_SEGMENT_TRANSFER_TO));
+                DimPos from = readDimPos(segmentTag.getCompoundOrEmpty(TAG_ROUTE_SEGMENT_TRANSFER_FROM));
+                DimPos to = readDimPos(segmentTag.getCompoundOrEmpty(TAG_ROUTE_SEGMENT_TRANSFER_TO));
                 if (from != null && to != null)
                 {
                     segments.add(TrackRoute.Segment.transfer(from, to));
                 }
             }
+            else if (type == TrackRoute.SegmentType.DOCK)
+            {
+                ResourceKey<Level> dimension = readDimension(segmentTag.getStringOr(BuildingUtil.TAG_DIMENSION, ""));
+                List<BlockPos> path = readBlockPosList(segmentTag.getListOrEmpty(TAG_CONNECTION_PATH));
+                if (dimension != null && !path.isEmpty()) segments.add(TrackRoute.Segment.dock(dimension, path.getFirst()));
+            }
+            else if (type == TrackRoute.SegmentType.INTERCHANGE)
+            {
+                ResourceKey<Level> dimension = readDimension(segmentTag.getStringOr(BuildingUtil.TAG_DIMENSION, ""));
+                List<BlockPos> path = readBlockPosList(segmentTag.getListOrEmpty(TAG_CONNECTION_PATH));
+                if (dimension != null && !path.isEmpty()) segments.add(TrackRoute.Segment.interchange(dimension, path.getFirst()));
+            }
+            else if (type == TrackRoute.SegmentType.MOORING)
+            {
+                ResourceKey<Level> dimension = readDimension(segmentTag.getStringOr(BuildingUtil.TAG_DIMENSION, ""));
+                List<BlockPos> path = readBlockPosList(segmentTag.getListOrEmpty(TAG_CONNECTION_PATH));
+                if (dimension != null && !path.isEmpty()) segments.add(TrackRoute.Segment.mooring(dimension, path.getFirst()));
+            }
+            else if (type == TrackRoute.SegmentType.AIR_TRANSIT)
+            {
+                ResourceKey<Level> dimension = readDimension(segmentTag.getStringOr(BuildingUtil.TAG_DIMENSION, ""));
+                List<BlockPos> path = readBlockPosList(segmentTag.getListOrEmpty(TAG_CONNECTION_PATH));
+                if (dimension != null && path.size() >= 2) segments.add(TrackRoute.Segment.airTransit(dimension, path.getFirst(), path.getLast()));
+            }
             else
             {
-                ResourceKey<Level> dimension = readDimension(segmentTag.getString(TAG_ROUTE_SEGMENT_DIMENSION));
-                List<BlockPos> path = readBlockPosList(segmentTag.getList(TAG_CONNECTION_PATH, Tag.TAG_COMPOUND));
+                ResourceKey<Level> dimension = readDimension(segmentTag.getStringOr(BuildingUtil.TAG_DIMENSION, ""));
+                List<BlockPos> path = readBlockPosList(segmentTag.getListOrEmpty(TAG_CONNECTION_PATH));
                 if (dimension != null && !path.isEmpty())
                 {
-                    segments.add(TrackRoute.Segment.rail(dimension, path));
+                    segments.add(TrackRoute.Segment.traversable(type, dimension, path));
                 }
             }
         }
@@ -865,7 +1058,7 @@ public class BuildingStation extends AbstractBuilding implements ITradeCapable, 
     private static @Nonnull CompoundTag writeDimPos(DimPos dimPos)
     {
         CompoundTag tag = new CompoundTag();
-        tag.putString(TAG_DIMPOS_DIMENSION, dimPos.dimension().location().toString());
+        tag.putString(BuildingUtil.TAG_DIMENSION, dimPos.dimension().identifier().toString());
         BlockPosUtil.write(tag, TAG_DIMPOS_POS, dimPos.pos());
         return tag;
     }
@@ -878,7 +1071,7 @@ public class BuildingStation extends AbstractBuilding implements ITradeCapable, 
      */
     private static DimPos readDimPos(CompoundTag tag)
     {
-        if (tag == null || !tag.contains(TAG_DIMPOS_DIMENSION))
+        if (tag == null || !tag.contains(BuildingUtil.TAG_DIMENSION))
         {
             return null;
         }
@@ -887,7 +1080,7 @@ public class BuildingStation extends AbstractBuilding implements ITradeCapable, 
         {
             return null;
         }
-        ResourceKey<Level> dimension = readDimension(tag.getString(TAG_DIMPOS_DIMENSION));
+        ResourceKey<Level> dimension = readDimension(tag.getStringOr(BuildingUtil.TAG_DIMENSION, ""));
         return dimension == null ? null : new DimPos(dimension, pos);
     }
 
@@ -904,7 +1097,7 @@ public class BuildingStation extends AbstractBuilding implements ITradeCapable, 
         {
             return null;
         }
-        return ResourceKey.create(NullnessBridge.assumeNonnull(Registries.DIMENSION), ResourceLocation.parse(dimension));
+        return ResourceKey.create(NullnessBridge.assumeNonnull(Registries.DIMENSION), Identifier.parse(dimension));
     }
 
     /**
@@ -1022,6 +1215,10 @@ public class BuildingStation extends AbstractBuilding implements ITradeCapable, 
             // No funds will be recived (but the destination station is not refunded).
             MCTPInventoryUtils.insertOrDropByQuantity(this, exportData.getTradeItem());
             exportData.setShipDistance(-1);
+            if (!shouldAttemptConnection(exportData.getDestinationStationData()))
+            {
+                connectionresults.remove(exportData.getDestinationStationData());
+            }
             GhostCartEntity cart = exportData.getCart();
             if (cart != null)
             {
@@ -1032,6 +1229,49 @@ public class BuildingStation extends AbstractBuilding implements ITradeCapable, 
         }
 
         MCTPInventoryUtils.insertOrDropByQuantity(remoteStation, exportData.getTradeItem());
+
+        ITradeCapable exporter = exportData.isReverse() ? exportData.getSourceStation() : this;
+        ITradeCapable importer = exportData.isReverse() ? this : remoteStation;
+
+        boolean isInterColonyStationTrade = exporter instanceof BuildingStation
+            && importer instanceof BuildingStation
+            && exporter.getColony().getID() != importer.getColony().getID();
+
+        if (isInterColonyStationTrade)
+        {
+            if (exporter !=  null)
+            {
+                AdvancementUtils.TriggerAdvancementPlayersForColony(exporter.getColony(),
+                    player -> {
+                        if (player == null)
+                        {
+                            return;
+                        }
+                        MCTPAdvancementTriggers.EXPORTER.get().trigger(player);
+                    });
+
+                if (exportData.usesAirship())
+                {
+                    AdvancementUtils.TriggerAdvancementPlayersForColony(exporter.getColony(),
+                        player -> {
+                            if (player == null)
+                            {
+                                return;
+                            }
+                            MCTPAdvancementTriggers.EXPRESS_DELIVERY.get().trigger(player);
+                        });
+                }
+            }
+
+            AdvancementUtils.TriggerAdvancementPlayersForColony(importer.getColony(),
+                player -> {
+                    if (player == null)
+                    {
+                        return;
+                    }
+                    MCTPAdvancementTriggers.IMPORTER.get().trigger(player);
+                });
+        }
 
         // Adds to the local building inventory and calls for a pickup to the warehouse or drops on the ground if inventory is full.
         if (InventoryUtils.addItemStackToItemHandler(this.getItemHandlerCap(), finalPayment))
@@ -1054,6 +1294,10 @@ public class BuildingStation extends AbstractBuilding implements ITradeCapable, 
         TraceUtils.dynamicTrace(TRACE_STATION, () -> LOGGER.info("Resetting export."));
 
         exportData.setShipDistance(-1);
+        if (!shouldAttemptConnection(exportData.getDestinationStationData()))
+        {
+            connectionresults.remove(exportData.getDestinationStationData());
+        }
         GhostCartEntity cart = exportData.getCart();
         if (cart != null)
         {
@@ -1169,7 +1413,7 @@ public class BuildingStation extends AbstractBuilding implements ITradeCapable, 
             TrackConnectionResult connectionResult = connectionresults.get(stationData);
 
             if (connectionResult.isConnected() && stationData.getStation() instanceof BuildingOutpost outpost &&
-                this.getColony().getID() == outpost.getColony().getID())
+                this.getColony().getID() == outpost.getColony().getID() && outpost.getBuildingLevel() >= 1)
             {
                 outposts.add(outpost);
             }

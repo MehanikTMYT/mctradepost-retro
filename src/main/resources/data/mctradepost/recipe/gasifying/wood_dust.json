@@ -1,0 +1,6 @@
+{
+  "type": "mctradepost:gasifying",
+  "input": "#c:dusts/wood",
+  "burn_time": 200,
+  "gas": 250
+}

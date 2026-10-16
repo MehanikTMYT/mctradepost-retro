@@ -16,6 +16,7 @@ import com.minecolonies.api.colony.requestsystem.request.IRequest;
 import com.minecolonies.api.colony.requestsystem.requestable.StackList;
 import com.minecolonies.api.colony.requestsystem.token.IToken;
 import com.minecolonies.api.crafting.ItemStorage;
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import com.minecolonies.api.entity.ai.statemachine.AITarget;
 import com.minecolonies.api.entity.ai.statemachine.states.AIWorkerState;
 import com.minecolonies.api.entity.ai.statemachine.states.IAIState;
@@ -23,12 +24,13 @@ import com.minecolonies.api.entity.citizen.VisibleCitizenStatus;
 import com.minecolonies.api.util.IItemHandlerCapProvider;
 import com.minecolonies.api.util.InventoryUtils;
 import com.minecolonies.api.util.MessageUtils;
+import com.minecolonies.api.util.StatsUtil;
 import com.minecolonies.core.colony.buildings.modules.ItemListModule;
 import com.minecolonies.core.entity.ai.workers.AbstractEntityAIBasic;
 import com.mojang.logging.LogUtils;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
@@ -69,7 +71,7 @@ public class EntityAIWorkRecyclingEngineer extends AbstractEntityAIBasic<JobRecy
      * Crafting icon
      */
     private final static VisibleCitizenStatus RECYCLING = new VisibleCitizenStatus(
-        ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "textures/icons/work/recyclingengineer.png"),
+        Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "textures/icons/work/recyclingengineer.png"),
         "com.mctradepost.gui.visiblestatus.recyclingengineer");
 
     protected final static int COMPLAINT_COOLDOWN_MAX = 100;
@@ -179,9 +181,24 @@ public class EntityAIWorkRecyclingEngineer extends AbstractEntityAIBasic<JobRecy
 
         return false;
     }
+
+    /**
+     * Checks whether an item already acknowledged into recycler custody is
+     * still waiting in the worker inventory to be loaded into an input chest.
+     *
+     * @return true if the worker still carries an accepted recycling input.
+     */
+    private boolean hasAcceptedInputInWorkerInventory()
+    {
+        final RecyclingItemListModule module =
+            building.getModule(RecyclingItemListModule.class, m -> m.getId().equals(RECYCLING_LIST));
+        return InventoryUtils.hasItemInProvider(worker,
+            stack -> module.findAcceptedRecyclingInput(new ItemStorage(stack)) != null);
+    }
+
     /**
      * Decide what to do next. If there's a non-empty output chest, sort its contents. Otherwise, load the recycling module.
-     * 
+     *
      * @return the next AI state to transition to.
      */
     public IAIState decideWhatToDo()
@@ -197,6 +214,13 @@ public class EntityAIWorkRecyclingEngineer extends AbstractEntityAIBasic<JobRecy
         if (checkDeliveryStatus())
         {
             TraceUtils.dynamicTrace(TRACE_RECYCLING, () -> LOGGER.info("Recycling Engineer: Deciding what to do: Load delivery to input."));
+            return RecyclingStates.LOAD_TO_INPUT;
+        }
+
+        if (hasAcceptedInputInWorkerInventory())
+        {
+            TraceUtils.dynamicTrace(TRACE_RECYCLING,
+                () -> LOGGER.info("Recycling Engineer: Deciding what to do: Load accepted recycling input."));
             return RecyclingStates.LOAD_TO_INPUT;
         }
 
@@ -561,7 +585,7 @@ public class EntityAIWorkRecyclingEngineer extends AbstractEntityAIBasic<JobRecy
                     }
 
                     TraceUtils.dynamicTrace(TRACE_RECYCLING,
-                        () -> LOGGER.info("Starting recycling process for {}", stackToRecycle.getDescriptionId()));
+                        () -> LOGGER.info("Starting recycling process for {}", stackToRecycle.getItem().getDescriptionId()));
                     final ItemStack removedStack = chestHandlerOpt.getItemHandlerCap().extractItem(i, Integer.MAX_VALUE, false);
 
                     ItemStack processStack = removedStack.copy();
@@ -575,7 +599,7 @@ public class EntityAIWorkRecyclingEngineer extends AbstractEntityAIBasic<JobRecy
 
                         TraceUtils.dynamicTrace(TRACE_RECYCLING,
                             () -> LOGGER.info("Recording recycling stats for: {}, count {}",
-                                stackToRecycle.getDescriptionId(),
+                                stackToRecycle.getItem().getDescriptionId(),
                                 stackToRecycle.getCount()));
 
                         worker.getCitizenExperienceHandler().addExperience(BASE_XP_GAIN);
@@ -587,21 +611,41 @@ public class EntityAIWorkRecyclingEngineer extends AbstractEntityAIBasic<JobRecy
                     }
                     else
                     {
-                        // TraceUtils.dynamicTrace(TRACE_RECYCLING, () -> LOGGER.info("This item cannot be recycled {}", removedStack.getDescriptionId()));
-                        if (removedStack.isEnchanted())
+                        building.getModule(RecyclingItemListModule.class, m -> m.getId().equals(RECYCLING_LIST))
+                            .removeAcceptedRecyclingInput(new ItemStorage(removedStack, true, true));
+                        building.markDirty();
+
+                        final boolean deleteFailedAttempt = building.getSetting(BuildingRecycling.DELETE_FAILED_ATTEMPTS).getValue();
+                        if (deleteFailedAttempt)
                         {
-                            MessageUtils.format("Your recycling engineer could not safely strip the enchantments from the %s, and put it away.", removedStack.getDisplayName()).sendTo(building.getColony()).forAllPlayers();
+                            StatsUtil.trackStatByName(building, BuildingRecycling.ITEMS_DESTROYED, removedStack.getHoverName(), removedStack.getCount());
+
+                            if (removedStack.isEnchanted())
+                            {
+                                MessageUtils.format("Your recycling engineer could not safely strip the enchantments from the %s, and discarded it.", removedStack.getDisplayName()).sendTo(building.getColony()).forAllPlayers();
+                            }
+                            else
+                            {
+                                MessageUtils.format("Your recycling engineer could not recycle the %s, and discarded it.", removedStack.getDisplayName()).sendTo(building.getColony()).forAllPlayers();
+                            }
                         }
                         else
                         {
-                            MessageUtils.format("Your recycling engineer could not recycle the %s, and put it away.", removedStack.getDisplayName()).sendTo(building.getColony()).forAllPlayers();
-                        }
-                         
-                        if (!InventoryUtils.addItemStackToItemHandler(recycling.getItemHandlerCap(), stackToRecycle))
-                        {
-                            InventoryUtils
-                                .spawnItemStack(recycling.getColony().getWorld(), pos.getX(), pos.getY(), pos.getZ(), removedStack);
-                            return INVENTORY_FULL;
+                            if (removedStack.isEnchanted())
+                            {
+                                MessageUtils.format("Your recycling engineer could not safely strip the enchantments from the %s, and put it away.", removedStack.getDisplayName()).sendTo(building.getColony()).forAllPlayers();
+                            }
+                            else
+                            {
+                                MessageUtils.format("Your recycling engineer could not recycle the %s, and put it away.", removedStack.getDisplayName()).sendTo(building.getColony()).forAllPlayers();
+                            }
+
+                            if (!InventoryUtils.addItemStackToItemHandler(recycling.getItemHandlerCap(), removedStack))
+                            {
+                                InventoryUtils
+                                    .spawnItemStack(recycling.getColony().getWorld(), pos.getX(), pos.getY(), pos.getZ(), removedStack);
+                                return INVENTORY_FULL;
+                            }
                         }
                     }
                 }
@@ -675,12 +719,20 @@ public class EntityAIWorkRecyclingEngineer extends AbstractEntityAIBasic<JobRecy
             return getState();
         }
 
-        building.reconcileRecyclingRequests();
-
-        final List<ItemStorage> list =
-            building.getModule(RecyclingItemListModule.class, m -> m.getId().equals(RECYCLING_LIST)).getList();
         final RecyclingItemListModule recyclingModule =
             building.getModule(RecyclingItemListModule.class, m -> m.getId().equals(RECYCLING_LIST));
+
+        // A request may become RECEIVED while this state is active. Claim the
+        // physical delivery before reconciliation can consider a new request.
+        if (checkDeliveryStatus() || hasAcceptedInputInWorkerInventory())
+        {
+            return RecyclingStates.LOAD_TO_INPUT;
+        }
+
+        final Object2IntMap<ItemStorage> warehouseSnapshot = building.getWarehouseRecyclingSnapshot();
+        building.reconcileRecyclingRequests(warehouseSnapshot);
+
+        final List<ItemStorage> list = recyclingModule.getList();
 
         if (list.isEmpty()  && building.getRecyclingProcessors().isEmpty())
         {
@@ -691,6 +743,7 @@ public class EntityAIWorkRecyclingEngineer extends AbstractEntityAIBasic<JobRecy
         worker.setItemInHand(InteractionHand.MAIN_HAND, NullnessBridge.assumeNonnull(ItemStack.EMPTY));
 
         int requestedCount = 0;
+        boolean completedSelection = false;
         ItemListModule module = building.getModule(ItemListModule.class, m -> m.getId().equals(RECYCLING_LIST));
         final List<ItemStorage> requestableSnapshot = new ArrayList<>(list);
         for (final ItemStorage item : requestableSnapshot)
@@ -701,23 +754,33 @@ public class EntityAIWorkRecyclingEngineer extends AbstractEntityAIBasic<JobRecy
             }
 
             final ItemStack itemStack = item.getItemStack().copy();
-            itemStack.setCount(item.getAmount());
-            final ArrayList<ItemStack> itemList = new ArrayList<>();
-            itemList.add(itemStack);
+            itemStack.setCount(1);
+
+            // Request the concrete warehouse stacks rather than the abstract definition, so the request
+            // system can actually resolve them, and so the selection is only retired once the warehouse
+            // has genuinely run out of matching stock.
+            final List<ItemStack> itemList = building.getWarehouseStacksMatching(item, warehouseSnapshot);
+            if (itemList.isEmpty())
+            {
+                module.removeItem(item);
+                completedSelection = true;
+                continue;
+            }
 
             final IToken<?> requestToken = building.createRequest(worker.getCitizenData(),
-                new StackList(itemList, BuildingRecycling.REQUESTS_TYPE_RECYCLABLE, item.getAmount(), 1),
+                new StackList(itemList, BuildingRecycling.REQUESTS_TYPE_RECYCLABLE, itemStack.getMaxStackSize(), 1),
                 true);
 
             recyclingModule.addPendingWarehouseRequest(requestToken, new ItemStorage(itemStack));
             requestedCount++;
-
-            // These are meant to be one-time calls to the warehouse for garbage to be recycled. Prevent requests
-            // that might result in items being crafted just to be recycled by turning off the item setting in the module list.
-            module.removeItem(new ItemStorage(itemStack));
         }
 
         if (requestedCount > 0)
+        {
+            building.markDirty();
+        }
+
+        if (completedSelection)
         {
             building.refreshItemList();
         }

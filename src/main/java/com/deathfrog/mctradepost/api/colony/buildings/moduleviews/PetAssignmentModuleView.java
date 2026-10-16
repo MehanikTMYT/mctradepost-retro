@@ -13,9 +13,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
+import net.minecraft.resources.Identifier;
 
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -62,14 +60,14 @@ public class PetAssignmentModuleView extends AbstractBuildingModuleView
             }
             PetWorkingLocationData data = new PetWorkingLocationData();
             data.workLocation = BlockPosUtil.read(compound, "WorkLocation");
-            int petRole = compound.getInt("Role");
+            int petRole = compound.getIntOr("Role", 0);
 
             if (petRole < 0 || petRole >= PetRoles.values().length)
             {
                 petRole = 0;
             }
             data.role = PetRoles.values()[petRole];
-            data.name = compound.getString("LocationName");
+            data.name = compound.getStringOr("LocationName", "");
 
             if (data.workLocation != null && !BlockPos.ZERO.equals(data.workLocation))
             {   
@@ -96,7 +94,6 @@ public class PetAssignmentModuleView extends AbstractBuildingModuleView
     }
 
     @Override
-    @OnlyIn(Dist.CLIENT)
     public BOWindow getWindow()
     {
         return new WindowPetAssignmentModule(this);
@@ -108,9 +105,9 @@ public class PetAssignmentModuleView extends AbstractBuildingModuleView
      * @return the icon to show.
      */
    @Override
-    public ResourceLocation getIconResourceLocation()
+    public Identifier getIconResourceLocation()
     {
-        return ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "textures/gui/modules/pets.png");
+        return Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "textures/gui/modules/pets.png");
     }
 
     /**

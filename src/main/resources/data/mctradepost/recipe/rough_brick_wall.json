@@ -1,17 +1,16 @@
 {
-    "type": "minecraft:crafting_shaped",
-    "category": "building",
-    "key": {
-      "S": { "item": "mctradepost:rough_brick" }
-    },
-    "pattern": [
-      "   ",
-      "SSS",
-      "SSS"
-    ],
-    "result": {
-      "count": 6,
-      "id": "mctradepost:rough_brick_wall"
-    }
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "key": {
+    "S": "mctradepost:rough_brick"
+  },
+  "pattern": [
+    "   ",
+    "SSS",
+    "SSS"
+  ],
+  "result": {
+    "count": 6,
+    "id": "mctradepost:rough_brick_wall"
+  }
 }
-  

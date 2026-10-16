@@ -44,7 +44,7 @@ public class ReturnToTrainerAtNightGoal<T extends Animal> extends Goal
     private long getLastNightCycle()
     {
         final CompoundTag tag = animal.getPersistentData();
-        return tag.contains(NBT_LAST_NIGHT_CYCLE) ? tag.getLong(NBT_LAST_NIGHT_CYCLE) : -1L;
+        return tag.getLongOr(NBT_LAST_NIGHT_CYCLE, -1L);
     }
 
     /**
@@ -71,7 +71,7 @@ public class ReturnToTrainerAtNightGoal<T extends Animal> extends Goal
      */
     private boolean isNight(final Level level)
     {
-        return timeOfDay(level.getDayTime()) >= NIGHT_START;
+        return timeOfDay(level.getOverworldClockTime()) >= NIGHT_START;
     }
 
     /**
@@ -115,7 +115,7 @@ public class ReturnToTrainerAtNightGoal<T extends Animal> extends Goal
     public boolean canUse()
     {
         final Level level = animal.level();
-        if (level.isClientSide || !animal.isAlive() || !level.isLoaded(trainerPos))
+        if (level.isClientSide() || !animal.isAlive() || !level.isLoaded(trainerPos))
         {
             return false;
         }
@@ -125,7 +125,7 @@ public class ReturnToTrainerAtNightGoal<T extends Animal> extends Goal
             return false;
         }
 
-        final long currentCycle = cycleOf(level.getDayTime());
+        final long currentCycle = cycleOf(level.getOverworldClockTime());
         if (currentCycle == getLastNightCycle())
         {
             return false; // already completed this night (persisted)
@@ -152,7 +152,7 @@ public class ReturnToTrainerAtNightGoal<T extends Animal> extends Goal
     public boolean canContinueToUse()
     {
         final Level level = animal.level();
-        if (level.isClientSide || !animal.isAlive() || !level.isLoaded(trainerPos))
+        if (level.isClientSide() || !animal.isAlive() || !level.isLoaded(trainerPos))
         {
             return false;
         }
@@ -182,7 +182,7 @@ public class ReturnToTrainerAtNightGoal<T extends Animal> extends Goal
     public void tick()
     {
         final Level level = animal.level();
-        if (level.isClientSide || !animal.isAlive() || !level.isLoaded(trainerPos))
+        if (level.isClientSide() || !animal.isAlive() || !level.isLoaded(trainerPos))
         {
             return;
         }
@@ -191,7 +191,7 @@ public class ReturnToTrainerAtNightGoal<T extends Animal> extends Goal
         if (isNearTrainer(ARRIVE_DISTANCE))
         {
             hasArrived = true;
-            setLastNightCycle(cycleOf(level.getDayTime()));
+            setLastNightCycle(cycleOf(level.getOverworldClockTime()));
             animal.getNavigation().stop();
             return;
         }

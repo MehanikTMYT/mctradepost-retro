@@ -5,7 +5,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.server.packs.resources.ResourceManager;
 
@@ -28,7 +28,7 @@ public final class ManualRareFindTagResolver
     private static final Gson GSON = new Gson();
     private static final String GENERATED_PREFIX = "rarefinds_generated_";
     private final ResourceManager resources;
-    private final Map<ResourceLocation, Set<ResourceLocation>> cache = new HashMap<>();
+    private final Map<Identifier, Set<Identifier>> cache = new HashMap<>();
 
     /**
      * Creates a resolver over the server's effective datapack resources.
@@ -46,7 +46,7 @@ public final class ManualRareFindTagResolver
      * @param tag item tag ID without the {@code #} prefix
      * @return immutable set of resolved item IDs
      */
-    public Set<ResourceLocation> resolve(final ResourceLocation tag)
+    public Set<Identifier> resolve(final Identifier tag)
     {
         return resolve(tag, new HashSet<>());
     }
@@ -58,7 +58,7 @@ public final class ManualRareFindTagResolver
      * @param visiting recursion stack used for cycle detection
      * @return resolved manual item IDs
      */
-    private Set<ResourceLocation> resolve(final ResourceLocation tag, final Set<ResourceLocation> visiting)
+    private Set<Identifier> resolve(final Identifier tag, final Set<Identifier> visiting)
     {
         if (tag.getNamespace().equals(MCTradePostMod.MODID) && tag.getPath().startsWith(GENERATED_PREFIX)) return Set.of();
         if (cache.containsKey(tag)) return cache.get(tag);
@@ -69,8 +69,8 @@ public final class ManualRareFindTagResolver
         }
 
         @SuppressWarnings("null")
-        final ResourceLocation file = ResourceLocation.fromNamespaceAndPath(tag.getNamespace(), "tags/item/" + tag.getPath() + ".json");
-        final LinkedHashSet<ResourceLocation> values = new LinkedHashSet<>();
+        final Identifier file = Identifier.fromNamespaceAndPath(tag.getNamespace(), "tags/item/" + tag.getPath() + ".json");
+        final LinkedHashSet<Identifier> values = new LinkedHashSet<>();
 
         if (file == null) return values;
 
@@ -91,7 +91,7 @@ public final class ManualRareFindTagResolver
         }
 
         visiting.remove(tag);
-        final Set<ResourceLocation> result = Set.copyOf(values);
+        final Set<Identifier> result = Set.copyOf(values);
         cache.put(tag, result);
         return result;
     }
@@ -105,8 +105,8 @@ public final class ManualRareFindTagResolver
      * @param add {@code true} to add entries; {@code false} to remove them
      */
     @SuppressWarnings("null")
-    private void apply(final JsonArray entries, final Set<ResourceLocation> target,
-                       final Set<ResourceLocation> visiting, final boolean add)
+    private void apply(final JsonArray entries, final Set<Identifier> target,
+                       final Set<Identifier> visiting, final boolean add)
     {
         if (entries == null) return;
         for (final JsonElement element : entries)
@@ -115,14 +115,14 @@ public final class ManualRareFindTagResolver
             if (raw == null) continue;
             if (raw.startsWith("#"))
             {
-                final ResourceLocation nested = ResourceLocation.tryParse(raw.substring(1));
+                final Identifier nested = Identifier.tryParse(raw.substring(1));
                 if (nested == null) continue;
-                final Set<ResourceLocation> resolved = resolve(nested, visiting);
+                final Set<Identifier> resolved = resolve(nested, visiting);
                 if (add) target.addAll(resolved); else target.removeAll(resolved);
             }
             else
             {
-                final ResourceLocation item = ResourceLocation.tryParse(raw);
+                final Identifier item = Identifier.tryParse(raw);
                 if (item == null) continue;
                 if (add) target.add(item); else target.remove(item);
             }
@@ -149,14 +149,14 @@ public final class ManualRareFindTagResolver
      *
      * @return item IDs mapped to all manually assigned tiers
      */
-    public Map<ResourceLocation, List<RareFindTier>> resolveDefinitiveTiers()
+    public Map<Identifier, List<RareFindTier>> resolveDefinitiveTiers()
     {
-        final Map<ResourceLocation, List<RareFindTier>> result = new HashMap<>();
+        final Map<Identifier, List<RareFindTier>> result = new HashMap<>();
         for (final RareFindTier tier : RareFindTier.values())
         {
-            final ResourceLocation tag = ResourceLocation.fromNamespaceAndPath(
+            final Identifier tag = Identifier.fromNamespaceAndPath(
                 MCTradePostMod.MODID, "rarefinds_tier" + tier.level());
-            for (final ResourceLocation item : resolve(tag))
+            for (final Identifier item : resolve(tag))
             {
                 result.computeIfAbsent(item, ignored -> new ArrayList<>()).add(tier);
             }

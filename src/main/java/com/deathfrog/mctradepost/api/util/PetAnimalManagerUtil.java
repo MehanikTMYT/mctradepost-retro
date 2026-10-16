@@ -23,7 +23,7 @@ public final class PetAnimalManagerUtil
     @SuppressWarnings("unchecked")
     public static void ensureManaged(@Nonnull final ITradePostPet pet)
     {
-        if (!(pet instanceof Animal animal) || animal.level().isClientSide || !(pet instanceof IManagedAnimal))
+        if (!(pet instanceof Animal animal) || animal.level().isClientSide() || !(pet instanceof IManagedAnimal))
         {
             return;
         }
@@ -75,7 +75,7 @@ public final class PetAnimalManagerUtil
 
     public static boolean recoverRegistration(@Nonnull final ITradePostPet pet)
     {
-        if (!(pet instanceof Animal animal) || animal.level().isClientSide)
+        if (!(pet instanceof Animal animal) || animal.level().isClientSide())
         {
             return false;
         }

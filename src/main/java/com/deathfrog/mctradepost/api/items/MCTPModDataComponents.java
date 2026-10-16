@@ -3,6 +3,10 @@ package com.deathfrog.mctradepost.api.items;
 import com.deathfrog.mctradepost.MCTradePostMod;
 import com.deathfrog.mctradepost.api.items.datacomponent.DimensionalLinkageRecord;
 import com.deathfrog.mctradepost.api.items.datacomponent.RecyclableRecord;
+import com.deathfrog.mctradepost.api.items.datacomponent.ResurrectionWishRecord;
+import com.deathfrog.mctradepost.api.items.datacomponent.RouteSurveyRecord;
+import com.deathfrog.mctradepost.api.items.datacomponent.NavigationChartRecord;
+import com.deathfrog.mctradepost.item.NavigationChartItem;
 import com.deathfrog.mctradepost.item.SouvenirItem.SouvenirRecord;
 import com.mojang.serialization.Codec;
 import net.minecraft.core.BlockPos;
@@ -52,4 +56,20 @@ public class MCTPModDataComponents
             builder -> builder
                 .persistent(DimensionalLinkageRecord.CODEC)
                 .networkSynchronized(DimensionalLinkageRecord.STREAM_CODEC));
+
+    @SuppressWarnings("null")
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<ResurrectionWishRecord>> RESURRECTION_WISH =
+        REGISTRAR.registerComponentType("resurrection_wish",
+            builder -> builder.persistent(ResurrectionWishRecord.CODEC)
+                .networkSynchronized(ResurrectionWishRecord.STREAM_CODEC));
+
+    @SuppressWarnings("null")
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<RouteSurveyRecord>> ROUTE_SURVEY =
+        REGISTRAR.registerComponentType("route_survey",
+            builder -> builder.persistent(RouteSurveyRecord.CODEC).networkSynchronized(RouteSurveyRecord.STREAM_CODEC));
+
+    @SuppressWarnings("null")
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<NavigationChartRecord>> NAVIGATION_CHART =
+        REGISTRAR.registerComponentType(NavigationChartItem.ID,
+            builder -> builder.persistent(NavigationChartRecord.CODEC).networkSynchronized(NavigationChartRecord.STREAM_CODEC));
 }

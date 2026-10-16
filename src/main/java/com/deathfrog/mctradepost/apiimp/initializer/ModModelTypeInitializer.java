@@ -9,8 +9,6 @@ import com.minecolonies.core.client.model.MaleAlchemistModel;
 import com.minecolonies.core.client.model.MaleCrafterModel;
 
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
 import com.deathfrog.mctradepost.core.event.ModelRegistryHandler;
 
 public class ModModelTypeInitializer
@@ -27,7 +25,6 @@ public class ModModelTypeInitializer
      * @param context The context for the entity renderer provider.
      */
     @SuppressWarnings("null")
-    @OnlyIn(Dist.CLIENT)
     public static void init(final EntityRendererProvider.Context context)
     {
         final IModelTypeRegistry reg = IModelTypeRegistry.getInstance();

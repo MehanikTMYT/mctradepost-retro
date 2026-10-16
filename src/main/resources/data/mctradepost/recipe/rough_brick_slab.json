@@ -5,9 +5,7 @@
     "###"
   ],
   "key": {
-    "#": {
-      "item": "mctradepost:rough_brick"
-    }
+    "#": "mctradepost:rough_brick"
   },
   "result": {
     "id": "mctradepost:rough_brick_slab",

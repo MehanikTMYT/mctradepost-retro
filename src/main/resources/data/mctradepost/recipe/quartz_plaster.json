@@ -1,34 +1,18 @@
 {
-    "type": "minecraft:crafting_shapeless",
-    "ingredients": [
-        {
-            "item": "mctradepost:quartz_mortar"
-        },
-        {
-            "item": "mctradepost:quartz_mortar"
-        },
-        {
-            "item": "mctradepost:quartz_mortar"
-        },
-        {
-            "item": "mctradepost:quartz_mortar"
-        },
-        {
-            "item": "mctradepost:plaster"
-        },
-        {
-            "item": "mctradepost:plaster"
-        },
-        {
-            "item": "mctradepost:plaster"
-        },
-        {
-            "item": "mctradepost:plaster"
-        }
-    ],
-    "result": {
-        "id": "mctradepost:quartz_plaster",
-        "count": 8
-    },
-    "category": "building"
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    "mctradepost:quartz_mortar",
+    "mctradepost:quartz_mortar",
+    "mctradepost:quartz_mortar",
+    "mctradepost:quartz_mortar",
+    "mctradepost:plaster",
+    "mctradepost:plaster",
+    "mctradepost:plaster",
+    "mctradepost:plaster"
+  ],
+  "result": {
+    "id": "mctradepost:quartz_plaster",
+    "count": 8
+  },
+  "category": "building"
 }

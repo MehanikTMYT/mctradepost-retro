@@ -2,6 +2,7 @@ package com.deathfrog.mctradepost.core.entity.ai.workers.trade;
 
 import javax.annotation.Nonnull;
 
+import com.deathfrog.mctradepost.api.util.BuildingUtil;
 import com.deathfrog.mctradepost.api.util.NullnessBridge;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
@@ -11,7 +12,7 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.Level;
 
 /**
@@ -29,7 +30,7 @@ public record DimPos(@Nonnull ResourceKey<Level> dimension, @Nonnull BlockPos po
      */
     @SuppressWarnings("null")
     public static final Codec<DimPos> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-        ResourceLocation.CODEC.fieldOf("dimension").forGetter(dimPos -> dimPos.dimension().location()),
+        Identifier.CODEC.fieldOf(BuildingUtil.TAG_DIMENSION).forGetter(dimPos -> dimPos.dimension().identifier()),
         BlockPos.CODEC.fieldOf("pos").forGetter(DimPos::pos))
         .apply(instance, DimPos::fromResourceLocation));
 
@@ -41,7 +42,7 @@ public record DimPos(@Nonnull ResourceKey<Level> dimension, @Nonnull BlockPos po
         @Override
         public DimPos decode(@Nonnull RegistryFriendlyByteBuf buf)
         {
-            ResourceLocation dimension = ResourceLocation.STREAM_CODEC.decode(buf);
+            Identifier dimension = Identifier.STREAM_CODEC.decode(buf);
             BlockPos pos = BlockPos.STREAM_CODEC.decode(buf);
             return fromResourceLocation(dimension, pos);
         }
@@ -50,7 +51,7 @@ public record DimPos(@Nonnull ResourceKey<Level> dimension, @Nonnull BlockPos po
         @Override
         public void encode(@Nonnull RegistryFriendlyByteBuf buf, @Nonnull DimPos dimPos)
         {
-            ResourceLocation.STREAM_CODEC.encode(buf, dimPos.dimension().location());
+            Identifier.STREAM_CODEC.encode(buf, dimPos.dimension().identifier());
             BlockPos.STREAM_CODEC.encode(buf, dimPos.pos());
         }
     };
@@ -63,7 +64,7 @@ public record DimPos(@Nonnull ResourceKey<Level> dimension, @Nonnull BlockPos po
      * @return dimensional position for the supplied dimension and block
      */
     @SuppressWarnings("null")
-    public static DimPos fromResourceLocation(ResourceLocation dimension, BlockPos pos)
+    public static DimPos fromResourceLocation(Identifier dimension, BlockPos pos)
     {
         ResourceKey<Level> levelKey = ResourceKey.create(NullnessBridge.assumeNonnull(Registries.DIMENSION),
             NullnessBridge.requireNonnull(dimension, "Null dimension for DimPos."));
@@ -91,6 +92,6 @@ public record DimPos(@Nonnull ResourceKey<Level> dimension, @Nonnull BlockPos po
      */
     public String shortDescription()
     {
-        return dimension.location() + " " + pos.toShortString();
+        return dimension.identifier() + " " + pos.toShortString();
     }
 }

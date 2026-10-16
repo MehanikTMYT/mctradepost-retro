@@ -89,8 +89,8 @@ public class SummonRitualProcessor
             if (entity instanceof AbstractEntityMinecoloniesRaider)
             {
                 // Generate random offset within nearby blocks in X and Z
-                int offsetX = level.random.nextInt(16) - 8;
-                int offsetZ = level.random.nextInt(16) - 8;
+                int offsetX = level.getRandom().nextInt(16) - 8;
+                int offsetZ = level.getRandom().nextInt(16) - 8;
                 BlockPos targetPos = targetSummonPosition.offset(offsetX, 3, offsetZ);
 
                 // Teleport them near the ritual location
@@ -99,8 +99,8 @@ public class SummonRitualProcessor
             else    
             {
                 // Generate random offset within nearby blocks in X and Z
-                int offsetX = level.random.nextInt(2) - 1;
-                int offsetZ = level.random.nextInt(2) - 1;
+                int offsetX = level.getRandom().nextInt(2) - 1;
+                int offsetZ = level.getRandom().nextInt(2) - 1;
 
                 BlockPos targetPos = targetSummonPosition.offset(offsetX, 1, offsetZ);
                 entity.teleportTo(targetPos.getX() + 0.5, targetPos.getY() + 0.5, targetPos.getZ() + 0.5);

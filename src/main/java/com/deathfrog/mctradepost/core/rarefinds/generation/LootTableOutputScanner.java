@@ -5,7 +5,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.tags.ItemTags;
@@ -23,7 +23,7 @@ final class LootTableOutputScanner
 {
     private static final Gson GSON = new Gson();
     private final ResourceManager resources;
-    private final Map<ResourceLocation, Set<ResourceLocation>> cache = new HashMap<>();
+    private final Map<Identifier, Set<Identifier>> cache = new HashMap<>();
 
     /**
      * Creates a scanner over effective server data resources.
@@ -41,7 +41,7 @@ final class LootTableOutputScanner
      * @param table loot table ID
      * @return immutable set of possible base item IDs
      */
-    Set<ResourceLocation> outputs(final ResourceLocation table)
+    Set<Identifier> outputs(final Identifier table)
     {
         return outputs(table, new HashSet<>());
     }
@@ -54,13 +54,13 @@ final class LootTableOutputScanner
      * @return statically discoverable item IDs
      */
     @SuppressWarnings("null")
-    private Set<ResourceLocation> outputs(final ResourceLocation table, final Set<ResourceLocation> visiting)
+    private Set<Identifier> outputs(final Identifier table, final Set<Identifier> visiting)
     {
         if (cache.containsKey(table)) return cache.get(table);
         if (!visiting.add(table)) return Set.of();
-        final ResourceLocation file = ResourceLocation.fromNamespaceAndPath(
+        final Identifier file = Identifier.fromNamespaceAndPath(
             table.getNamespace(), "loot_table/" + table.getPath() + ".json");
-        final Set<ResourceLocation> result = new HashSet<>();
+        final Set<Identifier> result = new HashSet<>();
         final java.util.Optional<Resource> resource = resources.getResource(file);
         if (resource.isPresent())
         {
@@ -74,7 +74,7 @@ final class LootTableOutputScanner
             }
         }
         visiting.remove(table);
-        final Set<ResourceLocation> immutable = Set.copyOf(result);
+        final Set<Identifier> immutable = Set.copyOf(result);
         cache.put(table, immutable);
         return immutable;
     }
@@ -88,8 +88,8 @@ final class LootTableOutputScanner
      * @param visiting nested-table recursion stack
      */
     @SuppressWarnings("null")
-    private void collect(final JsonElement element, final Set<ResourceLocation> items,
-                         final Set<ResourceLocation> visiting)
+    private void collect(final JsonElement element, final Set<Identifier> items,
+                         final Set<Identifier> visiting)
     {
         if (element == null || element.isJsonNull()) return;
         if (element.isJsonArray())
@@ -103,24 +103,24 @@ final class LootTableOutputScanner
         final String name = string(object, "name");
         if (("minecraft:item".equals(type) || "item".equals(type)) && name != null)
         {
-            final ResourceLocation id = ResourceLocation.tryParse(name);
+            final Identifier id = Identifier.tryParse(name);
             if (id != null && BuiltInRegistries.ITEM.containsKey(id)) items.add(id);
         }
         else if (("minecraft:tag".equals(type) || "tag".equals(type)) && name != null)
         {
-            final ResourceLocation id = ResourceLocation.tryParse(name);
+            final Identifier id = Identifier.tryParse(name);
             if (id != null)
             {
                 final TagKey<Item> tag = ItemTags.create(id);
-                BuiltInRegistries.ITEM.getTag(tag).ifPresent(set -> set.forEach(holder ->
-                    items.add(BuiltInRegistries.ITEM.getKey(holder.value()))));
+                BuiltInRegistries.ITEM.getTagOrEmpty(tag).forEach(holder ->
+                    items.add(BuiltInRegistries.ITEM.getKey(holder.value())));
             }
         }
         else if (("minecraft:loot_table".equals(type) || "loot_table".equals(type)))
         {
             String nestedName = name;
             if (nestedName == null) nestedName = string(object, "value");
-            final ResourceLocation nested = nestedName == null ? null : ResourceLocation.tryParse(nestedName);
+            final Identifier nested = nestedName == null ? null : Identifier.tryParse(nestedName);
             if (nested != null) items.addAll(outputs(nested, visiting));
         }
         for (final Map.Entry<String, JsonElement> child : object.entrySet())

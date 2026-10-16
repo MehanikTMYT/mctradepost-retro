@@ -23,7 +23,7 @@ public class WishGatheringItem extends AbstractPositionMarkerItem
     public void sendPlayerLinkedMessage(Player player, BlockPos clicked)
     {
         Component message = Component.translatable("com.mctradepost.wishgather.clicked", clicked.toShortString());
-        player.displayClientMessage(NullnessBridge.assumeNonnull(message), true);
+        player.sendOverlayMessage(NullnessBridge.assumeNonnull(message));
     }
 
     @Override

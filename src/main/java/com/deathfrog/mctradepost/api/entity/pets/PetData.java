@@ -50,6 +50,7 @@ import com.minecolonies.api.colony.IColonyManager;
 import com.minecolonies.api.colony.buildings.IBuilding;
 import com.minecolonies.api.colony.buildings.views.IBuildingView;
 import com.minecolonies.api.util.BlockPosUtil;
+import com.minecolonies.api.util.ValueIOUtils;
 import com.minecolonies.api.util.StatsUtil;
 import com.minecolonies.core.colony.buildings.modules.AnimalHerdingModule;
 import com.mojang.logging.LogUtils;
@@ -57,11 +58,12 @@ import com.mojang.logging.LogUtils;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.UUIDUtil;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -77,7 +79,8 @@ import net.minecraft.world.entity.ai.goal.GoalSelector;
 import net.minecraft.world.entity.ai.goal.WrappedGoal;
 import net.minecraft.world.entity.ai.navigation.PathNavigation;
 import net.minecraft.world.entity.animal.Animal;
-import net.minecraft.world.entity.animal.Wolf;
+import net.minecraft.world.entity.animal.wolf.Wolf;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -98,6 +101,11 @@ public class  PetData<P extends Animal & ITradePostPet & IHerdingPet>
     public static final int STALL_PHASE1 = 10;
     public static final int STALL_PHASE2 = 30;
     public static final int STALL_PHASE3 = 50;
+
+    /** Check once per second, with 1,200 checks in a standard Minecraft day. */
+    private static final int PET_WASTE_CHECK_INTERVAL = 20;
+    /** A 1-in-600 roll per check averages two Pet Waste items per active pet-day. */
+    private static final int PET_WASTE_CHANCE_PER_CHECK = 600;
     
     // --- Debug snapshot state (server) ---
     private net.minecraft.world.phys.Vec3 lastGoalLogPos = null;
@@ -208,11 +216,11 @@ public class  PetData<P extends Animal & ITradePostPet & IHerdingPet>
     {
         BlockPosUtil.write(compound,"trainerBuilding", trainerBuildingID);
         BlockPosUtil.write(compound,"workLocation", workLocation);
-        String dimName = dimension != null && dimension.location() != null ? dimension.location().toString() : "";
+        String dimName = dimension != null && dimension.identifier() != null ? dimension.identifier().toString() : "";
 
         if (dimName == null) return;
 
-        compound.putString("dimension", dimName);
+        compound.putString(BuildingUtil.TAG_DIMENSION, dimName);
         
         if (petType != null)
         {
@@ -225,7 +233,7 @@ public class  PetData<P extends Animal & ITradePostPet & IHerdingPet>
         final UUID localUuid = animal != null ? animal.getUUID() : entityUuid;
         if (localUuid != null)
         {
-            compound.putUUID("uuid", localUuid);
+            compound.putIntArray("uuid", UUIDUtil.uuidToIntArray(localUuid));
         }
 
         // --- INVENTORY (always save) ---
@@ -234,7 +242,7 @@ public class  PetData<P extends Animal & ITradePostPet & IHerdingPet>
             RegistryAccess registryAccess = animal.level().registryAccess();
             if (registryAccess != null)
             {
-                CompoundTag inventoryTag = inventory.serializeNBT(registryAccess);
+                CompoundTag inventoryTag = ValueIOUtils.serializeToTag(inventory, registryAccess);
                 if (inventoryTag != null)
                 {
                     compound.put(TAG_INV, inventoryTag);
@@ -265,21 +273,21 @@ public class  PetData<P extends Animal & ITradePostPet & IHerdingPet>
         {
             workLocation = BlockPos.ZERO;
         }
-        petType = PetTypes.fromPetString(compound.getString("animalType"));
+        petType = PetTypes.fromPetString(compound.getStringOr("animalType", ""));
         if (petType == null && animal != null)
         {
             petType = PetTypes.fromPetClass(animal.getClass());
         }
-        entityId = compound.getInt("entityId");
-        UUID uuid = compound.hasUUID("uuid") ? compound.getUUID("uuid") : null;
+        entityId = compound.getIntOr("entityId", 0);
+        UUID uuid = compound.getIntArray("uuid").map(UUIDUtil::uuidFromIntArray).orElse(null);
         this.entityUuid = uuid != null ? uuid : (animal != null ? animal.getUUID() : null);
 
 
         // Dimension (guard against blank)
-        String dimname = compound.getString("dimension");
+        String dimname = compound.getStringOr(BuildingUtil.TAG_DIMENSION, "");
         if (dimname != null && !dimname.isEmpty()) 
         {
-            ResourceLocation level = ResourceLocation.parse(dimname);
+            Identifier level = Identifier.parse(dimname);
 
             if (level != null) 
             {
@@ -294,7 +302,7 @@ public class  PetData<P extends Animal & ITradePostPet & IHerdingPet>
         // --- INVENTORY (always read if present) ---
         if (compound.contains(TAG_INV))
         {
-            CompoundTag invTag = compound.getCompound(TAG_INV);
+            CompoundTag invTag = compound.getCompoundOrEmpty(TAG_INV);
 
             boolean applied = false;
             if (!applied) 
@@ -307,7 +315,7 @@ public class  PetData<P extends Animal & ITradePostPet & IHerdingPet>
                         RegistryAccess registryAccess = animal.level().registryAccess();
                         if (registryAccess != null) 
                         {
-                            inventory.deserializeNBT(registryAccess, invTag);
+                            ValueIOUtils.deserializeFromTag(inventory, registryAccess, invTag);
                             applied = true;
                         }
                     }
@@ -337,7 +345,7 @@ public class  PetData<P extends Animal & ITradePostPet & IHerdingPet>
 
     public void tick(Level level)
     {
-        if (!level.isClientSide) 
+        if (!level.isClientSide())
         {
             if (animal != null)
             {
@@ -345,7 +353,33 @@ public class  PetData<P extends Animal & ITradePostPet & IHerdingPet>
             }
             
             tryApplyPendingInventory(level);
+            tickPetWasteProduction(level);
         }
+    }
+
+    /**
+     * Gives registered pets a random chance to leave Pet Waste in the world.
+     * Only active, server-loaded time counts; unloaded pets do not accumulate
+     * waste or create a catch-up burst when their chunk is loaded again.
+     */
+    @SuppressWarnings("null")
+    private void tickPetWasteProduction(Level level)
+    {
+        if (!(level instanceof ServerLevel serverLevel)
+            || animal == null
+            || !animal.isAlive()
+            || BlockPos.ZERO.equals(trainerBuildingID)
+            || animal.tickCount % PET_WASTE_CHECK_INTERVAL != 0
+            || animal.getRandom().nextInt(PET_WASTE_CHANCE_PER_CHECK) != 0)
+        {
+            return;
+        }
+
+        ItemEntity waste = new ItemEntity(serverLevel,
+            animal.getX(), animal.getY(), animal.getZ(),
+            new ItemStack(MCTradePostMod.PET_WASTE.get()));
+        waste.setDefaultPickUpDelay();
+        serverLevel.addFreshEntity(waste);
     }
 
     /**
@@ -638,7 +672,7 @@ public class  PetData<P extends Animal & ITradePostPet & IHerdingPet>
         watchdogCooldown = WATCHDOWN_COOLDOWN_INTERVAL;
 
         
-        if (this.getAnimal() == null || this.getAnimal().level().isClientSide) return;
+        if (this.getAnimal() == null || this.getAnimal().level().isClientSide()) return;
 
         boolean active = isAiActiveNow();
 
@@ -860,7 +894,7 @@ public class  PetData<P extends Animal & ITradePostPet & IHerdingPet>
      */
     public void logActiveGoals()
     {
-        if (animal.level().isClientSide) return;
+        if (animal.level().isClientSide()) return;
         boolean debugging = TraceUtils.isTracing(TraceUtils.TRACE_PETACTIVEGOAL);
 
         if (!debugging) return;
@@ -1478,7 +1512,7 @@ public class  PetData<P extends Animal & ITradePostPet & IHerdingPet>
      */
     public void tryApplyPendingInventory(Level level)
     {
-        if (pendingInv == null || level == null || level.isClientSide) return;
+        if (pendingInv == null || level == null || level.isClientSide()) return;
 
         try 
         {
@@ -1487,7 +1521,7 @@ public class  PetData<P extends Animal & ITradePostPet & IHerdingPet>
             
             if (access == null || localPendingInv == null) return;
 
-            inventory.deserializeNBT(access, localPendingInv);
+            ValueIOUtils.deserializeFromTag(inventory, access, localPendingInv);
         } 
         catch (Throwable err) 
         {
@@ -1577,7 +1611,7 @@ public class  PetData<P extends Animal & ITradePostPet & IHerdingPet>
     {
         P localAnimal = animal;
 
-        if (rescueFromDeathInProgress || localAnimal == null || localAnimal.level() == null || localAnimal.level().isClientSide)
+        if (rescueFromDeathInProgress || localAnimal == null || localAnimal.level() == null || localAnimal.level().isClientSide())
         {
             return false;
         }

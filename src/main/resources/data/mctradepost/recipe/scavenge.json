@@ -2,9 +2,9 @@
   "type": "minecraft:crafting_shaped",
   "category": "equipment",
   "key": {
-    "O": { "tag": "minecraft:logs" },
-    "M": { "item": "minecraft:mycelium" },
-    "S": { "item": "minecraft:stick" }
+    "O": "#minecraft:logs",
+    "M": "minecraft:mycelium",
+    "S": "minecraft:stick"
   },
   "pattern": [
     "SOS",

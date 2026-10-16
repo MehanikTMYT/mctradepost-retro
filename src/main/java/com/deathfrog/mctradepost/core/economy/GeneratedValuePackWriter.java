@@ -5,7 +5,7 @@ import com.deathfrog.mctradepost.api.util.NullnessBridge;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.SharedConstants;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.packs.PackType;
@@ -56,7 +56,7 @@ public final class GeneratedValuePackWriter
             final Integer v = e.getValue();
             if (item == null || v == null) continue;
 
-            final ResourceLocation id = ITEM.getKey(item);
+            final Identifier id = ITEM.getKey(item);
             sorted.put(id.toString(), v);
         }
 
@@ -79,7 +79,7 @@ public final class GeneratedValuePackWriter
         final Path mcmeta = packRoot.resolve("pack.mcmeta");
         final JsonObject pack = new JsonObject();
         final JsonObject packInner = new JsonObject();
-        packInner.addProperty("pack_format", SharedConstants.getCurrentVersion().getPackVersion(PackType.SERVER_DATA));
+        packInner.addProperty("pack_format", SharedConstants.getCurrentVersion().packVersion(PackType.SERVER_DATA).major());
         packInner.addProperty("description", "MC Trade Post - Generated Data");
         pack.add("pack", packInner);
 

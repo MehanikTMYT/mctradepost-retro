@@ -5,9 +5,7 @@
     "###"
   ],
   "key": {
-    "#": {
-      "item": "mctradepost:marine_basalt"
-    }
+    "#": "mctradepost:marine_basalt"
   },
   "result": {
     "id": "mctradepost:marine_basalt_slab",

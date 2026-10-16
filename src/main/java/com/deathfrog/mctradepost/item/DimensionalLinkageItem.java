@@ -2,6 +2,7 @@ package com.deathfrog.mctradepost.item;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import javax.annotation.Nonnull;
 
@@ -28,6 +29,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseRailBlock;
@@ -36,9 +38,9 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
- * Item used to record and install a paired Overworld/Nether rail transfer.
+ * Item used to record and install a paired Overworld/Nether transport transfer.
  * <p>
- * Right-clicking a valid track next to an active Nether portal records the track position for that dimension. Right-clicking a
+ * Right-clicking a valid transport anchor next to an active Nether portal records the position for that dimension. Right-clicking a
  * completed item on an exact station building position installs it into the station connection module.
  */
 public class DimensionalLinkageItem extends Item
@@ -68,7 +70,7 @@ public class DimensionalLinkageItem extends Item
         ItemStack stack = ctx.getItemInHand();
         BlockPos clicked = ctx.getClickedPos();
 
-        if (level.isClientSide)
+        if (level.isClientSide())
         {
             return InteractionResult.SUCCESS;
         }
@@ -85,19 +87,19 @@ public class DimensionalLinkageItem extends Item
 
         if (!Level.OVERWORLD.equals(level.dimension()) && !Level.NETHER.equals(level.dimension()))
         {
-            player.displayClientMessage(Component.translatable("item.mctradepost.dimensional_linkage.invalid_dimension"), true);
+            player.sendOverlayMessage(Component.translatable("item.mctradepost.dimensional_linkage.invalid_dimension"));
             return InteractionResult.FAIL;
         }
 
-        if (!isTrackBlock(level, clicked))
+        if (!isValidTransportAnchor(level, clicked))
         {
-            player.displayClientMessage(Component.translatable("item.mctradepost.dimensional_linkage.not_track"), true);
+            player.sendOverlayMessage(Component.translatable("item.mctradepost.dimensional_linkage.not_transport_anchor"));
             return InteractionResult.FAIL;
         }
 
         if (!isAdjacentToActivePortal(level, clicked))
         {
-            player.displayClientMessage(Component.translatable("item.mctradepost.dimensional_linkage.no_portal"), true);
+            player.sendOverlayMessage(Component.translatable("item.mctradepost.dimensional_linkage.no_portal"));
             return InteractionResult.FAIL;
         }
 
@@ -108,7 +110,7 @@ public class DimensionalLinkageItem extends Item
         String messageKey = record.isComplete()
             ? "item.mctradepost.dimensional_linkage.complete"
             : "item.mctradepost.dimensional_linkage.endpoint_set";
-        player.displayClientMessage(Component.translatable(messageKey, endpoint.shortDescription()), true);
+        player.sendOverlayMessage(Component.translatable(messageKey, endpoint.shortDescription()));
 
         return InteractionResult.SUCCESS;
     }
@@ -136,17 +138,17 @@ public class DimensionalLinkageItem extends Item
         BuildingStationConnectionModule module = station.getModule(MCTPBuildingModules.STATION_CONNECTION);
         if (module == null)
         {
-            player.displayClientMessage(Component.translatable("item.mctradepost.dimensional_linkage.install_failed"), true);
+            player.sendOverlayMessage(Component.translatable("item.mctradepost.dimensional_linkage.install_failed"));
             return true;
         }
 
         if (!module.installLinkage(stack))
         {
-            player.displayClientMessage(Component.translatable("item.mctradepost.dimensional_linkage.install_full", module.getDimensionalLinkageLimit()), true);
+            player.sendOverlayMessage(Component.translatable("item.mctradepost.dimensional_linkage.install_full", module.getDimensionalLinkageLimit()));
             return true;
         }
 
-        player.displayClientMessage(Component.translatable("item.mctradepost.dimensional_linkage.installed"), true);
+        player.sendOverlayMessage(Component.translatable("item.mctradepost.dimensional_linkage.installed"));
         return true;
     }
 
@@ -231,7 +233,24 @@ public class DimensionalLinkageItem extends Item
     }
 
     /**
-     * Checks whether a track position is adjacent to an active Nether portal block.
+     * Tests whether a physical block can anchor a dimensional transport linkage.
+     * Raw water is deliberately excluded; water networks connect through a Trade Dock.
+     *
+     * @param level level containing the block
+     * @param pos block position to test
+     * @return true when the block is a rail, tagged trade road, trade dock, or trade interchange
+     */
+    public static boolean isValidTransportAnchor(@Nonnull Level level, @Nonnull BlockPos pos)
+    {
+        BlockState state = level.getBlockState(pos);
+        return isTrackBlock(level, pos)
+            || state.is(NullnessBridge.assumeNonnull(ModTags.BLOCKS.TRADE_ROADS_TAG))
+            || state.is(MCTradePostMod.TRADE_DOCK.get())
+            || state.is(MCTradePostMod.TRADE_INTERCHANGE.get());
+    }
+
+    /**
+     * Checks whether a transport anchor is adjacent to an active Nether portal block.
      *
      * @param level level containing the track
      * @param pos track position to test
@@ -261,7 +280,8 @@ public class DimensionalLinkageItem extends Item
     @Override
     public void appendHoverText(@Nonnull ItemStack stack,
         @Nonnull Item.TooltipContext ctx,
-        @Nonnull List<Component> tooltip,
+        @Nonnull TooltipDisplay display,
+        @Nonnull Consumer<Component> tooltip,
         @Nonnull TooltipFlag flag)
     {
         DimensionalLinkageRecord record = linkageRecord(stack);
@@ -270,19 +290,19 @@ public class DimensionalLinkageItem extends Item
 
         if (record.isComplete())
         {
-            tooltip.add(Component.translatable("item.mctradepost.dimensional_linkage.install").withStyle(ChatFormatting.WHITE));
+            tooltip.accept(Component.translatable("item.mctradepost.dimensional_linkage.install").withStyle(ChatFormatting.WHITE));
         }
     }
 
-    private static void appendEndpointTooltip(List<Component> tooltip, @Nonnull String key, Optional<DimPos> endpoint)
+    private static void appendEndpointTooltip(Consumer<Component> tooltip, @Nonnull String key, Optional<DimPos> endpoint)
     {
         if (endpoint.isPresent())
         {
-            tooltip.add(Component.translatable(key, endpoint.get().pos().toShortString()).withStyle(ChatFormatting.GRAY));
+            tooltip.accept(Component.translatable(key, endpoint.get().pos().toShortString()).withStyle(ChatFormatting.GRAY));
         }
         else
         {
-            tooltip.add(Component.translatable(key, Component.translatable("item.mctradepost.dimensional_linkage.unset")).withStyle(ChatFormatting.DARK_GRAY));
+            tooltip.accept(Component.translatable(key, Component.translatable("item.mctradepost.dimensional_linkage.unset")).withStyle(ChatFormatting.DARK_GRAY));
         }
     }
 

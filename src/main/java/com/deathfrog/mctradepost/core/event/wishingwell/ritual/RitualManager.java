@@ -1,20 +1,19 @@
 package com.deathfrog.mctradepost.core.event.wishingwell.ritual;
 
 import com.deathfrog.mctradepost.MCTradePostMod;
-import com.mojang.serialization.JsonOps;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.FileToIdConverter;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.util.profiling.ProfilerFiller;
-import com.google.gson.JsonElement;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nonnull;
 
-public class RitualManager extends SimpleJsonResourceReloadListener
+public class RitualManager extends SimpleJsonResourceReloadListener<RitualDefinition>
 {
     private static final String RITUAL_FOLDER = "rituals";
-    private static final Map<ResourceLocation, RitualDefinitionHelper> rituals = new HashMap<>();
+    private static final Map<Identifier, RitualDefinitionHelper> rituals = new HashMap<>();
 
     public static final String RITUAL_EFFECT_SLAY = "slay";
     public static final String RITUAL_EFFECT_WEATHER = "weather";
@@ -22,22 +21,25 @@ public class RitualManager extends SimpleJsonResourceReloadListener
     public static final String RITUAL_EFFECT_TRANSFORM = "transform";
     public static final String RITUAL_EFFECT_COMMUNITY = "community";
     public static final String RITUAL_EFFECT_OUTPOST    = "outpost";
+    public static final String RITUAL_EFFECT_KNOWLEDGE  = "knowledge";
+    public static final String RITUAL_EFFECT_RESURRECTION = "resurrection";
 
     public RitualManager()
     {
-        super(MCTradePostMod.GSON, RITUAL_FOLDER);
+        super(RitualDefinition.CODEC, FileToIdConverter.json(RITUAL_FOLDER));
     }
 
     /**
-     * Called when the resource manager is reloading resources. This method is responsible for loading all rituals from the given
-     * jsonMap and registering them in the rituals map.
+     * Called when the resource manager is reloading resources. This method is responsible for registering all rituals decoded from the
+     * given data map (the base class already parses and validates each JSON file against {@link RitualDefinition#CODEC} before this is
+     * called, logging and skipping any entry that fails to parse).
      *
-     * @param jsonMap         a map from resource location to the json element representing the ritual.
+     * @param objectMap       a map from resource location to the already-decoded ritual definition.
      * @param resourceManager the resource manager that is reloading resources.
      * @param profiler        the profiler to use when loading the rituals.
      */
     @Override
-    protected void apply(@Nonnull Map<ResourceLocation, JsonElement> objectMap,
+    protected void apply(@Nonnull Map<Identifier, RitualDefinition> objectMap,
         @Nonnull ResourceManager resourceManager,
         @Nonnull ProfilerFiller profiler)
     {
@@ -45,17 +47,9 @@ public class RitualManager extends SimpleJsonResourceReloadListener
 
         MCTradePostMod.LOGGER.info("Ritual map size: {}", objectMap.size());
 
-        objectMap.forEach((id, json) -> {
+        objectMap.forEach((id, def) -> {
             MCTradePostMod.LOGGER.info("Decoding ritual: {}", id);
-
-            RitualDefinition.CODEC.decode(JsonOps.INSTANCE, json).result().ifPresent(pair -> {
-                RitualDefinition def = pair.getFirst();
-
-                if (def != null) 
-                {
-                    rituals.put(id, new RitualDefinitionHelper(id, def));
-                }
-            });
+            rituals.put(id, new RitualDefinitionHelper(id, def));
         });
 
         MCTradePostMod.LOGGER.info("Loaded {} ritual definitions", rituals.size());
@@ -67,7 +61,7 @@ public class RitualManager extends SimpleJsonResourceReloadListener
      * @param id the resource location of the ritual.
      * @return the ritual definition helper associated with the given resource location, or null if no such ritual exists.
      */
-    public static RitualDefinitionHelper getRitual(ResourceLocation id)
+    public static RitualDefinitionHelper getRitual(Identifier id)
     {
         return rituals.get(id);
     }
@@ -78,9 +72,25 @@ public class RitualManager extends SimpleJsonResourceReloadListener
      * @param id     the resource location of the ritual.
      * @param helper the ritual definition helper to store in the map.
      */
-    public static void putRitual(ResourceLocation id, RitualDefinitionHelper helper)
+    public static void putRitual(Identifier id, RitualDefinitionHelper helper)
     {
         rituals.put(id, helper);
+    }
+
+    /**
+     * Replaces the complete ritual set with an authoritative synchronized copy.
+     *
+     * @param definitions ritual definitions keyed by their resource location
+     */
+    public static void replaceRituals(Map<Identifier, RitualDefinition> definitions)
+    {
+        rituals.clear();
+        definitions.forEach((id, definition) -> {
+            if (definition != null)
+            {
+                rituals.put(id, new RitualDefinitionHelper(id, definition));
+            }
+        });
     }
 
     /**
@@ -88,7 +98,7 @@ public class RitualManager extends SimpleJsonResourceReloadListener
      *
      * @return a map of resource locations to their corresponding ritual definition helpers.
      */
-    public static Map<ResourceLocation, RitualDefinitionHelper> getAllRituals()
+    public static Map<Identifier, RitualDefinitionHelper> getAllRituals()
     {
         return rituals;
     }
@@ -99,9 +109,9 @@ public class RitualManager extends SimpleJsonResourceReloadListener
      *
      * @return a map of resource locations to their corresponding ritual definitions.
      */
-    public static Map<ResourceLocation, RitualDefinition> getUnwrappedRituals()
+    public static Map<Identifier, RitualDefinition> getUnwrappedRituals()
     {
-        Map<ResourceLocation, RitualDefinition> unwrappedRituals = new HashMap<>();
+        Map<Identifier, RitualDefinition> unwrappedRituals = new HashMap<>();
 
         rituals.forEach((id, helper) -> unwrappedRituals.put(id, helper.getDefinition()));
 

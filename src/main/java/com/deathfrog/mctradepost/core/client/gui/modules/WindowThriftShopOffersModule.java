@@ -3,6 +3,7 @@ package com.deathfrog.mctradepost.core.client.gui.modules;
 import com.deathfrog.mctradepost.MCTradePostMod;
 import com.deathfrog.mctradepost.api.colony.buildings.moduleviews.ThriftShopOffersModuleView;
 import com.deathfrog.mctradepost.api.util.NullnessBridge;
+import com.deathfrog.mctradepost.api.util.EconomicValueFormatter;
 import com.deathfrog.mctradepost.core.colony.buildings.modules.ThriftShopMessage;
 import com.deathfrog.mctradepost.core.colony.buildings.modules.MarketplaceSourcingMessage;
 import com.deathfrog.mctradepost.core.colony.buildings.modules.MarketplaceSourcingMessage.Action;
@@ -21,7 +22,7 @@ import com.minecolonies.api.colony.buildings.views.IBuildingView;
 import com.minecolonies.core.client.gui.AbstractModuleWindow;
 
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.NotNull;
 
@@ -65,7 +66,7 @@ public class WindowThriftShopOffersModule extends AbstractModuleWindow<ThriftSho
      */
     public WindowThriftShopOffersModule(final IBuildingView buildingView, final ThriftShopOffersModuleView moduleView)
     {
-        super(moduleView, ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, RESOURCE_STRING));
+        super(moduleView, Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, RESOURCE_STRING));
         this.buildingView = buildingView;
         offerList = this.window.findPaneOfTypeByID("offerlist", ScrollingList.class);
         registerButton(OFFER_TAKE, this::takeOffer);
@@ -189,6 +190,7 @@ public class WindowThriftShopOffersModule extends AbstractModuleWindow<ThriftSho
              * @param index   the index of the row/list element.
              * @param rowPane the parent Pane for the row, containing the elements to update.
              */
+            @SuppressWarnings("null")
             @Override
             public void updateElement(final int index, @NotNull final Pane rowPane)
             {
@@ -221,17 +223,10 @@ public class WindowThriftShopOffersModule extends AbstractModuleWindow<ThriftSho
 
                 Text pricePane = rowPane.findPaneOfTypeByID(OFFER_PRICE, Text.class);
 
-                if (offer.price() > 10000)
-                {
-                    pricePane.setText(Component.literal(offer.price() / 1000 + "k‡"));
-                }
-                else 
-                {
-                    pricePane.setText(Component.literal(offer.price() + "‡"));
-                }
+                pricePane.setText(Component.literal(EconomicValueFormatter.compact(offer.price())));
 
                 PaneBuilders.tooltipBuilder()
-                        .append(Component.literal(offer.price() + "‡"))
+                        .append(Component.literal(EconomicValueFormatter.exact(offer.price())))
                         .hoverPane(pricePane)
                         .build();
 

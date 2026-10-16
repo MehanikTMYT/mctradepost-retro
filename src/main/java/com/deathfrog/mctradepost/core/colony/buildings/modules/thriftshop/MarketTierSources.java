@@ -6,19 +6,20 @@ import javax.annotation.Nonnull;
 
 import com.deathfrog.mctradepost.api.util.NullnessBridge;
 import com.deathfrog.mctradepost.core.ModTags;
+import com.deathfrog.mctradepost.core.rarefinds.blacklist.RareFindBlacklistManager;
 import com.deathfrog.mctradepost.core.colony.buildings.modules.thriftshop.MarketDailyRoller.MarketOffer;
 import com.deathfrog.mctradepost.core.colony.buildings.modules.thriftshop.MarketDailyRoller.MarketTier;
 import com.deathfrog.mctradepost.core.colony.buildings.workerbuildings.BuildingMarketplace;
 import com.minecolonies.api.util.MathUtils;
 
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.ItemStack;
 
 public final class MarketTierSources
 {
-    private static final List<ResourceLocation> COMMON_TABLES = List.of(
+    private static final List<Identifier> COMMON_TABLES = List.of(
         rl("minecraft:chests/village/village_cartographer"),
         rl("minecraft:chests/village/village_mason"),
         rl("minecraft:chests/village/village_desert_house"),
@@ -29,7 +30,7 @@ public final class MarketTierSources
         rl("minecraft:chests/spawn_bonus_chest")
     );
 
-    private static final List<ResourceLocation> UNCOMMON_TABLES = List.of(
+    private static final List<Identifier> UNCOMMON_TABLES = List.of(
         rl("minecraft:chests/simple_dungeon"),
         rl("minecraft:chests/abandoned_mineshaft"),
         rl("minecraft:chests/shipwreck_supply"),
@@ -38,14 +39,14 @@ public final class MarketTierSources
         rl("minecraft:chests/pillager_outpost")
     );
 
-    private static final List<ResourceLocation> RARE_TABLES = List.of(
+    private static final List<Identifier> RARE_TABLES = List.of(
         rl("minecraft:chests/stronghold_library"),
         rl("minecraft:chests/stronghold_crossing"),
         rl("minecraft:chests/stronghold_corridor"),
         rl("minecraft:chests/jungle_temple")
     );
 
-    private static final List<ResourceLocation> EPIC_TABLES = List.of(
+    private static final List<Identifier> EPIC_TABLES = List.of(
         rl("minecraft:chests/end_city_treasure"),
         rl("minecraft:chests/bastion_treasure"),
         rl("minecraft:chests/ancient_city"),
@@ -55,7 +56,7 @@ public final class MarketTierSources
     // ---- Tier 1: “grass/leaves break drops” ----
     // Use BLOCK loot tables so this automatically respects vanilla & datapack changes.
     // Short grass & a selection of leaves keeps it “across biomes” without needing biome awareness.
-    private static final List<ResourceLocation> COMMON_BLOCK_DROP_TABLES = List.of(
+    private static final List<Identifier> COMMON_BLOCK_DROP_TABLES = List.of(
         rl("minecraft:blocks/short_grass"),
         rl("minecraft:blocks/tall_grass"),
         rl("minecraft:blocks/fern"),
@@ -74,9 +75,9 @@ public final class MarketTierSources
     // ---- Fishing ----
     // Vanilla fishing is driven by minecraft:gameplay/fishing, which uses subtables:
     // minecraft:gameplay/fishing/fish, .../junk, .../treasure.
-    private static final @Nonnull ResourceLocation FISHING_FISH = NullnessBridge.requireNonnull(rl("minecraft:gameplay/fishing/fish"), "minecraft:gameplay/fishing/fish loot table is null");
-    private static final @Nonnull ResourceLocation FISHING_JUNK = NullnessBridge.requireNonnull(rl("minecraft:gameplay/fishing/junk"), "minecraft:gameplay/fishing/junk loot table is null");
-    private static final @Nonnull ResourceLocation FISHING_TREASURE = NullnessBridge.requireNonnull(rl("minecraft:gameplay/fishing/treasure"), "minecraft:gameplay/fishing/treasure loot table is null");
+    private static final @Nonnull Identifier FISHING_FISH = NullnessBridge.requireNonnull(rl("minecraft:gameplay/fishing/fish"), "minecraft:gameplay/fishing/fish loot table is null");
+    private static final @Nonnull Identifier FISHING_JUNK = NullnessBridge.requireNonnull(rl("minecraft:gameplay/fishing/junk"), "minecraft:gameplay/fishing/junk loot table is null");
+    private static final @Nonnull Identifier FISHING_TREASURE = NullnessBridge.requireNonnull(rl("minecraft:gameplay/fishing/treasure"), "minecraft:gameplay/fishing/treasure loot table is null");
 
     public static List<MarketOffer> rollTier(@Nonnull ServerLevel level, BuildingMarketplace marketplace, RandomSource rand, @Nonnull MarketTier tier, int count)
     {
@@ -158,7 +159,7 @@ public final class MarketTierSources
 
         if (randFloat < 0.40f)
         {
-            ResourceLocation tableId = pick(rand, COMMON_TABLES);
+            Identifier tableId = pick(rand, COMMON_TABLES);
 
             if (tableId == null) return ItemStack.EMPTY;
 
@@ -166,7 +167,7 @@ public final class MarketTierSources
         }
         else if (randFloat < 0.80f)
         {
-            ResourceLocation tableId = pick(rand, COMMON_BLOCK_DROP_TABLES);
+            Identifier tableId = pick(rand, COMMON_BLOCK_DROP_TABLES);
 
             if (tableId == null) return ItemStack.EMPTY;
 
@@ -175,7 +176,7 @@ public final class MarketTierSources
         else
         {
             // "common fishing": fish + junk skewed towards fish
-            ResourceLocation tableId = (rand.nextFloat() < 0.80f) ? FISHING_FISH : FISHING_JUNK;
+            Identifier tableId = (rand.nextFloat() < 0.80f) ? FISHING_FISH : FISHING_JUNK;
 
             return LootRoller.rollFishingStyle(level, rand, tableId, calcLuck(marketplace));
         }
@@ -206,7 +207,7 @@ public final class MarketTierSources
 
         if (rand.nextFloat() < 0.60f)
         {
-            ResourceLocation tableId = pick(rand, UNCOMMON_TABLES);
+            Identifier tableId = pick(rand, UNCOMMON_TABLES);
 
             if (tableId == null) return ItemStack.EMPTY;
 
@@ -247,7 +248,7 @@ public final class MarketTierSources
 
         if (randFloat < 0.60f)
         {
-            ResourceLocation tableId = pick(rand, RARE_TABLES);
+            Identifier tableId = pick(rand, RARE_TABLES);
 
             if (tableId == null) return ItemStack.EMPTY;
 
@@ -288,7 +289,7 @@ public final class MarketTierSources
 
         if (randFloat < 0.60f)
         {
-            ResourceLocation tableId = pick(rand, EPIC_TABLES);
+            Identifier tableId = pick(rand, EPIC_TABLES);
 
             if (tableId == null) return ItemStack.EMPTY;
 
@@ -352,7 +353,7 @@ public final class MarketTierSources
      * <p>
      * This method first checks if the stack is empty, in which case it returns false.
      * <p>
-     * Then, it checks if the stack has the {@link ModTags#RARE_FINDS_BLACKLIST_TAG} tag, in which case it returns false.
+     * Then, it checks the effective Rare Finds blacklist, including the legacy item tag and reloadable rules.
      * <p>
      * Finally, it checks if the stack has a tag that is specific to a higher market tier. If so, it returns false.
      * <p>
@@ -363,7 +364,7 @@ public final class MarketTierSources
     public static boolean isSellable(ItemStack stack, MarketTier rollingTier)
     {
         if (stack.isEmpty()) return false;
-        if (stack.is(ModTags.ITEMS.RARE_FINDS_BLACKLIST_TAG)) return false;
+        if (RareFindBlacklistManager.isBlacklisted(stack)) return false;
 
         boolean in1 = stack.is(ModTags.ITEMS.RARE_FINDS_TIER1_TAG);
         boolean in2 = stack.is(ModTags.ITEMS.RARE_FINDS_TIER2_TAG);
@@ -394,7 +395,7 @@ public final class MarketTierSources
      */
     public static MarketTier taggedTier(ItemStack stack)
     {
-        if (stack == null || stack.isEmpty() || stack.is(ModTags.ITEMS.RARE_FINDS_BLACKLIST_TAG)) return null;
+        if (RareFindBlacklistManager.isBlacklisted(stack)) return null;
         if (stack.is(ModTags.ITEMS.RARE_FINDS_TIER4_TAG)) return MarketTier.TIER4_EPIC;
         if (stack.is(ModTags.ITEMS.RARE_FINDS_TIER3_TAG)) return MarketTier.TIER3_RARE;
         if (stack.is(ModTags.ITEMS.RARE_FINDS_TIER2_TAG)) return MarketTier.TIER2_UNCOMMON;
@@ -411,7 +412,7 @@ public final class MarketTierSources
      */
     public static boolean isTierZero(ItemStack stack)
     {
-        if (stack == null || stack.isEmpty() || stack.is(ModTags.ITEMS.RARE_FINDS_BLACKLIST_TAG)) return false;
+        if (RareFindBlacklistManager.isBlacklisted(stack)) return false;
         return taggedTier(stack) == null && stack.is(ModTags.ITEMS.RARE_FINDS_TIER0_TAG);
     }
 
@@ -502,9 +503,9 @@ public final class MarketTierSources
     }
 
     // ---------------- Small helpers ----------------
-    private static ResourceLocation rl(@Nonnull String s)
+    private static Identifier rl(@Nonnull String s)
     {
-        return ResourceLocation.tryParse(s);
+        return Identifier.tryParse(s);
     }
 
     private static <T> T pick(RandomSource rand, List<T> list)

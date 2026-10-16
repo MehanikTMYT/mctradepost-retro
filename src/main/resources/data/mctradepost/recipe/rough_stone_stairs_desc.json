@@ -1,17 +1,16 @@
 {
-    "type": "minecraft:crafting_shaped",
-    "category": "building",
-    "key": {
-      "S": { "item": "mctradepost:rough_stone" }
-    },
-    "pattern": [
-      "S  ",
-      "SS ",
-      "SSS"
-    ],
-    "result": {
-      "count": 4,
-      "id": "mctradepost:rough_stone_stairs"
-    }
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "key": {
+    "S": "mctradepost:rough_stone"
+  },
+  "pattern": [
+    "S  ",
+    "SS ",
+    "SSS"
+  ],
+  "result": {
+    "count": 4,
+    "id": "mctradepost:rough_stone_stairs"
+  }
 }
-  

@@ -5,7 +5,7 @@ import java.util.List;
 import com.deathfrog.mctradepost.MCTradePostMod;
 import com.minecolonies.api.colony.jobs.registry.JobEntry;
 
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.neoforged.neoforge.registries.DeferredHolder;
 
 public final class MCTPModJobs
@@ -21,15 +21,15 @@ public final class MCTPModJobs
     public static final String DAIRYWORKER_TAG = "dairyworker";
     public static final String STEWMELIER_TAG = "stewmelier";
 
-    public static final ResourceLocation SHOPKEEPER_ID = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, SHOPKEEPER_TAG);
-    public static final ResourceLocation GUESTSERVICES_ID = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, GUESTSERVICES_TAG);
-    public static final ResourceLocation BARTENDER_ID = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, BARTENDER_TAG);
-    public static final ResourceLocation RECYCLINGENGINEER_ID = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, RECYCLINGENGINEER_TAG);
-    public static final ResourceLocation STATIONMASTER_ID = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, STATIONMASTER_TAG);
-    public static final ResourceLocation ANIMALTRAINER_ID = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, ANIMALTRAINER_TAG);
-    public static final ResourceLocation SCOUT_ID = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, SCOUT_TAG);
-    public static final ResourceLocation DAIRYWORKER_ID = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, DAIRYWORKER_TAG);
-    public static final ResourceLocation STEWMELIER_ID = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, STEWMELIER_TAG);
+    public static final Identifier SHOPKEEPER_ID = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, SHOPKEEPER_TAG);
+    public static final Identifier GUESTSERVICES_ID = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, GUESTSERVICES_TAG);
+    public static final Identifier BARTENDER_ID = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, BARTENDER_TAG);
+    public static final Identifier RECYCLINGENGINEER_ID = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, RECYCLINGENGINEER_TAG);
+    public static final Identifier STATIONMASTER_ID = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, STATIONMASTER_TAG);
+    public static final Identifier ANIMALTRAINER_ID = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, ANIMALTRAINER_TAG);
+    public static final Identifier SCOUT_ID = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, SCOUT_TAG);
+    public static final Identifier DAIRYWORKER_ID = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, DAIRYWORKER_TAG);
+    public static final Identifier STEWMELIER_ID = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, STEWMELIER_TAG);
 
     public static DeferredHolder<JobEntry, JobEntry> shopkeeper;
     public static DeferredHolder<JobEntry, JobEntry> guestservices;
@@ -46,9 +46,9 @@ public final class MCTPModJobs
         throw new IllegalStateException("Tried to initialize: ModJobs but this is a Utility class.");
     }
 
-    public static List<ResourceLocation> getJobs()
+    public static List<Identifier> getJobs()
     {
-        List<ResourceLocation> jobs = new ArrayList<>() { };
+        List<Identifier> jobs = new ArrayList<>() { };
         jobs.add(SHOPKEEPER_ID);
         jobs.add(GUESTSERVICES_ID);
         jobs.add(BARTENDER_ID);

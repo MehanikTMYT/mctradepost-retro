@@ -25,6 +25,7 @@ import com.deathfrog.mctradepost.api.research.MCTPResearchConstants;
 import com.deathfrog.mctradepost.api.util.DomumOrnamentumHelper;
 import com.deathfrog.mctradepost.api.util.MCTPInventoryUtils;
 import com.deathfrog.mctradepost.api.util.NullnessBridge;
+import com.deathfrog.mctradepost.api.util.RecyclableItemMatcher;
 import com.deathfrog.mctradepost.api.util.SoundUtils;
 import com.deathfrog.mctradepost.api.util.TraceUtils;
 import com.deathfrog.mctradepost.compat.recycling.IOptionalRecyclingProvider;
@@ -43,18 +44,18 @@ import com.minecolonies.api.colony.IColonyManager;
 import com.minecolonies.api.colony.buildings.IBuilding;
 import com.minecolonies.api.colony.buildings.modules.settings.ISettingKey;
 import com.minecolonies.api.colony.buildings.workerbuildings.IWareHouse;
-import com.minecolonies.api.colony.managers.interfaces.IRegisteredStructureManager;
 import com.minecolonies.api.colony.requestsystem.request.IRequest;
 import com.minecolonies.api.colony.requestsystem.request.RequestState;
 import com.minecolonies.api.colony.requestsystem.requestable.StackList;
 import com.minecolonies.api.colony.requestsystem.requestable.deliveryman.Delivery;
 import com.minecolonies.api.colony.requestsystem.token.IToken;
 import com.minecolonies.api.crafting.ItemStorage;
+import com.minecolonies.api.crafting.VanillaRecipeUtils;
 import com.minecolonies.api.util.IItemHandlerCapProvider;
 import com.minecolonies.api.util.InventoryUtils;
-import com.minecolonies.api.util.ItemStackUtils;
 import com.minecolonies.api.util.MessageUtils;
 import com.minecolonies.api.util.StatsUtil;
+import com.minecolonies.api.util.Utils;
 import com.minecolonies.core.colony.buildings.AbstractBuilding;
 import com.minecolonies.core.colony.buildings.modules.settings.BoolSetting;
 import com.minecolonies.core.colony.buildings.modules.settings.SettingKey;
@@ -66,11 +67,12 @@ import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.UUIDUtil;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
@@ -96,14 +98,25 @@ public class BuildingRecycling extends AbstractBuilding
     public static final Logger LOGGER = LogUtils.getLogger();
 
     public static final String ITEMS_RECOVERED = "items_recovered";
+    public static final String ITEMS_DESTROYED = "items_destroyed";
+    public static final String ITEMS_SCRAPPED = "items_scrapped";
+    public static final String SCRAP_PILES_PRODUCED = "scrap_piles_produced";
     public static final String CANCELLED_JOBS = "cancelled_jobs";
 
     // If true, any output with a crafting recipe will be resubmitted for further recycling.
     public static final ISettingKey<BoolSetting> ITERATIVE_PROCESSING =
-        new SettingKey<>(BoolSetting.class, ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "iterative_processing"));
+        new SettingKey<>(BoolSetting.class, Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "iterative_processing"));
+
+    // If true, inputs that cannot start a recycling process are destroyed instead of returned to building inventory.
+    public static final ISettingKey<BoolSetting> DELETE_FAILED_ATTEMPTS =
+        new SettingKey<>(BoolSetting.class, Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "delete_failed_attempts"));
+
+    /** When enabled, resolved recycling plans become Scrap Points instead of ingredient outputs. */
+    public static final ISettingKey<BoolSetting> SCRAP_MODE =
+        new SettingKey<>(BoolSetting.class, Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "scrap_mode"));
 
     public static final ISettingKey<SortSetting> ALLOW_SORT =
-        new SettingKey<SortSetting>(SortSetting.class, ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "allow_sort"));
+        new SettingKey<SortSetting>(SortSetting.class, Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "allow_sort"));
 
     public static final String REQUESTS_TYPE_RECYCLABLE = "com.mctradepost.coremod.request.recyclable";
     public static final String RECYCLER_NO_INPUT_BOX = "com.mctradepost.recycler.no_input_box";
@@ -123,10 +136,12 @@ public class BuildingRecycling extends AbstractBuilding
     private static final String STRUCT_TAG_GRINDER = "grinder";
 
     public static final String SERIALIZE_RECYCLINGPROCESSORS_TAG = "RecyclingProcessors";
+    public static final String SCRAP_POINTS_TAG = "ScrapPoints";
 
     protected final Object2IntOpenHashMap<ItemStorage> allItems = new Object2IntOpenHashMap<>();
 
     private Set<RecyclingProcessor> recyclingProcessors = ConcurrentHashMap.newKeySet();
+    private final ScrapOutputBuffer scrapOutput = new ScrapOutputBuffer();
 
     private static final int WAREHOUSE_INVENTORY_COOLDOWN = MCTPConfig.warehouseInventoryCooldown.get();
     private int wareHouseCooldownCounter = 0;
@@ -167,6 +182,7 @@ public class BuildingRecycling extends AbstractBuilding
         super.deserializeNBT(provider, compound);
         deserializeRecyclingProcessors(provider, compound);
         deserializeAllowableItems(provider, compound);
+        scrapOutput.read(compound, SCRAP_POINTS_TAG);
     }
 
     /**
@@ -181,9 +197,9 @@ public class BuildingRecycling extends AbstractBuilding
     {
         recyclingProcessors.clear();
 
-        if (tag.contains(SERIALIZE_RECYCLINGPROCESSORS_TAG, Tag.TAG_LIST))
+        if (tag.getList(SERIALIZE_RECYCLINGPROCESSORS_TAG).isPresent())
         {
-            ListTag processorListTag = tag.getList(SERIALIZE_RECYCLINGPROCESSORS_TAG, Tag.TAG_COMPOUND);
+            ListTag processorListTag = tag.getListOrEmpty(SERIALIZE_RECYCLINGPROCESSORS_TAG);
             for (Tag element : processorListTag)
             {
                 CompoundTag processorTag = (CompoundTag) element;
@@ -239,6 +255,7 @@ public class BuildingRecycling extends AbstractBuilding
 
         // Serialize allowable items
         serializeAllowableItems(NullnessBridge.assumeNonnull(provider), tag);
+        scrapOutput.write(tag, SCRAP_POINTS_TAG);
 
         return tag;
     }
@@ -281,7 +298,7 @@ public class BuildingRecycling extends AbstractBuilding
             {
                 CompoundTag itemTag = new CompoundTag();
                 ItemStack stack = storage.getItemStack();
-                Tag stackTag = stack.save(provider);
+                Tag stackTag = Utils.saveOptionalItemStack(provider, stack);
 
                 if (stackTag == null) continue;
 
@@ -308,17 +325,17 @@ public class BuildingRecycling extends AbstractBuilding
 
         if (tag != null && tag.contains(EntityAIWorkRecyclingEngineer.RECYCLING_LIST))
         {
-            ListTag outputTag = tag.getList(EntityAIWorkRecyclingEngineer.RECYCLING_LIST, Tag.TAG_COMPOUND);
+            ListTag outputTag = tag.getListOrEmpty(EntityAIWorkRecyclingEngineer.RECYCLING_LIST);
 
             for (int i = 0; i < outputTag.size(); i++)
             {
-                CompoundTag itemTag = outputTag.getCompound(i);
-                CompoundTag stackTag = itemTag.getCompound("stack");
+                CompoundTag itemTag = outputTag.getCompoundOrEmpty(i);
+                Optional<CompoundTag> stackTag = itemTag.getCompound("stack");
 
-                if (stackTag == null) continue;
+                if (stackTag.isEmpty()) continue;
 
-                ItemStack stack = ItemStack.parseOptional(provider, stackTag);
-                int count = itemTag.getInt("count");
+                ItemStack stack = Utils.parseOptionalItemStack(provider, stackTag.get());
+                int count = itemTag.getIntOr("count", 0);
 
                 if (!stack.isEmpty())
                 {
@@ -372,6 +389,8 @@ public class BuildingRecycling extends AbstractBuilding
         public int processingTimer = -1;
         public int processingTimerComplete = -1;
         public List<ItemStack> output = null;
+        public boolean scrapMode;
+        public double scrapPoints;
 
         /**
          * Serializes the state of the recycling processor into an NBT tag. The tag contains the following elements:
@@ -390,11 +409,11 @@ public class BuildingRecycling extends AbstractBuilding
         public CompoundTag serialize(@Nonnull HolderLookup.Provider provider)
         {
             CompoundTag tag = new CompoundTag();
-            tag.putUUID("ProcessorId", id);
+            tag.putIntArray("ProcessorId", UUIDUtil.uuidToIntArray(id));
 
             if (!processingItem.isEmpty())
             {
-                Tag itemTag = processingItem.save(provider);
+                Tag itemTag = Utils.saveOptionalItemStack(provider, processingItem);
 
                 if (itemTag != null)
                 {
@@ -407,12 +426,14 @@ public class BuildingRecycling extends AbstractBuilding
                 ListTag outputTag = new ListTag();
                 for (ItemStack stack : output)
                 {
-                    outputTag.add(stack.save(provider));
+                    outputTag.add(Utils.saveOptionalItemStack(provider, stack));
                 }
                 tag.put("OutputItems", outputTag);
             }
             tag.putInt("ProcessingTimer", processingTimer);
             tag.putInt("ProcessingTimerComplete", processingTimerComplete);
+            tag.putBoolean("ScrapMode", scrapMode);
+            tag.putDouble(SCRAP_POINTS_TAG, scrapPoints);
 
             return tag;
         }
@@ -431,12 +452,12 @@ public class BuildingRecycling extends AbstractBuilding
         @SuppressWarnings("null")
         public void deserialize(@NotNull final HolderLookup.Provider provider, @NotNull final CompoundTag tag)
         {
-            this.id = tag.hasUUID("ProcessorId") ? tag.getUUID("ProcessorId") : UUID.randomUUID();
+            this.id = tag.getIntArray("ProcessorId").map(UUIDUtil::uuidFromIntArray).orElseGet(UUID::randomUUID);
 
             if (tag.contains("ProcessingItem"))
             {
-                CompoundTag itemTag = tag.getCompound("ProcessingItem");
-                this.processingItem = ItemStack.parseOptional(NullnessBridge.assumeNonnull(provider), NullnessBridge.assumeNonnull(itemTag));
+                CompoundTag itemTag = tag.getCompoundOrEmpty("ProcessingItem");
+                this.processingItem = Utils.parseOptionalItemStack(NullnessBridge.assumeNonnull(provider), NullnessBridge.assumeNonnull(itemTag));
             }
             else
             {
@@ -445,25 +466,33 @@ public class BuildingRecycling extends AbstractBuilding
 
             if (tag.contains("OutputItems"))
             {
-                ListTag outputTag = tag.getList("OutputItems", Tag.TAG_COMPOUND);
+                ListTag outputTag = tag.getListOrEmpty("OutputItems");
                 this.output = new ArrayList<ItemStack>(outputTag.size());
 
                 for (int i = 0; i < outputTag.size(); i++)
                 {
-                    CompoundTag itemTag = outputTag.getCompound(i);
+                    final Optional<CompoundTag> itemTag = outputTag.getCompound(i);
 
-                    if (itemTag == null) continue;
+                    if (itemTag.isEmpty()) continue;
 
-                    ItemStack stack = ItemStack.parseOptional(NullnessBridge.assumeNonnull(provider), itemTag);
+                    ItemStack stack = Utils.parseOptionalItemStack(NullnessBridge.assumeNonnull(provider), itemTag.get());
                     if (!stack.isEmpty())
                     {
                         this.output.add(stack);
                     }
                 }
             }
+            else
+            {
+                this.output = new ArrayList<>();
+            }
 
-            this.processingTimer = tag.getInt("ProcessingTimer");
-            this.processingTimerComplete = tag.getInt("ProcessingTimerComplete");
+            // NOTE: matches the old raw CompoundTag#getInt(key) behaviour exactly (implicit 0 default),
+            // not the -1 field initializers above - preserved as-is rather than "fixed" here.
+            this.processingTimer = tag.getIntOr("ProcessingTimer", 0);
+            this.processingTimerComplete = tag.getIntOr("ProcessingTimerComplete", 0);
+            this.scrapMode = tag.getBooleanOr("ScrapMode", false);
+            this.scrapPoints = Math.max(0.0D, tag.getDoubleOr(SCRAP_POINTS_TAG, 0.0D));
         }
 
         /**
@@ -495,6 +524,8 @@ public class BuildingRecycling extends AbstractBuilding
                 processingTimerComplete +
                 ", output=" +
                 output +
+                ", scrapMode=" + scrapMode +
+                ", scrapPoints=" + scrapPoints +
                 '}';
         }
     }
@@ -509,6 +540,50 @@ public class BuildingRecycling extends AbstractBuilding
      */
     public boolean addRecyclingProcess(@Nonnull ItemStack itemToRecycle, int workerSkill)
     {
+        if (getSetting(SCRAP_MODE).getValue())
+        {
+            final Level level = getColony() == null ? null : getColony().getWorld();
+            if (level == null)
+            {
+                return false;
+            }
+
+            // Scrap enchanted items only after safely recovering their enchantments.
+            // Keep the original stack unchanged so a rejected or cancelled job can
+            // return it intact, while valuing the item as its stripped counterpart.
+            final ItemStack strippedItem = itemToRecycle.copy();
+
+            if (strippedItem == null)
+            {
+                return false;
+            }
+
+            final List<ItemStack> recoveredEnchantments = new ArrayList<>();
+            if (!tryStripEnchantments(strippedItem, level, recoveredEnchantments))
+            {
+                return false;
+            }
+
+            final Double points = resolveScrapPoints(strippedItem, workerSkill);
+            if (points != null)
+            {
+                RecyclingProcessor processor = new RecyclingProcessor();
+                processor.processingItem = itemToRecycle.copy();
+                processor.processingTimer = 0;
+                processor.processingTimerComplete = MCTPConfig.baseRecyclerTime.get();
+                processor.output = recoveredEnchantments;
+                processor.scrapMode = true;
+                processor.scrapPoints = points;
+                recyclingProcessors.add(processor);
+                markDirty();
+                return true;
+            }
+
+            TraceUtils.dynamicTrace(TRACE_RECYCLING,
+                () -> LOGGER.info("No scrap processor added for item {} because no recycling plan resolved.", itemToRecycle));
+            return false;
+        }
+
         List<ItemStack> recyclingOutput = outputList(itemToRecycle, workerSkill);
 
         if (recyclingOutput != null && !recyclingOutput.isEmpty())
@@ -531,6 +606,76 @@ public class BuildingRecycling extends AbstractBuilding
         }
 
         return false;
+    }
+
+    /**
+     * Resolves a recyclable item to deterministic Scrap Points. A non-null result
+     * means the item has a valid recycling plan, even when its fractional value is
+     * less than one visible point.
+     */
+    @Nullable
+    protected Double resolveScrapPoints(@Nonnull final ItemStack inputStack, final int workerSkill)
+    {
+        if (MCTPInventoryUtils.isNonEmptyItemContainer(inputStack) || getColony() == null || getColony().getWorld() == null)
+        {
+            return null;
+        }
+
+        final Level level = getColony().getWorld();
+        if (((ServerLevel) level).recipeAccess() == null || RecyclingBlacklistManager.isBlacklisted(inputStack, level))
+        {
+            return null;
+        }
+
+        // Deconstruction recipes carry probabilistic outputs. Scrap mode values
+        // their expected material content so a valid plan never fails a random roll.
+        if (!(inputStack.getItem() instanceof SouvenirItem))
+        {
+            final Optional<RecipeHolder<DeconstructionRecipe>> deconstruction = findDeconstructionRecipe(inputStack, level);
+            if (deconstruction.isPresent())
+            {
+                double expectedUnits = 0.0D;
+                for (final Output output : deconstruction.get().value().getOutputs())
+                {
+                    expectedUnits += output.stack().getCount() * Math.max(0.0D, Math.min(1.0D, output.chance()));
+                }
+                double points = expectedUnits * inputStack.getCount() * calculateRecyclingEfficiency(workerSkill);
+                if (inputStack.getMaxDamage() > 0)
+                {
+                    points *= Math.max(0.0D, 1.0D - inputStack.getDamageValue() / (double) inputStack.getMaxDamage());
+                }
+                return Math.max(0.0D, points);
+            }
+        }
+
+        final RecyclingPlan plan = resolveRecyclingPlan(inputStack, level, workerSkill);
+        if (plan == null)
+        {
+            return null;
+        }
+
+        double points = 0.0D;
+        if (plan instanceof final RecyclingPlan.FinalOutputs finalOutputs)
+        {
+            for (final ItemStack output : finalOutputs.outputs())
+            {
+                if (!output.isEmpty()) points += output.getCount();
+            }
+        }
+        else if (plan instanceof final RecyclingPlan.IngredientOutputs ingredientOutputs)
+        {
+            int materialUnits = 0;
+            for (final int count : ingredientOutputs.outputs().values()) materialUnits += Math.max(0, count);
+            final int recipeProductCount = Math.max(1, ingredientOutputs.referenceResult().getCount());
+            points = materialUnits * ((double) inputStack.getCount() / recipeProductCount);
+            points *= calculateRecyclingEfficiency(workerSkill);
+            if (inputStack.getMaxDamage() > 0)
+            {
+                points *= Math.max(0.0D, 1.0D - inputStack.getDamageValue() / (double) inputStack.getMaxDamage());
+            }
+        }
+
+        return Math.max(0.0D, points);
     }
 
     /**
@@ -713,6 +858,10 @@ public class BuildingRecycling extends AbstractBuilding
             }
         }
 
+        // A colony tick is 500 game ticks. Blocked outputs are retried on a
+        // bounded cooldown; threshold changes bypass it immediately.
+        emitAvailableScrapPiles();
+
         // Refresh the list of items stored in all warehouses within the colony.
         if (wareHouseCooldownCounter <= 0)
         {
@@ -734,6 +883,15 @@ public class BuildingRecycling extends AbstractBuilding
      */
     public void terminateProcessor(RecyclingProcessor processor)
     {
+        if (processor.scrapMode)
+        {
+            StatsUtil.trackStatByName(this, ITEMS_SCRAPPED, processor.processingItem.getHoverName(), processor.processingItem.getCount());
+            generateOutput(processor.output);
+            addScrapPointsAndEmit(processor.scrapPoints);
+            removeRecyclingProcess(processor);
+            return;
+        }
+
         List<ItemStorage> notifiedOutput = new ArrayList<>();
         for (ItemStack itemStack : processor.output)
         {
@@ -747,6 +905,66 @@ public class BuildingRecycling extends AbstractBuilding
 
         generateOutput(processor.output);
         removeRecyclingProcess(processor);
+    }
+
+    /** Converts all complete point groups into Scrap Pile items. */
+    private void emitAvailableScrapPiles()
+    {
+        final int threshold = Math.max(1, MCTPConfig.scrapPointsPerPile.get());
+        final int maxStackSize = MCTradePostMod.SCRAP_PILE.get().getDefaultMaxStackSize();
+        final List<IItemHandler> outputs = new ArrayList<>();
+        recordScrapEmission(scrapOutput.onColonyTick(threshold, maxStackSize, count -> insertScrapPiles(count, outputs)));
+    }
+
+    /** Adds completed processor points and emits promptly unless output is already known to be blocked. */
+    private void addScrapPointsAndEmit(final double addedPoints)
+    {
+        final int threshold = Math.max(1, MCTPConfig.scrapPointsPerPile.get());
+        final int maxStackSize = MCTradePostMod.SCRAP_PILE.get().getDefaultMaxStackSize();
+        final List<IItemHandler> outputs = new ArrayList<>();
+        recordScrapEmission(scrapOutput.addPoints(addedPoints, threshold, maxStackSize,
+            count -> insertScrapPiles(count, outputs)));
+    }
+
+    private void recordScrapEmission(final ScrapOutputBuffer.Emission emission)
+    {
+        if (emission.produced() > 0)
+        {
+            StatsUtil.trackStat(this, SCRAP_PILES_PRODUCED, emission.produced());
+        }
+        if (emission.changed()) markDirty();
+    }
+
+    /** Inserts as many piles as fit and leaves all overflow represented by points. */
+    @SuppressWarnings("null")
+    private int insertScrapPiles(final int count, final List<IItemHandler> cachedOutputs)
+    {
+        if (cachedOutputs.isEmpty())
+        {
+            for (final BlockPos pos : identifyOutputPositions())
+            {
+                if (pos == null || pos.equals(BlockPos.ZERO)) continue;
+                final IItemHandlerCapProvider provider = IItemHandlerCapProvider.wrap(getColony().getWorld().getBlockEntity(pos));
+                final IItemHandler handler = provider == null ? null : provider.getItemHandlerCap();
+                if (handler != null) cachedOutputs.add(handler);
+            }
+        }
+
+        ItemStack remaining = new ItemStack(MCTradePostMod.SCRAP_PILE.get(), count);
+        for (final IItemHandler handler : cachedOutputs)
+        {
+            for (int slot = 0; slot < handler.getSlots() && !remaining.isEmpty(); slot++)
+            {
+                remaining = handler.insertItem(slot, remaining, false);
+            }
+            if (remaining.isEmpty()) break;
+        }
+        return count - remaining.getCount();
+    }
+
+    public double getScrapPoints()
+    {
+        return scrapOutput.points();
     }
 
     /**
@@ -842,14 +1060,16 @@ public class BuildingRecycling extends AbstractBuilding
             final List<Ingredient> ingredientlist = new ArrayList<>();
             for (final ItemStack ingredientStack : textures)
             {
-                ingredientlist.add(Ingredient.of(ingredientStack));
+                // Ingredient.of(ItemStack) no longer exists (ItemStack stopped implementing ItemLike);
+                // identity-only matching, same as the old of(ItemStack) overload.
+                ingredientlist.add(Ingredient.of(ingredientStack.getItem()));
             }
 
             return ingredientlist;
         }
         else
         {
-            return recipe.getIngredients();
+            return VanillaRecipeUtils.getIngredients(recipe);
         }
     }
 
@@ -862,7 +1082,7 @@ public class BuildingRecycling extends AbstractBuilding
      */
     private Optional<RecipeHolder<DeconstructionRecipe>> findDeconstructionRecipe(@Nonnull ItemStack stack, Level level) 
     {
-        RecipeManager manager = level.getRecipeManager();
+        RecipeManager manager = ((ServerLevel) level).recipeAccess();
         SingleRecipeInput input   = new SingleRecipeInput(stack);
 
         // Let RecipeManager find the first matching recipe of your custom type
@@ -893,12 +1113,12 @@ public class BuildingRecycling extends AbstractBuilding
 
         Level level = this.getColony().getWorld();
 
-        if (level == null || level.getRecipeManager() == null)
+        if (level == null || !(level instanceof ServerLevel))
         {
             return null;
         }
-        
-        RecipeManager recipeManager = level.getRecipeManager();
+
+        RecipeManager recipeManager = ((ServerLevel) level).recipeAccess();
         List<RecipeHolder<?>> recipes =
             RecipeAnalysisHelper.getRecipeListForItem(recipeManager, inputStack.getItem(), level);
 
@@ -915,7 +1135,7 @@ public class BuildingRecycling extends AbstractBuilding
 
         Object2IntOpenHashMap<ItemStorage> outputItems = new Object2IntOpenHashMap<>();
 
-        ItemStack resultStack = recipe.getResultItem(NullnessBridge.assumeNonnull(level.registryAccess()));
+        ItemStack resultStack = VanillaRecipeUtils.getResultItem(recipe, level);
 
         if (resultStack.isEmpty())
         {
@@ -929,18 +1149,18 @@ public class BuildingRecycling extends AbstractBuilding
         TraceUtils.dynamicTrace(TRACE_RECYCLING_RECIPE,
             () -> LOGGER.info("Recipe for {} has {} ingredients and {} remaining items.",
                 inputStack,
-                selectedRecipeForLogging.getIngredients().size(),
+                VanillaRecipeUtils.getIngredients(selectedRecipeForLogging).size(),
                 remainingItems.size()));
 
         for (Ingredient ingredient : ingredients)
         {
-            if (ingredient.isEmpty() || ingredient.getItems().length == 0)
+            final ItemStack[] ingredientItems = ingredient.items().map(ItemStack::new).toArray(ItemStack[]::new);
+            if (ingredient.isEmpty() || ingredientItems.length == 0)
             {
                 continue;
             }
             else
             {
-                ItemStack[] ingredientItems = ingredient.getItems();
                 boolean exclude = false;
 
                 ItemStack itemStack = ingredientItems[0]; // This will return all possible variations for a given slot. We want only
@@ -990,7 +1210,7 @@ public class BuildingRecycling extends AbstractBuilding
         // Note that worker skill results are later applied ON TOP of chance results in the recipe
         for (Output e : recipe.getOutputs()) 
         {
-            if (level.random.nextFloat() <= e.chance()) 
+            if (level.getRandom().nextFloat() <= e.chance())
             {
                 ItemStack copy = e.stack().copy();
                 
@@ -1058,13 +1278,13 @@ public class BuildingRecycling extends AbstractBuilding
             return null;
         }
 
-        if (getColony() == null || getColony().getWorld() == null || getColony().getWorld().getRecipeManager() == null)
+        if (getColony() == null || getColony().getWorld() == null || !(getColony().getWorld() instanceof ServerLevel))
         {
             return null;
         }
 
         final Level level = getColony().getWorld();
-        if (level == null || level.getRecipeManager() == null)
+        if (level == null || !(level instanceof ServerLevel))
         {
             return null;
         }
@@ -1270,7 +1490,7 @@ public class BuildingRecycling extends AbstractBuilding
                     int successes = 0;
                     for (int i = 0; i < thisStackCount; i++)
                     {
-                        if (level.random.nextDouble() < ((1 - damageFactor) * recyclingEfficiency))
+                        if (level.getRandom().nextDouble() < ((1 - damageFactor) * recyclingEfficiency))
                         {
                             successes++;
                         }
@@ -1338,27 +1558,41 @@ public class BuildingRecycling extends AbstractBuilding
      * @param actualOutput the mutable output list to append recovered enchantments to
      * @return true if recycling may proceed, false if the enchanted item should be preserved whole
      */
+    @SuppressWarnings("null")
     protected boolean tryAddDisenchantmentOutputs(@Nonnull final ItemStack inputStack,
         @Nonnull final Level level,
         @Nonnull final List<ItemStack> actualOutput)
     {
-        if (!inputStack.isEnchanted())
+        return tryStripEnchantments(inputStack.copy(), level, actualOutput);
+    }
+
+    /**
+     * Attempts to recover enchantments from a mutable working stack. On success,
+     * the supplied stack is stripped and the recovered books are appended to the
+     * output list. The caller should retain the original input separately when it
+     * may need to be returned intact.
+     */
+    protected boolean tryStripEnchantments(@Nonnull final ItemStack workingStack,
+        @Nonnull final Level level,
+        @Nonnull final List<ItemStack> actualOutput)
+    {
+        if (!workingStack.isEnchanted())
         {
             return true;
         }
 
         double disenchantmentStrength = advancedResearchStrength(this.getColony());
 
-        double roll = level.random.nextDouble();
+        double roll = level.getRandom().nextDouble();
         if (disenchantmentStrength > 0.0 && roll < disenchantmentStrength)
         {
             TraceUtils.dynamicTrace(TRACE_RECYCLING,
                 () -> LOGGER.info("Stripping enchantments from {}, with a chance of {} and a roll of {}.",
-                    inputStack,
+                    workingStack,
                     disenchantmentStrength,
                     roll));
 
-            List<ItemStack> enchantments = MCTPInventoryUtils.extractEnchantmentsToBooks(inputStack.copy());
+            List<ItemStack> enchantments = MCTPInventoryUtils.extractEnchantmentsToBooks(workingStack);
 
             if (!enchantments.isEmpty())
             {
@@ -1370,7 +1604,7 @@ public class BuildingRecycling extends AbstractBuilding
         {
             TraceUtils.dynamicTrace(TRACE_RECYCLING,
                 () -> LOGGER.info("The {} cannot be disenchanted, with a chance of {} and a roll of {}.",
-                    inputStack,
+                    workingStack,
                     disenchantmentStrength,
                     roll));
         }
@@ -1457,6 +1691,22 @@ public class BuildingRecycling extends AbstractBuilding
      */
     public void reconcileRecyclingRequests()
     {
+        if (getColony() == null || getColony().getRequestManager() == null || getPendingWarehouseRequests().isEmpty())
+        {
+            return;
+        }
+
+        reconcileRecyclingRequests(getWarehouseRecyclingSnapshot());
+    }
+
+    /**
+     * Reconciles pending recyclable warehouse requests against a warehouse snapshot captured by the caller. This overload allows a
+     * larger operation to share one inventory scan while the no-argument method remains safe for standalone callers.
+     *
+     * @param warehouseSnapshot The current non-blacklisted warehouse contents.
+     */
+    public void reconcileRecyclingRequests(Object2IntMap<ItemStorage> warehouseSnapshot)
+    {
         if (getColony() == null || getColony().getRequestManager() == null)
         {
             return;
@@ -1478,6 +1728,14 @@ public class BuildingRecycling extends AbstractBuilding
                 continue;
             }
 
+            // RECEIVED means the request system completed its handoff, but the
+            // recycler still needs the pending definition to locate and claim
+            // the physical stack from the worker or building inventory.
+            if (request.getState() == RequestState.RECEIVED)
+            {
+                continue;
+            }
+
             if (isTerminalRecyclingRequestState(request.getState()))
             {
                 requestsToRemove.add(pendingRequest);
@@ -1495,7 +1753,7 @@ public class BuildingRecycling extends AbstractBuilding
                 continue;
             }
 
-            if (!hasDeliveryInProgress(request, pendingRequest.item()) && !warehouseContains(pendingRequest.item()))
+            if (!hasDeliveryInProgress(request, pendingRequest.item()) && !warehouseContains(pendingRequest.item(), warehouseSnapshot))
             {
                 if (request.getState() != RequestState.COMPLETED)
                 {
@@ -1593,34 +1851,99 @@ public class BuildingRecycling extends AbstractBuilding
      * @param item The item to search for.
      * @return true if a matching stack exists in warehouse inventory.
      */
-    private boolean warehouseContains(ItemStorage item)
+    private boolean warehouseContains(ItemStorage item, Object2IntMap<ItemStorage> warehouseSnapshot)
     {
-        if (getColony() == null || getColony().getServerBuildingManager() == null)
+        if (warehouseSnapshot == null)
         {
             return false;
         }
 
-        IRegisteredStructureManager buildingManager = getColony().getServerBuildingManager();
-        for (IWareHouse wh : buildingManager.getWareHouses())
+        for (Entry<ItemStorage> entry : warehouseSnapshot.object2IntEntrySet())
         {
-            BlockPos whPos = wh.getPosition();
-            if (whPos == null)
+            if (entry.getIntValue() > 0 && RecyclingItemListModule.matches(item, entry.getKey()))
             {
-                continue;
-            }
-
-            IBuilding warehouse = IColonyManager.getInstance().getBuilding(getColony().getWorld(), whPos);
-            Object2IntMap<ItemStorage> whItems = MCTPInventoryUtils.contentsForBuilding(warehouse);
-            for (Entry<ItemStorage> entry : whItems.object2IntEntrySet())
-            {
-                if (entry.getIntValue() > 0 && item.equals(entry.getKey()))
-                {
-                    return true;
-                }
+                return true;
             }
         }
 
         return false;
+    }
+
+    /**
+     * Returns the concrete warehouse stacks represented by a recyclable list entry. These exact alternatives can be handed to the
+     * normal MineColonies request system instead of an abstract definition that no warehouse stack literally equals.
+     *
+     * @param definition The recyclable definition to resolve.
+     * @return the concrete matching stacks currently in colony warehouses.
+     */
+    public List<ItemStack> getWarehouseStacksMatching(ItemStorage definition)
+    {
+        return getWarehouseStacksMatching(definition, getWarehouseRecyclingSnapshot());
+    }
+
+    /**
+     * Returns the concrete stacks in a previously captured warehouse snapshot that match a recyclable definition.
+     *
+     * @param definition        The recyclable definition to resolve.
+     * @param warehouseSnapshot A snapshot previously produced by {@link #getWarehouseRecyclingSnapshot()}.
+     * @return the concrete matching stacks in the snapshot.
+     */
+    public List<ItemStack> getWarehouseStacksMatching(ItemStorage definition, Object2IntMap<ItemStorage> warehouseSnapshot)
+    {
+        final List<ItemStack> matches = new ArrayList<>();
+        if (warehouseSnapshot == null)
+        {
+            return matches;
+        }
+
+        for (Entry<ItemStorage> entry : warehouseSnapshot.object2IntEntrySet())
+        {
+            ItemStack warehouseStack = entry.getKey().getItemStack();
+            if (warehouseStack != null && entry.getIntValue() > 0 && RecyclingItemListModule.matches(definition, entry.getKey()))
+            {
+                ItemStack concrete = warehouseStack.copy();
+                concrete.setCount(Math.min(entry.getIntValue(), concrete.getMaxStackSize()));
+                matches.add(concrete);
+            }
+        }
+
+        return matches;
+    }
+
+    /**
+     * Captures all non-blacklisted warehouse contents once so a work pass can evaluate several recyclable categories without
+     * rescanning every rack.
+     *
+     * @return a snapshot of recyclable-eligible warehouse contents.
+     */
+    public Object2IntMap<ItemStorage> getWarehouseRecyclingSnapshot()
+    {
+        final Object2IntOpenHashMap<ItemStorage> snapshot = new Object2IntOpenHashMap<>();
+        if (getColony() == null || getColony().getServerBuildingManager() == null)
+        {
+            return snapshot;
+        }
+
+        for (IWareHouse wh : getColony().getServerBuildingManager().getWareHouses())
+        {
+            if (wh.getPosition() == null)
+            {
+                continue;
+            }
+
+            IBuilding warehouse = IColonyManager.getInstance().getBuilding(getColony().getWorld(), wh.getPosition());
+            for (Entry<ItemStorage> entry : MCTPInventoryUtils.contentsForBuilding(warehouse).object2IntEntrySet())
+            {
+                ItemStack stack = entry.getKey().getItemStack();
+                if (stack != null && !stack.isEmpty() && entry.getIntValue() > 0
+                    && !RecyclingBlacklistManager.isBlacklisted(stack, getColony().getWorld()))
+                {
+                    snapshot.addTo(entry.getKey(), entry.getIntValue());
+                }
+            }
+        }
+
+        return snapshot;
     }
 
     /**
@@ -1644,15 +1967,16 @@ public class BuildingRecycling extends AbstractBuilding
     }
 
     /**
-     * Compares an ItemStorage definition against an ItemStack using the storage's damage and NBT matching rules.
+     * Compares a recyclable definition against a concrete stack. Recycler definitions distinguish enchanted from unenchanted items
+     * while ignoring durability and the exact enchantments.
      *
-     * @param item  The stored item definition.
+     * @param item  The stored recyclable definition.
      * @param stack The stack to compare.
-     * @return true if the stack matches the item definition.
+     * @return true if the stack belongs to the definition's recyclable category.
      */
     private boolean stacksMatch(ItemStorage item, ItemStack stack)
     {
-        return ItemStackUtils.compareItemStacksIgnoreStackSize(stack, item.getItemStack(), !item.ignoreDamageValue(), !item.ignoreNBT());
+        return RecyclableItemMatcher.matches(item.getItemStack(), stack);
     }
 
     /**
@@ -1671,45 +1995,39 @@ public class BuildingRecycling extends AbstractBuilding
             return;
         }
 
-        reconcileRecyclingRequests();
+        final Object2IntMap<ItemStorage> warehouseSnapshot = getWarehouseRecyclingSnapshot();
+        reconcileRecyclingRequests(warehouseSnapshot);
 
-        IRegisteredStructureManager buildingManager = getColony().getServerBuildingManager();
-        List<IWareHouse> warehouses = buildingManager.getWareHouses();
-        final Set<ItemStorage> pendingWarehouseRequestSet = new HashSet<>();
-        for (PendingWarehouseRequest request : getPendingWarehouseRequests())
+        final RecyclingItemListModule module =
+            getModule(RecyclingItemListModule.class, m -> m.getId().equals(EntityAIWorkRecyclingEngineer.RECYCLING_LIST));
+
+        // Active selections are drain instructions. Seed the display with their
+        // representative stacks so they remain visible while stock is in transit.
+        for (ItemStorage selected : module.getList())
         {
-            pendingWarehouseRequestSet.add(request.item());
+            allItems.put(selected.copy(), 0);
         }
-        final Set<ItemStorage> acceptedInputSet = new HashSet<>(getAcceptedRecyclingInputs());
 
-        for (IWareHouse wh : warehouses)
+        for (final Entry<ItemStorage> entry : warehouseSnapshot.object2IntEntrySet())
         {
-            Object2IntMap<ItemStorage> whItems = null;
-
-            BlockPos whPos = wh.getPosition();
-
-            if (whPos != null)
+            ItemStack keyStack = entry.getKey().getItemStack();
+            ItemStorage grouped = null;
+            for (ItemStorage existing : allItems.keySet())
             {
-                TraceUtils.dynamicTrace(TRACE_RECYCLING_RECIPE, () -> LOGGER.info("Analyzing inventory of warehouse at: {}.", whPos));
-
-                IBuilding warehouse = IColonyManager.getInstance().getBuilding(getColony().getWorld(), whPos);
-                whItems = MCTPInventoryUtils.contentsForBuilding(warehouse);
-                for (final Entry<ItemStorage> entry : whItems.object2IntEntrySet())
+                if (RecyclableItemMatcher.matches(existing.getItemStack(), keyStack))
                 {
-                    ItemStack keyStack = entry.getKey().getItemStack();
-
-                    if (keyStack == null || keyStack.isEmpty())
-                    {
-                        continue;
-                    }
-
-                    if (!pendingWarehouseRequestSet.contains(entry.getKey())
-                        && !acceptedInputSet.contains(entry.getKey())
-                        && !RecyclingBlacklistManager.isBlacklisted(keyStack, getColony().getWorld()))
-                    {
-                        allItems.addTo(entry.getKey(), entry.getIntValue());
-                    }
+                    grouped = existing;
+                    break;
                 }
+            }
+
+            if (grouped == null)
+            {
+                allItems.put(entry.getKey(), entry.getIntValue());
+            }
+            else
+            {
+                allItems.addTo(grouped, entry.getIntValue());
             }
         }
 

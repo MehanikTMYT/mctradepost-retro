@@ -6,10 +6,11 @@ import com.deathfrog.mctradepost.core.ModTags;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.util.RandomSource;
 import net.minecraft.util.StringRepresentable;
 import net.minecraft.world.item.context.BlockPlaceContext;
-import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.LevelReader;
+import net.minecraft.world.level.ScheduledTickAccess;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.LanternBlock;
@@ -18,7 +19,6 @@ import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.level.material.Fluids;
 
@@ -45,7 +45,7 @@ public class BlockLamp extends LanternBlock
     public static final EnumProperty<LampAttachment> ATTACHMENT = EnumProperty.create("attachment", LampAttachment.class);
 
     @SuppressWarnings("null")
-    public static final @Nonnull DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
+    public static final @Nonnull EnumProperty<Direction> FACING = BlockStateProperties.HORIZONTAL_FACING;
 
     @SuppressWarnings("null")
     public BlockLamp(Properties properties)
@@ -171,11 +171,13 @@ public class BlockLamp extends LanternBlock
      */
     @Override
     public BlockState updateShape(@Nonnull BlockState state,
-        @Nonnull Direction dir,
-        @Nonnull BlockState neighborState,
-        @Nonnull LevelAccessor level,
+        @Nonnull LevelReader level,
+        @Nonnull ScheduledTickAccess ticks,
         @Nonnull BlockPos pos,
-        @Nonnull BlockPos neighborPos)
+        @Nonnull Direction dir,
+        @Nonnull BlockPos neighborPos,
+        @Nonnull BlockState neighborState,
+        @Nonnull RandomSource random)
     {
         return this.canSurvive(state, level, pos) ? state : Blocks.AIR.defaultBlockState();
     }

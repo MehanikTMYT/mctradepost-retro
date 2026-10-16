@@ -3,6 +3,7 @@ package com.deathfrog.mctradepost.api.colony.buildings.moduleviews;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import org.jetbrains.annotations.NotNull;
@@ -18,10 +19,8 @@ import com.minecolonies.api.util.Utils;
 
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
 
 public class BuildingStationExportModuleView  extends AbstractBuildingModuleView
 {
@@ -43,7 +42,8 @@ public class BuildingStationExportModuleView  extends AbstractBuildingModuleView
         final int size = buf.readInt();
         for (int i = 0; i < size; i++)
         {
-            StationData destinationStation = StationData.fromNBT(buf.readNbt());
+            StationData readStation = StationData.fromNBT(buf.readNbt());
+            @Nonnull StationData destinationStation = readStation == null ? StationData.EMPTY : readStation;
             ItemStack itemStack = Utils.deserializeCodecMess(buf);
             int cost = buf.readInt();
             int quantity = buf.readInt();
@@ -65,7 +65,6 @@ public class BuildingStationExportModuleView  extends AbstractBuildingModuleView
     }
 
     @Override
-    @OnlyIn(Dist.CLIENT)
     public BOWindow getWindow()
     {
         return new WindowStationExportModule(buildingView, this);
@@ -77,9 +76,9 @@ public class BuildingStationExportModuleView  extends AbstractBuildingModuleView
      * @return the icon to show.
      */
    @Override
-    public ResourceLocation getIconResourceLocation()
+    public Identifier getIconResourceLocation()
     {
-        return ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "textures/gui/modules/export.png");
+        return Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "textures/gui/modules/export.png");
     }
 
     @Override

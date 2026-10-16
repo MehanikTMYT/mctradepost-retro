@@ -15,18 +15,17 @@ import net.minecraft.core.component.DataComponentType;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
+import java.util.function.Consumer;
 
 public class CoinItem extends Item
 {
@@ -51,7 +50,7 @@ public class CoinItem extends Item
     @Override
     public Entity createEntity(@Nonnull Level level, @Nonnull Entity location, @Nonnull ItemStack stack)
     {
-        if (!level.isClientSide && stack.getItem() instanceof CoinItem)
+        if (!level.isClientSide() && stack.getItem() instanceof CoinItem)
         {
             CoinEntity coin = new CoinEntity(level, location.getX(), location.getY(), location.getZ(), NullnessBridge.assumeNonnull(stack.copy()));
             coin.setDeltaMovement(NullnessBridge.assumeNonnull(location.getDeltaMovement()));
@@ -78,23 +77,25 @@ public class CoinItem extends Item
      * @param level  the current level
      * @param player the player using the coin
      * @param hand   the hand the player is using
-     * @return an InteractionResultHolder containing the modified stack
+     * @return the interaction result; the coin's held stack was already mutated in place above, so no
+     *         heldItemTransformedTo() payload is needed (unlike a transform into a different stack)
      */
     @Override
-    public InteractionResultHolder<ItemStack> use(
+    public InteractionResult use(
         @Nonnull Level level,
         @Nonnull Player player,
         @Nonnull InteractionHand hand)
     {
         ItemStack stack = player.getItemInHand(hand);
 
-        if (!level.isClientSide && !stack.isEmpty())
+        if (!level.isClientSide() && !stack.isEmpty())
         {
             ItemStack toDrop = stack.split(1);
             player.drop(NullnessBridge.assumeNonnull(toDrop), false);
         }
 
-        return InteractionResultHolder.sidedSuccess(NullnessBridge.assumeNonnull(stack), level.isClientSide);
+        // Was InteractionResultHolder.sidedSuccess(stack, isClientSide): SUCCESS on the client, CONSUME on the server.
+        return level.isClientSide() ? InteractionResult.SUCCESS : InteractionResult.CONSUME;
     }
 
 
@@ -195,12 +196,11 @@ public class CoinItem extends Item
     {
         return NullnessBridge.assumeNonnull(MCTPModDataComponents.MINT_COLONY_NAME.get());
     }
-
-    @OnlyIn(Dist.CLIENT)
     @Override
     public void appendHoverText(@Nonnull ItemStack stack,
         @Nonnull Item.TooltipContext ctx,
-        @Nonnull List<net.minecraft.network.chat.Component> tooltip,
+        @Nonnull TooltipDisplay display,
+        @Nonnull Consumer<net.minecraft.network.chat.Component> tooltip,
         @Nonnull TooltipFlag flag)
     {
         // Only show if present
@@ -208,13 +208,13 @@ public class CoinItem extends Item
         {
             String colonyName = getMintColony(stack, "Unknown");
             // i18n-friendly line (preferred)
-            tooltip.add(Component.translatable("com.mctradepost.coremod.gui.econ.coins.mintcolony.tooltip", colonyName)
+            tooltip.accept(Component.translatable("com.mctradepost.coremod.gui.econ.coins.mintcolony.tooltip", colonyName)
                 .withStyle(net.minecraft.ChatFormatting.GRAY));
         }
         else
         {
             // i18n-friendly line (preferred)
-            tooltip.add(Component.translatable("com.mctradepost.coremod.gui.econ.coins.mintunknown.tooltip")
+            tooltip.accept(Component.translatable("com.mctradepost.coremod.gui.econ.coins.mintunknown.tooltip")
                 .withStyle(net.minecraft.ChatFormatting.GRAY));
         }
     }

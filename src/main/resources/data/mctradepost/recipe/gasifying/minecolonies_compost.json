@@ -1,0 +1,16 @@
+{
+  "type": "mctradepost:gasifying",
+  "input": "minecolonies:compost",
+  "burn_time": 200,
+  "gas": 250,
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "minecolonies"
+    },
+    {
+      "type": "neoforge:registered",
+      "value": "minecolonies:compost"
+    }
+  ]
+}

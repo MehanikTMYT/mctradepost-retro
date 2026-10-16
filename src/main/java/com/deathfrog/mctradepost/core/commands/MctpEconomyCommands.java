@@ -30,7 +30,7 @@ public final class MctpEconomyCommands
     public static LiteralArgumentBuilder<CommandSourceStack> generateItemValuesCommand()
     {
         return Commands.literal("generateItemValues")
-            .requires(src -> src.hasPermission(2) && src.getServer() != null)
+            .requires(Commands.<CommandSourceStack>hasPermission(Commands.LEVEL_GAMEMASTERS).and(src -> src.getServer() != null))
             .executes(ctx -> run(ctx.getSource(), false, false))
             .then(Commands.literal("dryRun")
                 .executes(ctx -> run(ctx.getSource(), true, false))

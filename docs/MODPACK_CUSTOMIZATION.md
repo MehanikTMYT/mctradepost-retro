@@ -35,7 +35,7 @@ Main categories:
 - `marketplace`
   - `tradeCoinValue`: base value of a trade coin
   - `economicScaling`: global bonus/penalty applied to item values used by the marketplace
-  - `mintingLevel`: marketplace level required to mint coins
+  - `mintingLevel`: marketplace level required to withdraw coins
   - `shoppingCooldown`: visitor shopping cooldown
   - `registerSoundChance`: chance for sale sound effects
   - `shoppingChance`: visitor shopping chance per marketplace level
@@ -57,6 +57,8 @@ Main categories:
 - `station`
   - `trackValidationFrequency`
   - `baseTradeSpeed`
+  - `maximumWaterRouteDistance`: maximum navigable distance for a charted dock-to-dock water leg (default `1000`, range `1`-`10000`);
+    lowering it leaves longer saved lanes visible but marks them `Over current distance limit` and prevents their use
   - `importsPerLevel`
 - `petshop`
   - `petsPerLevel`
@@ -279,6 +281,7 @@ These are standard datapack recipes plus a few custom recipe types provided by t
 - `mctradepost:unique_tag_shapeless`
 - `mctradepost:potion_shapeless`
 - `mctradepost:deconstruction`
+- `mctradepost:gasifying`
 
 Example of the custom unique-tag recipe:
 
@@ -303,49 +306,67 @@ This recipe requires:
 
 That makes tag composition part of recipe balance.
 
-### Custom Advancement Triggers
+#### Gasifier Feedstocks
 
-The mod registers several custom advancement triggers under the `mctradepost` namespace. These can be used in your own advancement JSON if you want pack-specific progression, quests, or tutorials to react to Trade Post gameplay.
+Gasifier feedstocks are defined exclusively by `mctradepost:gasifying` recipes. The Gasifier does not use low- or high-yield
+feedstock tags, and gas yield or processing time are not configuration values. JEI displays the active recipes and their Lifting Gas
+outputs; the Gasifier is registered as the category catalyst.
 
-Folder to review for examples:
+The former Gasifier yield/processing configuration keys and
+`mctradepost:gasifier_feedstocks/low_yield`/`high_yield` tags are obsolete. Existing keys left in an older generated TOML are ignored;
+move pack-specific balancing and feedstock additions into recipes.
+
+Place pack-provided recipes anywhere under a recipe folder, for example:
 
 ```text
-data/mctradepost/advancement/mctradepost/*.json
+data/<your_namespace>/recipe/gasifying/<name>.json
 ```
 
-Supported trigger ids:
-
-- `mctradepost:pet_trained`
-  - fired when the Animal Trainer successfully acquires or trains a Trade Post pet
-- `mctradepost:colony_connected`
-  - fired when a Station successfully validates a remote colony connection
-- `mctradepost:recycle_item`
-  - fired when a recycling process finishes
-- `mctradepost:complete_vacation`
-  - fired when a citizen completes a resort vacation
-- `mctradepost:make_wish`
-  - fired when a wishing well ritual completes successfully
-- `mctradepost:runs_on_stew`
-  - fired when the Stewmelier successfully serves stew
-- `mctradepost:rare_find`
-  - fired when a player purchases a tier-4 Rare Find from the thrift shop
-
-Current limitation:
-
-- these triggers are simple event triggers and currently only expose the standard optional `player` predicate in their codec
-- they do not currently provide additional custom trigger fields for filtering by item, building, tier, or similar event metadata
-
-Minimal example:
+Recipe format:
 
 ```json
 {
-  "criteria": {
-    "wish": {
-      "trigger": "mctradepost:make_wish"
-    }
-  }
+  "type": "mctradepost:gasifying",
+  "input": { "item": "minecraft:bone_meal" },
+  "burn_time": 200,
+  "gas": 250
 }
 ```
+
+- `input` is a standard ingredient and may identify an item or a tag.
+- `burn_time` is the number of processing ticks and must be from `1` through `1000000`.
+- `gas` is the number of Lifting Gas units produced per input and must be from `1` through `10000000`.
+- Gasifying consumes ordinary furnace fuel separately; `burn_time` describes how long the feedstock takes to process.
+
+Convention tags are useful for broad compatibility:
+
+```json
+{
+  "type": "mctradepost:gasifying",
+  "input": { "tag": "c:dusts/wood" },
+  "burn_time": 200,
+  "gas": 250
+}
+```
+
+For a direct item supplied by an optional mod, guard the recipe so its absence does not produce a broken recipe:
+
+```json
+{
+  "type": "mctradepost:gasifying",
+  "input": { "item": "examplemod:biomass" },
+  "burn_time": 200,
+  "gas": 500,
+  "neoforge:conditions": [
+    { "type": "neoforge:mod_loaded", "modid": "examplemod" },
+    { "type": "neoforge:item_exists", "item": "examplemod:biomass" }
+  ]
+}
+```
+
+To alter a built-in feedstock, override its recipe at the same resource location. To remove one, replace it with an override using a
+condition that is always false, or use your pack's normal datapack recipe-removal facility. Recipe changes take effect on datapack
+reload; reopen JEI if its displayed recipe list does not refresh immediately.
 
 ### Research Trees And Effects
 
@@ -381,7 +402,7 @@ data/mctradepost/loot_modifiers/add_trade_coin_entities.json
 
 The included modifier grants trade coins to entities matching `#mctradepost:coindroppers`.
 
-Pet scavenging uses explicit loot tables:
+Pet scavenging checks for custom loot tables at these paths:
 
 ```text
 data/mctradepost/loot_table/pet/amphibious_scavenge/*.json
@@ -399,7 +420,9 @@ The associated trigger tags are:
 - `#mctradepost:scavenge_leaves` -> `pet/vegetation_scavenge/leaves/<block_path>.json`
 - `#mctradepost:scavenge_groundcover` -> `pet/vegetation_scavenge/groundcover/<block_path>.json`
 
-If you add a block to one of these scavenge tags, you should usually also provide the matching loot table for that block path.
+Adding a block to one of these scavenge tags does not require a custom pet loot table. When no custom table exists, harvesting
+falls back to the block's normal drops for its actual state. Provide a matching custom table only when you want to change pet
+harvest yields. Custom tables replace that fallback rather than adding to its drops.
 
 Only the block path is used when resolving these tables; the source block namespace is discarded. For example,
 `othermod:blue_mushroom` resolves to
@@ -411,7 +434,7 @@ share the same Trade Post scavenge table and cannot be configured independently 
 Mushroom scavenging has two target types:
 
 - Existing blocks in `#mctradepost:mushroom_scavenge` are harvested and use
-  `pet/mushroom_scavenge/<block_path>.json`.
+  `pet/mushroom_scavenge/<block_path>.json` when present, otherwise their normal block drops.
 - Empty locations use the shared `mctradepost:pet/mushroom_scavenge/forage` table when the location has a raw brightness below 8
   and is above a block in `#minecraft:dirt` or `#minecraft:mushroom_grow_block`.
 
@@ -467,11 +490,84 @@ Rare Finds notes:
 - Tier 0 is eligible only for Retained Search and subscriptions created from a successful search; it never enters random Rare Finds rolls
 - Each tier has a 20% chance to roll directly from its tag before falling back to chest/fishing/wandering-trader sources
 - If an item appears in multiple rarefinds tiers, the mod treats the highest tier as owner and logs a warning
-- `rarefinds_blacklist` blocks an item from appearing even if other sources would roll it
+- `rarefinds_blacklist` blocks an item from appearing even if other sources would roll it.
 - `rarefinds_unique_purchase` allows an item to appear normally, including through Retained Search, but prevents subscriptions
-  and causes each purchase to consume the offer even when Bottomless Inventory research would normally preserve it
+  and causes each purchase to consume the offer even when Bottomless Inventory research would normally preserve it.
 - The effective tier tags include optional generator-owned companions named `rarefinds_generated_tier0` through
   `rarefinds_generated_tier4`. Direct/manual membership remains definitive; generated membership only fills unclassified items.
+
+#### Rare Finds Blacklist
+
+Rare Finds supports both the existing item tag and reloadable blacklist rule files. Existing datapacks that extend
+`#mctradepost:rarefinds_blacklist` continue to work without migration.
+
+Rule folder:
+
+```text
+data/<namespace>/rarefinds_blacklist/*.json
+```
+
+The folder may be placed under your datapack's own namespace; it does not have to be under `mctradepost`. To exclude every item
+registered by a mod, add a namespace rule:
+
+```json
+{
+  "replace": false,
+  "deny": [
+    { "type": "namespace", "id": "examplemod" }
+  ]
+}
+```
+
+`namespace`, `mod`, and `modid` are equivalent rule types. The namespace is the part before the colon in an item registry ID,
+so the rule above matches `examplemod:artifact`, `examplemod:machine`, and every other loaded item from that mod. An absent mod
+simply contributes no matching items.
+
+Rare Finds rule files use the same schema as the Recycling Blacklist:
+
+- `item`: matches one item registry ID
+- `tag`: matches every item in an item tag
+- `namespace`, `mod`, or `modid`: matches every item registered in that namespace
+- `predicate`: matches a built-in predicate; currently `is_food` is available
+- `rules`: convenience alias for additional deny rules
+- `replace: true`: clears rules accumulated from files processed earlier
+
+For a namespace rule, `"id": "*"` matches every item namespace. This can be combined with namespace `allow` rules to make
+Rare Finds opt-in by mod:
+
+```json
+{
+  "replace": false,
+  "deny": [
+    { "type": "namespace", "id": "*" }
+  ],
+  "allow": [
+    { "type": "namespace", "id": "minecraft" },
+    { "type": "namespace", "id": "approvedmod" }
+  ]
+}
+```
+
+`allow` rules override matches from rule-file `deny` entries. This permits a broad namespace exclusion with selected exceptions:
+
+```json
+{
+  "replace": false,
+  "deny": [
+    { "type": "modid", "id": "examplemod" }
+  ],
+  "allow": [
+    { "type": "item", "id": "examplemod:approved_relic" }
+  ]
+}
+```
+
+Membership in `#mctradepost:rarefinds_blacklist` is an unconditional deny and cannot be undone by an `allow` rule. This keeps
+legacy item-tag blacklists authoritative. The effective blacklist is enforced for random offers, tier classification, Tier 0,
+Retained Search selection, and active retained-search promotion. It is synchronized to clients on login and datapack reload so
+the Marketplace picker uses the same result as the server.
+
+Use `/reload` after changing rule files or the legacy item tag. Rule files are processed in sorted resource-ID order.
 
 #### Unique Purchases
 
@@ -597,9 +693,10 @@ Generator configuration is loaded from `data/mctradepost/rare_find_generation_ru
 }
 ```
 
-`blacklisted_namespaces` expands every currently loaded item whose registry namespace matches into the optional
+`blacklisted_namespaces` is a generator-specific setting: it expands every currently loaded item whose registry namespace matches into the optional
 `rarefinds_generated_blacklist` companion tag. A namespace whose mod is absent simply contributes no items. This avoids relying
-on a non-standard per-mod "all items" tag and safely adapts when a mod adds or removes items between pack versions.
+on a non-standard per-mod "all items" tag and safely adapts when a mod adds or removes items between pack versions. For ordinary
+runtime blacklisting that does not depend on running the generator, prefer a `rarefinds_blacklist/*.json` namespace rule.
 
 `namespace_tier_floors` assigns a minimum generated tier to every non-blacklisted item in a loaded registry namespace. It promotes
 unclassified items and derived classifications below the floor, but never lowers a higher derived tier. Definitive manual tier
@@ -654,12 +751,88 @@ Use these together:
 - crafter recipes define specific worker recipes
 - crafter tags control what each worker is allowed to accept as inputs and outputs
 
+### Multimodal Trade Routes
+
+Station connections are no longer limited to a single continuous rail path. A route can combine:
+
+- rail on blocks in `#mctradepost:track`
+- roads on blocks in `#mctradepost:trade_roads`
+- player-charted, navigable surface-water lanes between Trade Docks when the exporting colony has Maritime Trade research
+- Trade Interchanges for rail/road handoffs
+- dimensional linkage transfers, including Overworld-to-Overworld routes through the Nether
+
+For each same-dimension leg, the route finder tests rail and road connections and uses the shorter available path. It can route through
+registered Trade Docks and Trade Interchanges to change modes. Road paths allow one-block elevation changes, are bounded searches, and
+do not load unloaded chunks. Water is different: ordinary station route discovery never searches arbitrary dock pairs. A player must
+use a Navigation Chart on two Trade Docks to commission a persistent, bidirectional lane. Charting runs as a bounded multi-tick job,
+and succeeds only when surface water with unobstructed space above it connects the docks within the station
+`maximumWaterRouteDistance` config value.
+
+Navigation Charts may connect docks in the same colony, different colonies, or outside colony borders. A successful survey consumes
+the Chart and saves both the linkage and its exact water path in per-dimension world data. A dock may participate in at most 32 lanes.
+Removing either endpoint dock is the only way to remove a linkage and removes every lane involving that dock.
+
+Right-click a Trade Dock with an empty hand to inspect its lanes. The read-only screen reports each destination, length, last
+validation age, and one of these states:
+
+- `Operational`: every currently inspected part of the saved path is navigable.
+- `Operational — partially unverified`: unloaded portions are accepted optimistically and have not recently been inspected.
+- `Broken`: a loaded part of the saved path is obstructed or the dock's water-facing endpoint changed.
+- `Destination dock missing`: a loaded endpoint no longer contains its Trade Dock.
+- `Over current distance limit`: the configured maximum was lowered below the saved path length.
+
+Click a broken entry to highlight its recorded break interval with the trade-route overlay. A broken lane never searches for or adopts
+an alternate path automatically. Repairing the original saved path can restore it; selecting a different course requires removing an
+endpoint dock, replacing it, and spending a new Navigation Chart. Stationmasters also raise a rate-limited interaction when their
+normal route validation encounters a broken shipping lane.
+
+For server safety, charting limits concurrent jobs, node expansions per tick, total visited positions, and asynchronously requested
+chunks. Failed, cancelled, interrupted, duplicate, over-limit, or resource-capped surveys do not consume the Chart. In-progress jobs
+are intentionally not persisted across server restarts; completed lanes are.
+
+#### The `trade_roads` Tags
+
+The block and item tags have the same id but serve different registries and purposes:
+
+- `data/mctradepost/tags/block/trade_roads.json`
+  - defines blocks that road route discovery and cached-route validation may traverse
+  - is included by the shipped `#minecolonies:pathblocks` block tag, so the same blocks are also recognized as MineColonies paths
+- `data/mctradepost/tags/item/trade_roads.json`
+  - defines items accepted by the Expansion research cost (`16` items)
+  - should normally mirror the block tag for placeable road blocks, but it does not affect route pathfinding
+
+Both built-in tags contain Trade Post road blocks and optionally include `#via_romana:path_block` with `"required": false`. To add a
+modded road, extend both tags in your datapack if it should work as a route and satisfy the research cost:
+
+```text
+data/mctradepost/tags/block/trade_roads.json
+data/mctradepost/tags/item/trade_roads.json
+```
+
+```json
+{
+  "replace": false,
+  "values": [
+    "othermod:stone_road",
+    { "id": "#othermod:roads", "required": false }
+  ]
+}
+```
+
+Use the block version of the referenced tag in the block-tag file and the item version in the item-tag file. A block appearing only in
+`#minecolonies:pathblocks` is not automatically a Trade Post road: the inclusion runs from `#mctradepost:trade_roads` into
+`#minecolonies:pathblocks`, not the other way around.
+
+When replacing the block tag, keep every surface that should remain usable by existing station routes. Cached road segments validate
+their loaded interior blocks against the live tag, so a datapack reload that removes a road block can invalidate those routes when the
+affected chunks are loaded and the station next validates its connection.
+
 ### Outposts, Stations, Lamps, And Pets
 
 - `data/mctradepost/tags/item/outpost_crops.json`
   - the scout/outpost logic keeps one of each tagged crop behind so replanting still works
 - `data/mctradepost/tags/block/track.json`
-  - blocks counted as valid station track
+  - blocks counted as valid rail segments in station routes
 - `data/mctradepost/tags/block/lamp_bases.json`
   - extra support blocks that lamps may attach to
 - `data/mctradepost/tags/block/scavenge_fruit.json`
@@ -686,6 +859,8 @@ Examples:
 - `cropblocks`
 
 These are worth overriding if your pack changes building material progression or wants MineColonies to treat additional blocks as valid path or crop blocks.
+The shipped `pathblocks` tag includes `#mctradepost:trade_roads`; extending MineColonies `pathblocks` alone does not extend Trade Post
+road routing.
 
 ## Practical Modpack Strategies
 
@@ -705,18 +880,23 @@ These are worth overriding if your pack changes building material progression or
 ### If You Want Custom Rare Finds
 
 1. Put your desired items in the `rarefinds_tier*` tags
-2. Remove unsuitable results through `rarefinds_blacklist`
-3. Put occasional, non-renewable finds in `rarefinds_unique_purchase`
-4. Avoid tagging the same item in more than one tier
+2. Remove individual unsuitable results through `#mctradepost:rarefinds_blacklist`
+3. Exclude a whole mod through a namespace rule in `data/<namespace>/rarefinds_blacklist/*.json`
+4. Put occasional, non-renewable finds in `rarefinds_unique_purchase`
+5. Avoid tagging the same item in more than one tier
 
 ### If You Want Pack-Specific Pet Scavenging
 
 1. Add blocks to the scavenge block tags
-2. Add matching loot tables under the corresponding `pet/...` loot-table folders
+2. Use normal block drops, or add matching tables under the corresponding `pet/...` folders to customize pet yields
 3. Customize `pet/mushroom_scavenge/forage.json` to control discoveries in empty mushroom-growing locations
 4. For plantable forage results, add the block to `#mctradepost:mushroom_scavenge` and verify its default state can survive there
 5. Test harvest/reset behavior for fruit-bearing plants with unusual blockstate properties
-6. Check for block-path collisions when integrating similarly named blocks from multiple mods
+
+### If You Want Custom Trade Roads
+
+1. Extend `#mctradepost:trade_roads` in both the block and item registries
+2. The block tag controls traversable road surfaces and the item tag allows them to qualify for the Expansion research cost
 
 ### If You Want To Lock Down Recycler Abuse
 
@@ -730,23 +910,22 @@ These are worth overriding if your pack changes building material progression or
 - Verify marketplace currency still resolves correctly
 - Test one resort burnout cure per skill you changed
 - Test recycler blacklist allow/deny precedence
+- Test Rare Finds namespace blacklist exceptions and confirm the Retained Search picker updates after `/reload`
 - Test one rarefinds roll from each tier
 - For tagged or enchanted unique-purchase Rare Finds, verify the subscription control is disabled and a purchase consumes the offer with Bottomless Inventory unlocked
 - If changing the unique-purchase tag in an existing world, verify affected active subscriptions are canceled on the next natural daily pass
-- Test one station route if you changed `#mctradepost:track`
+- Test rail, road, and intended handoffs for station routes if you changed `#mctradepost:track`, either `#mctradepost:trade_roads` tag,
+  or `maximumWaterRouteDistance`
+- Chart a water lane, restart the server, and verify that both docks still list the same bidirectional linkage
+- Obstruct a loaded position on the saved water path, run station validation, and verify the dock screen, break highlight, and
+  Stationmaster interaction identify the affected interval without finding a replacement route
+- Remove one linked Trade Dock and verify that all of its linkages disappear from the other endpoint docks
+- Use `/mctp tradepath <start> <end>` to display a fresh same-dimension route (this diagnostic bypasses colony research restrictions),
+  and `/mctp tradepath clear` to remove its overlay
+- Use `/mctp station routes` to inspect the segmented routes stations actually have cached
 - Test one pet scavenge target for every new block tag you added
+- After `/reload`, check JEI's possible pet-foraging outputs and test a focus item supplied by a referenced loot table
+- For fruit focus targets, verify immature plants are skipped and mature, reachable plants are selected
 - Test both an existing mushroom target and an empty, dim mushroom forage location if you changed mushroom scavenging
 - Confirm custom mushroom forage results are awarded and that intended block results are planted
 - Restart a dedicated server once if you changed rituals
-
-## High-Value Files To Review First
-
-- `src/main/java/com/deathfrog/mctradepost/MCTPConfig.java`
-- `src/main/java/com/deathfrog/mctradepost/api/util/ItemValueManager.java`
-- `src/main/java/com/deathfrog/mctradepost/core/economy/ItemValueSeedLoader.java`
-- `src/main/java/com/deathfrog/mctradepost/core/recycling/blacklist/RecyclingBlacklistManager.java`
-- `src/main/java/com/deathfrog/mctradepost/core/event/burnout/BurnoutRemedyManager.java`
-- `src/main/java/com/deathfrog/mctradepost/core/event/wishingwell/ritual/RitualDefinition.java`
-- `src/main/java/com/deathfrog/mctradepost/core/ModTags.java`
-
-Those files define most of the pack-author-facing behavior.

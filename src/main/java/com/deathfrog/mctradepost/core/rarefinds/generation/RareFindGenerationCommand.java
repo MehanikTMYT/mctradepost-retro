@@ -23,7 +23,7 @@ public final class RareFindGenerationCommand
     public static LiteralArgumentBuilder<CommandSourceStack> command()
     {
         return Commands.literal("generateRareFindTiers")
-            .requires(source -> source.hasPermission(2) && source.getServer() != null)
+            .requires(Commands.<CommandSourceStack>hasPermission(Commands.LEVEL_GAMEMASTERS).and(source -> source.getServer() != null))
             .executes(context -> run(context.getSource(), false))
             .then(Commands.literal("dryRun").executes(context -> run(context.getSource(), true)));
     }

@@ -8,65 +8,94 @@ import com.deathfrog.mctradepost.api.entity.GhostCartEntity;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import net.minecraft.client.model.geom.ModelLayers;
-import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.entity.AbstractMinecartRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
-import net.minecraft.client.renderer.entity.ItemRenderer;
-import net.minecraft.client.renderer.entity.MinecartRenderer;
+import net.minecraft.client.renderer.entity.state.MinecartRenderState;
+import net.minecraft.client.renderer.item.ItemModelResolver;
+import net.minecraft.client.renderer.item.ItemStackRenderState;
+import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.api.distmarker.OnlyIn;
-import net.neoforged.api.distmarker.Dist;
-
-@OnlyIn(Dist.CLIENT)
-public class GhostCartRenderer extends MinecartRenderer<GhostCartEntity>
+public class GhostCartRenderer extends AbstractMinecartRenderer<GhostCartEntity, GhostCartRenderer.GhostCartRenderState>
 {
-    private final ItemRenderer itemRenderer;
+    /**
+     * Minecraft 26.1's entity renderers no longer draw directly from an entity reference; render()
+     * was split into extractRenderState() (main thread, reads the entity) and submit() (render
+     * thread, reads only this immutable snapshot). The trade item's resolved render state is
+     * captured here so submit() never has to touch the entity itself.
+     */
+    public static class GhostCartRenderState extends MinecartRenderState
+    {
+        public final ItemStackRenderState tradeItem = new ItemStackRenderState();
+        public boolean hasTradeItem = false;
+    }
+
+    private final ItemModelResolver itemModelResolver;
 
     public GhostCartRenderer(EntityRendererProvider.Context ctx)
     {
         super(ctx, ModelLayers.MINECART);
-        this.itemRenderer = ctx.getItemRenderer();      // reuse vanilla renderer
+        this.itemModelResolver = ctx.getItemModelResolver();
+    }
+
+    @Override
+    public GhostCartRenderState createRenderState()
+    {
+        return new GhostCartRenderState();
     }
 
     /**
-     * Renders the given GhostCartEntity, including its trade item if it has one.
-     * The trade item is rendered as if it were on the ground, and is scaled up slightly to be more visible.
-     * The item is also rotated to face the direction of the cart's movement.
-     *
-     * @param cart the GhostCartEntity to render
-     * @param yaw the yaw of the cart
-     * @param partialTicks the partial ticks of the cart's movement
-     * @param pose the PoseStack to use for rendering
-     * @param buf the MultiBufferSource to render into
-     * @param light the light level to render with
+     * Culling now happens on the renderer rather than the entity (Entity#getBoundingBoxForCulling()
+     * was removed in 26.1.2). This reproduces the 0.25 inflate GhostCartEntity used to apply itself,
+     * so the cart doesn't pop out of view early while riding its path.
      */
     @Override
-    public void render(@Nonnull GhostCartEntity cart,
-        float yaw,
-        float partialTicks,
-        @Nonnull PoseStack pose,
-        @Nonnull MultiBufferSource buf,
-        int light)
+    protected AABB getBoundingBoxForCulling(@Nonnull GhostCartEntity entity)
     {
-        super.render(cart, yaw, partialTicks, pose, buf, light); // cart model
+        return super.getBoundingBoxForCulling(entity).inflate(0.25);
+    }
 
-        ItemStack stack = cart.getTradeItem();
-        if (stack.isEmpty()) return;
+    @Override
+    public void extractRenderState(@Nonnull GhostCartEntity cart, @Nonnull GhostCartRenderState state, float partialTicks)
+    {
+        super.extractRenderState(cart, state, partialTicks);
+
+        final ItemStack stack = cart.getTradeItem();
+        state.hasTradeItem = !stack.isEmpty();
+        if (state.hasTradeItem)
+        {
+            itemModelResolver.updateForNonLiving(state.tradeItem, stack, ItemDisplayContext.GROUND, cart);
+        }
+    }
+
+    /**
+     * Submits the cart model (via the vanilla superclass) plus, if present, the trade item floating
+     * above it. The item is scaled up slightly and spun to stay visible while the cart travels.
+     */
+    @Override
+    public void submit(@Nonnull GhostCartRenderState state,
+        @Nonnull PoseStack pose,
+        @Nonnull SubmitNodeCollector collector,
+        @Nonnull CameraRenderState camera)
+    {
+        super.submit(state, pose, collector, camera); // cart model
+
+        if (!state.hasTradeItem)
+        {
+            return;
+        }
 
         pose.pushPose();
         pose.scale(1.20F, 1.20F, 1.20F);  // a bit larger than default block
         pose.translate(0.0, 0.1, 0.0);   // Sitting low in the cart
 
-        Quaternionf spin = Axis.YP.rotationDegrees((cart.tickCount + partialTicks) * 4F);
+        final Quaternionf spin = Axis.YP.rotationDegrees(state.ageInTicks * 4F);
+        pose.mulPose(spin);
 
-        if (spin != null) 
-        {
-            pose.mulPose(spin);
-        }
-
-        /* --- render item as a flat (GROUND) transform --- */
-        itemRenderer.renderStatic(stack, ItemDisplayContext.GROUND, light, OverlayTexture.NO_OVERLAY, pose, buf, null, cart.getId());
+        state.tradeItem.submit(pose, collector, state.lightCoords, OverlayTexture.NO_OVERLAY, state.outlineColor);
 
         pose.popPose();
     }

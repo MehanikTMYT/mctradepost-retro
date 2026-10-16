@@ -2,12 +2,13 @@ package com.deathfrog.mctradepost.core.economy;
 
 import com.deathfrog.mctradepost.MCTradePostMod;
 import com.ldtteam.domumornamentum.recipe.ModRecipeTypes;
-import net.minecraft.core.RegistryAccess;
-import net.minecraft.resources.ResourceLocation;
+import com.minecolonies.api.crafting.VanillaRecipeUtils;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.*;
+import net.minecraft.world.level.Level;
 
 import java.util.*;
 import java.util.function.Predicate;
@@ -105,10 +106,10 @@ public final class DerivedItemValueGenerator
                                   final Map<?, Integer> seedValuesRaw,
                                   final Options options)
     {
-        final RegistryAccess ra = server.registryAccess();
+        final Level level = server.overworld();
         final RecipeManager rm = server.getRecipeManager();
 
-        if (rm == null || ra == null)
+        if (rm == null || level == null)
         {
             MCTradePostMod.LOGGER.error("ItemValueGen: No recipe manager or registry access available.");
             return new Report(new HashMap<>(), 0, 0, 0, 0, new HashSet<>(), new HashMap<>());
@@ -142,7 +143,7 @@ public final class DerivedItemValueGenerator
         for (final RecipeHolder<?> holder : rm.getRecipes())
         {
             final Recipe<?> recipe = holder.value();
-            final ItemStack output = recipe.getResultItem(ra);
+            final ItemStack output = VanillaRecipeUtils.getResultItem(recipe, level);
 
             if (allowedTypes.test(recipe.getType()) && !output.isEmpty() && !isNamespaceExcluded(output.getItem(), options))
             {
@@ -169,7 +170,7 @@ public final class DerivedItemValueGenerator
                 recipesConsidered++;
                 final Recipe<?> recipe = holder.value();
 
-                final ItemStack outStack = recipe.getResultItem(ra);
+                final ItemStack outStack = VanillaRecipeUtils.getResultItem(recipe, level);
                 if (outStack.isEmpty())
                 {
                     continue;
@@ -182,7 +183,7 @@ public final class DerivedItemValueGenerator
                 // If you prefer "seeds win", check a separate seedSet and skip if present.
                 final Integer existing = values.get(outItem);
 
-                final Integer cost = computeRecipeUnitCost(recipe, ra, values, options);
+                final Integer cost = computeRecipeUnitCost(recipe, level, values, options);
                 if (cost == null)
                 {
                     // record which ingredients are blocking this recipe
@@ -214,7 +215,7 @@ public final class DerivedItemValueGenerator
         final Set<String> unknown = new TreeSet<>();
         for (final RecipeHolder<?> holder : all)
         {
-            final ItemStack out = holder.value().getResultItem(ra);
+            final ItemStack out = VanillaRecipeUtils.getResultItem(holder.value(), level);
             if (out.isEmpty()) continue;
 
             final Item outItem = out.getItem();
@@ -223,7 +224,7 @@ public final class DerivedItemValueGenerator
 
             if (!values.containsKey(outItem))
             {
-                final ResourceLocation id = ITEM.getKey(outItem);
+                final Identifier id = ITEM.getKey(outItem);
                 unknown.add(id.toString());
             }
         }
@@ -295,7 +296,7 @@ public final class DerivedItemValueGenerator
                                                 final Map<Item, Integer> knownValues,
                                                 final Map<Item, Integer> unknownCounts)
     {
-        for (final Ingredient ing : recipe.getIngredients())
+        for (final Ingredient ing : VanillaRecipeUtils.getIngredients(recipe))
         {
             if (ing == null || ing.isEmpty())
             {
@@ -309,7 +310,7 @@ public final class DerivedItemValueGenerator
             }
 
             // Otherwise, it's blocking: count all its candidate items.
-            final ItemStack[] matches = ing.getItems();
+            final ItemStack[] matches = ing.items().map(ItemStack::new).toArray(ItemStack[]::new);
             if (matches == null || matches.length == 0)
             {
                 continue;
@@ -339,7 +340,7 @@ public final class DerivedItemValueGenerator
      */
     private static boolean hasAnyKnownOption(final Ingredient ing, final Map<Item, Integer> knownValues)
     {
-        final ItemStack[] matches = ing.getItems();
+        final ItemStack[] matches = ing.items().map(ItemStack::new).toArray(ItemStack[]::new);
         if (matches == null || matches.length == 0)
         {
             return false;
@@ -362,11 +363,11 @@ public final class DerivedItemValueGenerator
      * Returns unit cost per 1 output item, or null if unknown.
      */
     private static Integer computeRecipeUnitCost(final Recipe<?> recipe,
-                                                final @Nonnull RegistryAccess ra,
+                                                final @Nonnull Level level,
                                                 final Map<Item, Integer> knownValues,
                                                 final Options options)
     {
-        final ItemStack outStack = recipe.getResultItem(ra);
+        final ItemStack outStack = VanillaRecipeUtils.getResultItem(recipe, level);
         if (outStack.isEmpty())
         {
             return null;
@@ -377,7 +378,7 @@ public final class DerivedItemValueGenerator
         // Sum ingredient costs (skip empty ingredients).
         long sum = 0L;
 
-        for (final Ingredient ing : recipe.getIngredients())
+        for (final Ingredient ing : VanillaRecipeUtils.getIngredients(recipe))
         {
             if (ing == null || ing.isEmpty())
             {
@@ -399,7 +400,7 @@ public final class DerivedItemValueGenerator
         }
 
         // If a recipe has no ingredients (weird/special), skip.
-        if (sum <= 0L && !recipe.getIngredients().isEmpty())
+        if (sum <= 0L && !VanillaRecipeUtils.getIngredients(recipe).isEmpty())
         {
             // still allowed to be 0 if all ingredient costs are 0, but that’s usually not desired.
             // leave as-is.
@@ -410,7 +411,7 @@ public final class DerivedItemValueGenerator
         // Optional premium for cooking-time based recipes
         if (options.applyCookingPremium() && recipe instanceof AbstractCookingRecipe cook)
         {
-            final int t = Math.max(0, cook.getCookingTime());
+            final int t = Math.max(0, cook.cookingTime());
             multiplier += (t / 1200.0) * options.cookingPremiumPer1200Ticks();
         }
 
@@ -434,7 +435,7 @@ public final class DerivedItemValueGenerator
         boolean any = false;
 
         // Ingredient#getItems returns matching stacks (already expanded across tags etc).
-        final ItemStack[] matches = ing.getItems();
+        final ItemStack[] matches = ing.items().map(ItemStack::new).toArray(ItemStack[]::new);
         if (matches == null || matches.length == 0)
         {
             return null;
@@ -464,7 +465,7 @@ public final class DerivedItemValueGenerator
 
     private static boolean isNamespaceExcluded(final @Nonnull Item item, final Options options)
     {
-        final ResourceLocation id = ITEM.getKey(item);
+        final Identifier id = ITEM.getKey(item);
         return id != null && options.namespaceExclusions().contains(id.getNamespace());
     }
 }

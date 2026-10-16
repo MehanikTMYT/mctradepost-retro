@@ -24,6 +24,7 @@ public class RecyclerProgressView extends AbstractBuildingModuleView
 
     private Set<RecyclingProcessor> recyclingProcessors = new LinkedHashSet<RecyclingProcessor>();
     private int maxProcessors = -1;
+    private int scrapPointsPerPile = 16;
 
     public RecyclerProgressView() {
         super();
@@ -71,8 +72,8 @@ public class RecyclerProgressView extends AbstractBuildingModuleView
 
         CompoundTag tag = buf.readNbt();
 
-        if (tag != null && tag.contains(BuildingRecycling.SERIALIZE_RECYCLINGPROCESSORS_TAG, Tag.TAG_LIST)) {
-            ListTag processorListTag = tag.getList(BuildingRecycling.SERIALIZE_RECYCLINGPROCESSORS_TAG, Tag.TAG_COMPOUND);
+        if (tag != null && tag.getList(BuildingRecycling.SERIALIZE_RECYCLINGPROCESSORS_TAG).isPresent()) {
+            ListTag processorListTag = tag.getListOrEmpty(BuildingRecycling.SERIALIZE_RECYCLINGPROCESSORS_TAG);
             for (Tag element : processorListTag) {
                 CompoundTag processorTag = (CompoundTag) element;
                 RecyclingProcessor processor = new RecyclingProcessor();
@@ -83,9 +84,10 @@ public class RecyclerProgressView extends AbstractBuildingModuleView
 
         CompoundTag max = buf.readNbt();
 
-        if (max != null && max.contains("maxProcessors", Tag.TAG_INT)) {
-            int maxProcessors = max.getInt("maxProcessors");
+        if (max != null && max.getInt("maxProcessors").isPresent()) {
+            int maxProcessors = max.getIntOr("maxProcessors", 0);
             this.maxProcessors = maxProcessors;
+            this.scrapPointsPerPile = Math.max(1, max.getIntOr("scrapPointsPerPile", 0));
         }
     }
 
@@ -98,4 +100,7 @@ public class RecyclerProgressView extends AbstractBuildingModuleView
     public Set<RecyclingProcessor> getRecyclingProcessors() {
         return recyclingProcessors;
     }
+
+    public int getScrapPointsPerPile() { return scrapPointsPerPile; }
+
 }

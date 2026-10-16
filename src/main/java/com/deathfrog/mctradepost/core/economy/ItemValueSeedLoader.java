@@ -9,7 +9,7 @@ import net.minecraft.core.Holder;
 import net.minecraft.core.HolderSet;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.server.packs.resources.ResourceManager;
@@ -39,7 +39,7 @@ public final class ItemValueSeedLoader
     private static final @Nonnull String SECTION_NAMESPACE_EXCLUSIONS = "namespace_exclusions";
     private static final @Nonnull String TAG_PREFIX = "#";
 
-    private static final ResourceLocation SEED_PATH = ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, SEED_FILE_NAME);
+    private static final Identifier SEED_PATH = Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, SEED_FILE_NAME);
 
     /*
      * Tag policy
@@ -96,7 +96,7 @@ public final class ItemValueSeedLoader
         final Set<String> namespaceExclusions = new HashSet<>();
 
         // We need RegistryAccess to resolve tags reliably
-        final Registry<Item> itemRegistry = server.registryAccess().registryOrThrow(Registries.ITEM);
+        final Registry<Item> itemRegistry = server.registryAccess().lookupOrThrow(Registries.ITEM);
 
         final List<Resource> resources = rm.getResourceStack(SEED_PATH);
         if (resources.isEmpty())
@@ -134,7 +134,7 @@ public final class ItemValueSeedLoader
                         }
 
                         final String namespace = namespaceElement.getAsString().trim().toLowerCase(java.util.Locale.ROOT);
-                        if (ResourceLocation.tryBuild(namespace, "validation") == null)
+                        if (Identifier.tryBuild(namespace, "validation") == null)
                         {
                             MCTradePostMod.LOGGER.warn("Seed file {}: invalid namespace exclusion: {}", SEED_PATH, namespace);
                             continue;
@@ -162,7 +162,7 @@ public final class ItemValueSeedLoader
                             continue;
                         }
 
-                        final Item item = ITEM.getOptional(ResourceLocation.tryParse(itemId)).orElse(null);
+                        final Item item = ITEM.getOptional(Identifier.tryParse(itemId)).orElse(null);
                         if (item == null)
                         {
                             MCTradePostMod.LOGGER.debug("Seed references unknown item id: {}", itemId);
@@ -188,7 +188,7 @@ public final class ItemValueSeedLoader
                             continue;
                         }
 
-                        final ResourceLocation tagId = ResourceLocation.tryParse(tagKeyStr.substring(1));
+                        final Identifier tagId = Identifier.tryParse(tagKeyStr.substring(1));
                         if (tagId == null)
                         {
                             MCTradePostMod.LOGGER.warn("Seed file {}: invalid tag id: {}", SEED_PATH, tagKeyStr);
@@ -196,7 +196,7 @@ public final class ItemValueSeedLoader
                         }
 
                         final TagKey<Item> tagKey = TagKey.create(Registries.ITEM, tagId);
-                        final HolderSet.Named<Item> tagSet = itemRegistry.getTag(tagKey).orElse(null);
+                        final HolderSet.Named<Item> tagSet = itemRegistry.get(tagKey).orElse(null);
 
                         if (tagSet == null)
                         {

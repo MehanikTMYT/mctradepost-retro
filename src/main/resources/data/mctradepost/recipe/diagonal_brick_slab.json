@@ -5,9 +5,7 @@
     "###"
   ],
   "key": {
-    "#": {
-      "item": "mctradepost:diagonal_brick"
-    }
+    "#": "mctradepost:diagonal_brick"
   },
   "result": {
     "id": "mctradepost:diagonal_brick_slab",

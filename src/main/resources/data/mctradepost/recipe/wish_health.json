@@ -1,19 +1,18 @@
 {
-    "type": "minecraft:crafting_shaped",
-    "category": "building",
-    "key": {
-      "C": { "item": "mctradepost:mctp_coin_gold" },
-      "G": { "item": "minecraft:golden_carrot" },
-      "P": { "item": "minecraft:poppy" }
-    },
-    "pattern": [
-      "GPG",
-      "PCP",
-      "GPG"
-    ],
-    "result": {
-      "count": 1,
-      "id": "mctradepost:wish_health"
-    }
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "key": {
+    "C": "mctradepost:mctp_coin_gold",
+    "G": "minecraft:golden_carrot",
+    "P": "minecraft:poppy"
+  },
+  "pattern": [
+    "GPG",
+    "PCP",
+    "GPG"
+  ],
+  "result": {
+    "count": 1,
+    "id": "mctradepost:wish_health"
+  }
 }
-  

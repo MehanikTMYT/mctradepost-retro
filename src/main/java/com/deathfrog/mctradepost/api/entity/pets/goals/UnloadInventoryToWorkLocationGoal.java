@@ -86,7 +86,7 @@ public class UnloadInventoryToWorkLocationGoal<P extends Animal & ITradePostPet>
     {
         final Level level = pet.level();
         
-        if (level == null || level.isClientSide) return false;
+        if (level == null || level.isClientSide()) return false;
         if (pet.getInventory() == null) return false;
 
         if (cooldownTicks-- > 0)
@@ -154,7 +154,7 @@ public class UnloadInventoryToWorkLocationGoal<P extends Animal & ITradePostPet>
     public boolean canContinueToUse()
     {
         final Level level = pet.level();
-        if (level == null || level.isClientSide) return false;
+        if (level == null || level.isClientSide()) return false;
 
         final BlockPos localWorkPos = workPos;
 
@@ -181,7 +181,7 @@ public class UnloadInventoryToWorkLocationGoal<P extends Animal & ITradePostPet>
     public void start()
     {
         final Level level = pet.level();
-        if (level == null || level.isClientSide) return;
+        if (level == null || level.isClientSide()) return;
 
         this.workPos = pet.getWorkLocation();
         this.hasArrived = false;
@@ -217,7 +217,7 @@ public class UnloadInventoryToWorkLocationGoal<P extends Animal & ITradePostPet>
     public void tick()
     {
         final Level level = pet.level();
-        if (level == null || level.isClientSide) return;
+        if (level == null || level.isClientSide()) return;
 
         final BlockPos localWorkPos = workPos;
         final @Nonnull Vec3 localLastPos = lastPos;

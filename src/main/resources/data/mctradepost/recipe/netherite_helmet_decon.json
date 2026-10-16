@@ -1,8 +1,6 @@
 {
   "type": "mctradepost:deconstruction",
-  "input": {
-    "item": "minecraft:netherite_helmet"
-  },
+  "input": "minecraft:netherite_helmet",
   "results": [
     {
       "item": {

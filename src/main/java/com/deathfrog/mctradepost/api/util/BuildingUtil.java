@@ -33,7 +33,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -65,13 +65,13 @@ public class BuildingUtil
         
         ResourceKey<Level> dimensionKey = building.getColony().getDimension();
 
-        if (dimensionKey == null || dimensionKey.location() == null)
+        if (dimensionKey == null || dimensionKey.identifier() == null)
         {
             MCTradePostMod.LOGGER.warn("BuildingUtil.uniqueBuildingNBT: No dimension found for colony {}.", building.getColony().getID());
             return tag;
         }
 
-        ResourceLocation dimLoc = dimensionKey.location();
+        Identifier dimLoc = dimensionKey.identifier();
 
         tag.putString(TAG_DIMENSION, NullnessBridge.assumeNonnull(dimLoc.toString()));
         tag.putInt(TAG_COLONY_ID, building.getColony().getID());
@@ -116,14 +116,14 @@ public class BuildingUtil
     public static IBuilding buildingFromNBT(@Nonnull CompoundTag tag) 
     { 
         IBuilding building = null;
-        String dimension = tag.getString(TAG_DIMENSION);
+        String dimension = tag.getStringOr(TAG_DIMENSION, "");
 
         if (dimension == null)
         {
             return null;
         }
 
-        ResourceLocation level = ResourceLocation.parse(dimension);
+        Identifier level = Identifier.parse(dimension);
 
         if (level == null)
         {
@@ -169,14 +169,14 @@ public class BuildingUtil
      */
     public static IBuildingView buildingViewFromNBT(@Nonnull CompoundTag tag) 
     { 
-        String dimension = tag.getString(TAG_DIMENSION);
+        String dimension = tag.getStringOr(TAG_DIMENSION, "");
         
         if (dimension == null)
         {
             return null;
         }
 
-        ResourceLocation level = ResourceLocation.parse(dimension);
+        Identifier level = Identifier.parse(dimension);
 
         if (level == null)
         {

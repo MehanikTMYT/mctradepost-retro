@@ -2,7 +2,7 @@ package com.deathfrog.mctradepost.core.economy;
 
 import com.deathfrog.mctradepost.core.ModTags;
 import com.deathfrog.mctradepost.core.rarefinds.generation.RareFindGenerationRules;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
@@ -48,7 +48,7 @@ public final class TierDerivedItemValueProvider
 
                 if (ITEM.wrapAsHolder(item).is(PRICED_TIERS.get(index)))
                 {
-                    final ResourceLocation id = ITEM.getKey(item);
+                    final Identifier id = ITEM.getKey(item);
                     result.put(item, valueFor(id, cutoffs[index]));
                     break;
                 }
@@ -70,7 +70,7 @@ public final class TierDerivedItemValueProvider
     }
 
     /** Produces a stable value in the inclusive range 90%-150% of a tier cutoff. */
-    static int valueFor(final ResourceLocation id, final int cutoff)
+    static int valueFor(final Identifier id, final int cutoff)
     {
         final int percentage = 90 + Math.floorMod(id.toString().hashCode(), 61);
         return Math.max(1, (int) Math.round(cutoff * percentage / 100.0D));

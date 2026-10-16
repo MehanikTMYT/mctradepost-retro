@@ -384,7 +384,7 @@ public class PetRegistryUtil
      */
     public static void loadPetWorkLocations(IColony colony, CompoundTag tag)
     {
-        ListTag posList = tag.getList("petWorkLocations", Tag.TAG_COMPOUND);
+        ListTag posList = tag.getListOrEmpty("petWorkLocations");
 
         // Set<BlockPos> positions = new HashSet<>();
         for (Tag posTagRaw : posList)

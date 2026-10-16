@@ -1,6 +1,6 @@
 package com.deathfrog.mctradepost.core.economy;
 
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -13,7 +13,7 @@ class TierDerivedItemValueProviderTest
     @Test
     void valueIsStableAndWithinConfiguredSpread()
     {
-        final ResourceLocation id = ResourceLocation.parse("example:tiered_item");
+        final Identifier id = Identifier.parse("example:tiered_item");
         final int first = TierDerivedItemValueProvider.valueFor(id, 8_000);
         final int second = TierDerivedItemValueProvider.valueFor(id, 8_000);
 
@@ -26,7 +26,7 @@ class TierDerivedItemValueProviderTest
     void minimumCutoffStillProducesPositiveValue()
     {
         final int value = TierDerivedItemValueProvider.valueFor(
-            ResourceLocation.parse("example:small_cutoff"), 1);
+            Identifier.parse("example:small_cutoff"), 1);
 
         assertTrue(value >= 1);
     }

@@ -16,9 +16,15 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.IntArrayTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
-import net.neoforged.neoforge.common.util.INBTSerializable;
 
-public class WellLocations implements INBTSerializable<CompoundTag> {
+/**
+ * NeoForge's {@code INBTSerializable} was removed (replaced by the ValueInput/ValueOutput-based
+ * {@code ValueIOSerializable}, which doesn't fit this class's CompoundTag-based callers in
+ * {@link com.deathfrog.mctradepost.core.colony.buildings.workerbuildings.BuildingMarketplace}). This keeps the same
+ * serializeNBT/deserializeNBT method shape as a plain convention instead, matching how BuildingMarketplace itself
+ * already handles the same building-persistence contract.
+ */
+public class WellLocations {
     private final Map<BlockPos, RitualState> activeRituals = new HashMap<>();
     private final Set<BlockPos> knownWells = new HashSet<>();
 
@@ -30,7 +36,6 @@ public class WellLocations implements INBTSerializable<CompoundTag> {
         return knownWells;
     }
 
-    @Override
     public CompoundTag serializeNBT(@Nonnull HolderLookup.Provider provider)
     {
         CompoundTag tag = new CompoundTag();
@@ -75,17 +80,16 @@ public class WellLocations implements INBTSerializable<CompoundTag> {
         return tag;
     }
 
-    @Override
     public void deserializeNBT(@Nonnull HolderLookup.Provider provider, @Nonnull CompoundTag tag)
     {
         activeRituals.clear();
         knownWells.clear();
 
-        ListTag ritualList = tag.getList("ActiveRituals", Tag.TAG_COMPOUND);
+        ListTag ritualList = tag.getListOrEmpty("ActiveRituals");
         for (Tag t : ritualList)
         {
             CompoundTag ritualTag = (CompoundTag) t;
-            BlockPos pos = NBTUtils.readBlockPos(ritualTag.getCompound("Pos"));
+            BlockPos pos = NBTUtils.readBlockPos(ritualTag, "Pos");
 
             RitualState state = new RitualState();
 
@@ -95,12 +99,12 @@ public class WellLocations implements INBTSerializable<CompoundTag> {
             state.diamondCoins = null;
             state.companionItems = null;
 
-            state.lastUsed = ritualTag.getLong("LastUsed");
+            state.lastUsed = ritualTag.getLongOr("LastUsed", 0L);
 
             activeRituals.put(pos, state);
         }
 
-        ListTag wellList = tag.getList("KnownWells", Tag.TAG_INT_ARRAY);
+        ListTag wellList = tag.getListOrEmpty("KnownWells");
         for (Tag t : wellList)
         {
             BlockPos pos = NBTUtils.readBlockPos((IntArrayTag) t);

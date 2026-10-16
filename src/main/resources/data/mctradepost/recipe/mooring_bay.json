@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "pattern": [
+    "IBI",
+    "IXI",
+    "MMM"
+  ],
+  "key": {
+    "M": "mctradepost:mixed_stone",
+    "B": "minecraft:barrel",
+    "I": "minecraft:iron_ingot",
+    "X": "mctradepost:trade_interchange"
+  },
+  "result": {
+    "id": "mctradepost:mooring_bay",
+    "count": 1
+  }
+}

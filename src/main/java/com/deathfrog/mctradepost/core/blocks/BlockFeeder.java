@@ -7,10 +7,11 @@ import com.deathfrog.mctradepost.api.util.NullnessBridge;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.LevelReader;
+import net.minecraft.world.level.ScheduledTickAccess;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -118,18 +119,20 @@ public class BlockFeeder extends AbstractBlockPetWorkingLocation
     @Override
     public BlockState updateShape(
         @Nonnull BlockState state,
-        @Nonnull Direction changedSide,
-        @Nonnull BlockState changedState,
-        @Nonnull LevelAccessor level,
+        @Nonnull LevelReader level,
+        @Nonnull ScheduledTickAccess ticks,
         @Nonnull BlockPos pos,
-        @Nonnull BlockPos changedPos
-    ) 
+        @Nonnull Direction changedSide,
+        @Nonnull BlockPos changedPos,
+        @Nonnull BlockState changedState,
+        @Nonnull RandomSource random
+    )
     {
-        if (!state.canSurvive(level, pos)) 
+        if (!state.canSurvive(level, pos))
         {
             return Blocks.AIR.defaultBlockState();
         }
-        return super.updateShape(state, changedSide, changedState, level, pos, changedPos);
+        return super.updateShape(state, level, ticks, pos, changedSide, changedPos, changedState, random);
     }
 
 

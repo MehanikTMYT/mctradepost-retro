@@ -4,7 +4,7 @@ import com.deathfrog.mctradepost.api.client.render.modeltype.ModModelTypes;
 import com.deathfrog.mctradepost.core.entity.ai.workers.crafting.EntityAIWorkRecyclingEngineer;
 import com.minecolonies.api.colony.ICitizenData;
 import com.minecolonies.core.colony.jobs.AbstractJobCrafter;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 public class JobRecyclingEngineer extends AbstractJobCrafter<EntityAIWorkRecyclingEngineer, JobRecyclingEngineer>
 {
@@ -20,7 +20,7 @@ public class JobRecyclingEngineer extends AbstractJobCrafter<EntityAIWorkRecycli
     }
 
     @Override
-    public ResourceLocation getModel()
+    public Identifier getModel()
     {
         return ModModelTypes.RECYCLINGENGINEER_MODEL_ID;
         // return super.getModel();

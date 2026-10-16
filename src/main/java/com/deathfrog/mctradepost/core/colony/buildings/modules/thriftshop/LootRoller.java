@@ -8,7 +8,7 @@ import com.deathfrog.mctradepost.api.util.NullnessBridge;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.ItemStack;
@@ -59,7 +59,7 @@ public final class LootRoller
     private static final @Nonnull BlockPos ORIGIN_POS = NullnessBridge.assumeNonnull(BlockPos.ZERO);
 
     // Prefer matching state when table id is a known block loot table.
-    private static final java.util.Map<ResourceLocation, BlockState> TABLE_TO_STATE = java.util.Map.ofEntries(
+    private static final java.util.Map<Identifier, BlockState> TABLE_TO_STATE = java.util.Map.ofEntries(
         entry("minecraft:blocks/short_grass", Blocks.SHORT_GRASS.defaultBlockState()),
         entry("minecraft:blocks/tall_grass", Blocks.TALL_GRASS.defaultBlockState()),
         entry("minecraft:blocks/fern", Blocks.FERN.defaultBlockState()),
@@ -97,9 +97,9 @@ public final class LootRoller
     private LootRoller() {}
 
     /** Rolls exactly one stack from a chest-style loot table. */
-    public static ItemStack rollChestStyle(ServerLevel level, @Nonnull RandomSource rand, @Nonnull ResourceLocation tableId)
+    public static ItemStack rollChestStyle(ServerLevel level, @Nonnull RandomSource rand, @Nonnull Identifier tableId)
     {
-        if (level == null || level.isClientSide) return ItemStack.EMPTY;
+        if (level == null || level.isClientSide()) return ItemStack.EMPTY;
 
         final LootTable table = getLootTable(level, tableId);
 
@@ -134,9 +134,9 @@ public final class LootRoller
      * @return a single item stack from the given loot table, or an empty item stack if the
      *         loot table returns no items
      */
-    public static ItemStack rollBlockStyle(ServerLevel level, @Nonnull RandomSource rand, @Nonnull ResourceLocation tableId)
+    public static ItemStack rollBlockStyle(ServerLevel level, @Nonnull RandomSource rand, @Nonnull Identifier tableId)
     {
-        if (level == null || level.isClientSide) return ItemStack.EMPTY;
+        if (level == null || level.isClientSide()) return ItemStack.EMPTY;
 
         final LootTable table = getLootTable(level, tableId);
 
@@ -180,7 +180,7 @@ public final class LootRoller
      * @return a plausible block state for the given loot table, or a random "forage" block state
      *         if all else fails
      */
-    private static BlockState deriveBlockStateForTable(@Nonnull ResourceLocation tableId, @Nonnull RandomSource rand)
+    private static BlockState deriveBlockStateForTable(@Nonnull Identifier tableId, @Nonnull RandomSource rand)
     {
         // 1) If we know exactly which block this table corresponds to, use it.
         BlockState exact = TABLE_TO_STATE.get(tableId);
@@ -196,7 +196,7 @@ public final class LootRoller
 
             if (blockName == null) return DEFAULT_FORAGE_BLOCKS.pick(rand);
 
-            ResourceLocation blockId = ResourceLocation.fromNamespaceAndPath(MINECRAFT_NAMESPACE, blockName);
+            Identifier blockId = Identifier.fromNamespaceAndPath(MINECRAFT_NAMESPACE, blockName);
 
             Block block = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getOptional(blockId).orElse(null);
 
@@ -209,9 +209,9 @@ public final class LootRoller
 
 
     /** Rolls exactly one stack from a fishing subtable (fish/junk/treasure). */
-    public static ItemStack rollFishingStyle(ServerLevel level, @Nonnull RandomSource rand, @Nonnull ResourceLocation tableId, float luck)
+    public static ItemStack rollFishingStyle(ServerLevel level, @Nonnull RandomSource rand, @Nonnull Identifier tableId, float luck)
     {
-        if (level == null || level.isClientSide) return ItemStack.EMPTY;
+        if (level == null || level.isClientSide()) return ItemStack.EMPTY;
 
         final LootTable table = getLootTable(level, tableId);
 
@@ -273,7 +273,7 @@ public final class LootRoller
      * @param tableId the resource location of the loot table to retrieve
      * @return the loot table identified by the given tableId, or null if it does not exist
      */
-    private static LootTable getLootTable(ServerLevel level, @Nonnull ResourceLocation tableId)
+    private static LootTable getLootTable(ServerLevel level, @Nonnull Identifier tableId)
     {
         ResourceKey<LootTable> lootTableKey = ResourceKey.create(NullnessBridge.assumeNonnull(Registries.LOOT_TABLE), tableId);
 
@@ -292,9 +292,9 @@ public final class LootRoller
      * @param state the block state to associate with the given loot table
      * @return a new entry in a map from the given tableId and BlockState
      */
-    private static java.util.Map.Entry<ResourceLocation, BlockState> entry(@Nonnull String tableId, BlockState state)
+    private static java.util.Map.Entry<Identifier, BlockState> entry(@Nonnull String tableId, BlockState state)
     {
-        return java.util.Map.entry(ResourceLocation.parse(tableId), state);
+        return java.util.Map.entry(Identifier.parse(tableId), state);
     }
 
 }

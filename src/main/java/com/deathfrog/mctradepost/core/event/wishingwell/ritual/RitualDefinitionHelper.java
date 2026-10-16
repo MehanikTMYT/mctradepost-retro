@@ -8,7 +8,8 @@ import com.deathfrog.mctradepost.api.util.StringUtils;
 import com.deathfrog.mctradepost.item.CoinItem;
 
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -21,7 +22,7 @@ public class RitualDefinitionHelper
     protected String fileName;
     protected RitualDefinition ritualDefinition;
 
-    public RitualDefinitionHelper(ResourceLocation id, @Nonnull RitualDefinition definition) 
+    public RitualDefinitionHelper(Identifier id, @Nonnull RitualDefinition definition)
     {
         this.ritualDefinition = definition;
         this.originatingModId = id.getNamespace();
@@ -55,7 +56,7 @@ public class RitualDefinitionHelper
             return null;
         }
 
-        ResourceLocation itemLocation = ResourceLocation.tryParse(target);
+        Identifier itemLocation = Identifier.tryParse(target);
 
         if (itemLocation == null) 
         {
@@ -63,7 +64,7 @@ public class RitualDefinitionHelper
             return null;
         }
 
-        Item item = BuiltInRegistries.ITEM.get(itemLocation);
+        Item item = BuiltInRegistries.ITEM.getValue(itemLocation);
 
         if (item == null || item.equals(Items.AIR)) 
         {
@@ -96,7 +97,7 @@ public class RitualDefinitionHelper
             return null;
         }
 
-        ResourceLocation itemLocation = ResourceLocation.tryParse(coinType);
+        Identifier itemLocation = Identifier.tryParse(coinType);
 
         if (itemLocation == null) 
         {
@@ -105,7 +106,7 @@ public class RitualDefinitionHelper
         }
         else 
         {
-            coinItem = BuiltInRegistries.ITEM.get(itemLocation);
+            coinItem = BuiltInRegistries.ITEM.getValue(itemLocation);
         }
         
         if (!(coinItem instanceof CoinItem))
@@ -124,7 +125,7 @@ public class RitualDefinitionHelper
     @Nullable
     public EntityType<?> getTargetAsEntityType() 
     {
-       ResourceLocation entityTypeId = null;
+       Identifier entityTypeId = null;
 
         try 
         {
@@ -135,7 +136,7 @@ public class RitualDefinitionHelper
                 return null;
             }
 
-            entityTypeId = ResourceLocation.parse(target);  // Intentional use of parse.
+            entityTypeId = Identifier.parse(target);  // Intentional use of parse.
         } 
         catch (IllegalArgumentException e) 
         {
@@ -143,7 +144,7 @@ public class RitualDefinitionHelper
             return null;
         }
         
-        EntityType<?> entityType = BuiltInRegistries.ENTITY_TYPE.get(entityTypeId);
+        EntityType<?> entityType = BuiltInRegistries.ENTITY_TYPE.getValue(entityTypeId);
 
         return entityType;
     }
@@ -222,7 +223,7 @@ public class RitualDefinitionHelper
 
             case RitualManager.RITUAL_EFFECT_COMMUNITY:
                 String benefit = "";
-                Item companionItem = BuiltInRegistries.ITEM.get(companionItem());
+                Item companionItem = BuiltInRegistries.ITEM.getValue(companionItem());
 
                 if (companionItem.equals(MCTradePostMod.WISH_PLENTY.get())) 
                 {
@@ -248,12 +249,41 @@ public class RitualDefinitionHelper
                 text = "Claims an outpost at the location marked by an Outpost Claim Marker.";
                 break;
 
+            case RitualManager.RITUAL_EFFECT_KNOWLEDGE:
+                text = "Advances every in-progress colony research by approximately one hour.";
+                break;
+
+            case RitualManager.RITUAL_EFFECT_RESURRECTION:
+                text = "Resurrects the recently buried citizen bound to this wish. Cost increases the longer ago the citizen was buried.";
+                break;
+
             default:
                 text = "Broken ritual! Ritual type not recognized: " + ritualDefinition.effect();
                 break;
         }
 
         return text;
+    }
+
+    /**
+     * Player-facing version of {@link #describe()} for UI display (EMI/JEI ritual category text).
+     * <p>
+     * Built-in rituals (shipped under the {@code mctradepost} namespace) get a real translation key,
+     * {@code <namespace>.ritual.<ritual id>.description}, so their description is localizable. A
+     * third-party datapack ritual - or a built-in one whose key hasn't been added to a given
+     * language's lang file yet - has no obligation to ship that key: {@link Component#translatableWithFallback}
+     * falls back to the same procedurally-generated English text {@link #describe()} already produced,
+     * so nothing regresses for datapacks that never asked for localization.
+     *
+     * @return a translatable component describing this ritual's effect, with the plain-English
+     *         {@link #describe()} text as its fallback.
+     */
+    @Nonnull
+    public Component describeComponent()
+    {
+        String key = this.originatingModId + ".ritual." + this.fileName + ".description";
+
+        return Component.translatableWithFallback(key, describe());
     }
 
     public String getRitualTexture()
@@ -263,7 +293,7 @@ public class RitualDefinitionHelper
         return ritualTexture;
     }
 
-    public ResourceLocation companionItem() 
+    public Identifier companionItem()
     {
         return this.ritualDefinition.companionItem();
     } 

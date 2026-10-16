@@ -23,10 +23,10 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.NonNullList;
 import net.minecraft.data.recipes.RecipeCategory;
 import net.minecraft.data.recipes.RecipeOutput;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
-import net.minecraft.world.level.BlockAndTintGetter;
+import net.minecraft.client.renderer.block.BlockAndTintGetter;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Explosion;
 import net.minecraft.world.level.LevelReader;
@@ -38,7 +38,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraft.world.level.block.state.properties.DirectionProperty;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.level.material.MapColor;
 import net.minecraft.world.level.material.PushReaction;
@@ -52,7 +52,7 @@ public abstract class ExtendedTimberFrameBlock extends AbstractBlock<ExtendedTim
     implements IMateriallyTexturedBlock, ICachedItemGroupBlock, EntityBlock
 {
     public static final List<IMateriallyTexturedBlockComponent> COMPONENTS;
-    public static final @Nonnull DirectionProperty FACING;
+    public static final @Nonnull EnumProperty<Direction> FACING;
     private final List<ItemStack> fillItemGroupCache = new ArrayList<ItemStack>();
     
     // MateriallyTexturedBlockRecipeProvider recipeProvider = new MateriallyTexturedBlockRecipeProvider();
@@ -60,7 +60,7 @@ public abstract class ExtendedTimberFrameBlock extends AbstractBlock<ExtendedTim
 
     public ExtendedTimberFrameBlock()
     {
-        super(Properties.of().mapColor(NullnessBridge.assumeNonnull(MapColor.WOOD)).pushReaction(PushReaction.PUSH_ONLY).strength(3.0F, 1.0F).noOcclusion());
+        super(com.deathfrog.mctradepost.MCTradePostMod.blockProps().mapColor(NullnessBridge.assumeNonnull(MapColor.WOOD)).pushReaction(PushReaction.PUSH_ONLY).strength(3.0F, 1.0F).noOcclusion());
     }
 
     public boolean shouldDisplayFluidOverlay(@Nonnull BlockState state, @Nonnull BlockAndTintGetter level, @Nonnull BlockPos pos, @Nonnull FluidState fluidState)
@@ -184,11 +184,11 @@ public abstract class ExtendedTimberFrameBlock extends AbstractBlock<ExtendedTim
 
     static
     {
-        SimpleRetexturableComponent base = new SimpleRetexturableComponent(ResourceLocation.withDefaultNamespace("block/oak_planks"),
+        SimpleRetexturableComponent base = new SimpleRetexturableComponent(Identifier.withDefaultNamespace("block/oak_planks"),
                 ModTags.TIMBERFRAMES_FRAME,
                 Blocks.OAK_PLANKS);
 
-        SimpleRetexturableComponent frame = new SimpleRetexturableComponent(ResourceLocation.withDefaultNamespace("block/dark_oak_planks"),
+        SimpleRetexturableComponent frame = new SimpleRetexturableComponent(Identifier.withDefaultNamespace("block/dark_oak_planks"),
                 ModTags.TIMBERFRAMES_CENTER,
                 Blocks.DARK_OAK_PLANKS);
 

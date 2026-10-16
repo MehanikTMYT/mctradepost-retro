@@ -1,8 +1,6 @@
 {
   "type": "mctradepost:deconstruction",
-  "input": {
-    "item": "minecraft:netherite_hoe"
-  },
+  "input": "minecraft:netherite_hoe",
   "results": [
     {
       "item": {

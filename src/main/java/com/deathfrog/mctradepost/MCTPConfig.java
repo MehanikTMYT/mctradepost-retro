@@ -4,6 +4,7 @@ import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Map;
 import com.deathfrog.mctradepost.network.ConfigurationPacket;
+import com.deathfrog.mctradepost.core.entity.ai.workers.trade.TrackRoute;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -20,6 +21,9 @@ public class MCTPConfig
 {
     public static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
     public static final ModConfigSpec SPEC;
+
+    public static final ConfigValue<Integer> incentiveCostPerSkillPoint;
+    public static final ConfigValue<Integer> incentivePayCycleDays;
 
     // Server side Neoforge-managed configurations.
     // Marketplace settings
@@ -51,10 +55,24 @@ public class MCTPConfig
     public static final ConfigValue<Integer> baseRecyclerTime;
     public static final ConfigValue<Integer> flawlessRecycling;
     public static final ConfigValue<Integer> warehouseInventoryCooldown;
+    public static final ConfigValue<Integer> scrapPointsPerPile;
 
     // Station Settings
     public static final ConfigValue<Integer> trackValidationFrequency;
     public static final ConfigValue<Integer> baseTradeSpeed;
+    public static final ConfigValue<Double> railTradeSpeedMultiplier;
+    public static final ConfigValue<Double> roadTradeSpeedMultiplier;
+    public static final ConfigValue<Double> waterTradeSpeedMultiplier;
+    public static final ConfigValue<Double> airTradeSpeedMultiplier;
+    public static final ConfigValue<Double> visibleAirTradeSpeedMultiplier;
+    public static final ConfigValue<Integer> maximumWaterRouteDistance;
+    public static final ConfigValue<Integer> airshipCruisingClearance;
+    public static final ConfigValue<Integer> mooringBayGasCapacity;
+    public static final ConfigValue<Integer> gasifierGasCapacity;
+    public static final ConfigValue<Integer> gasifierTransferRate;
+    public static final ConfigValue<Integer> airshipBaseGasCost;
+    public static final ConfigValue<Integer> airshipBlocksPerGasUnit;
+    public static final ConfigValue<Integer> gasComplaintAttempts;
     public static final ConfigValue<Integer> importsPerLevel;
 
     // Animal Trainer Settings
@@ -74,7 +92,7 @@ public class MCTPConfig
             "For economies balanced around player-sold items, what penalty or bonus is applied to marketplace sales? (0.0 = no change, > 0.0 = % bonus, < 0.0 = % penalty)")
             .defineInRange("economicScaling", -0.00, -1.0, 1.0);
 
-        mintingLevel = BUILDER.comment("At what building level can the Marketplace mint coins?").define("mintingLevel", 2);
+        mintingLevel = BUILDER.comment("At what building level can the Marketplace withdraw coins?").define("mintingLevel", 2);
 
         shoppingCooldown = BUILDER.comment("How long before visitors will consider shopping again?").define("shoppingCooldown", 400);
 
@@ -100,6 +118,13 @@ public class MCTPConfig
         subscriptionPriceMultiplier = BUILDER.comment("Multiplier applied to the greater of an item's economic value and tier price floor for subscriptions.")
             .defineInRange("subscriptionPriceMultiplier", 2.0D, 1.0D, 100.0D);
 
+        BUILDER.pop();
+
+        BUILDER.push("incentives");
+        incentiveCostPerSkillPoint = BUILDER.comment("‡ charged per boosted citizen skill point per pay cycle.")
+            .defineInRange("incentiveCostPerSkillPoint", 1000, 100, 100000);
+        incentivePayCycleDays = BUILDER.comment("MineColonies days in one citizen incentive pay cycle.")
+            .defineInRange("incentivePayCycleDays", 3, 1, 30);
         BUILDER.pop();
 
         BUILDER.push("resort");
@@ -141,6 +166,9 @@ public class MCTPConfig
         warehouseInventoryCooldown = BUILDER.comment("Frequency of warehouse inventory updates in Colony Ticks (processor intensive).")
             .define("warehouseInventoryCooldown", 50);
 
+        scrapPointsPerPile = BUILDER.comment("Scrap Points required to produce one Scrap Pile.")
+            .defineInRange("scrapPointsPerPile", 16, 1, 1000000);
+
         BUILDER.pop();
 
         // Station Settings
@@ -149,6 +177,26 @@ public class MCTPConfig
             .define("trackValidationFrequency", 6000);
 
         baseTradeSpeed = BUILDER.comment("Base trade speed per building level.").define("baseTradeSpeed", 4);
+        railTradeSpeedMultiplier = BUILDER.comment("Shipment speed multiplier while traveling by rail.")
+            .defineInRange("railTradeSpeedMultiplier", 1.0D, 1.0D, 100.0D);
+        roadTradeSpeedMultiplier = BUILDER.comment("Shipment speed multiplier while traveling by road.")
+            .defineInRange("roadTradeSpeedMultiplier", 1.0D, 1.0D, 100.0D);
+        waterTradeSpeedMultiplier = BUILDER.comment("Shipment speed multiplier while traveling by water.")
+            .defineInRange("waterTradeSpeedMultiplier", 1.0D, 1.0D, 100.0D);
+        airTradeSpeedMultiplier = BUILDER.comment("Shipment speed multiplier for long-distance air travel.")
+            .defineInRange("airTradeSpeedMultiplier", 10.0D, 1.0D, 100.0D);
+        visibleAirTradeSpeedMultiplier = BUILDER.comment("Shipment speed multiplier for visible air travel.")
+            .defineInRange("visibleAirTradeSpeedMultiplier", 4.0D, 1.0D, 100.0D);
+        maximumWaterRouteDistance = BUILDER.comment("Maximum navigable block distance for one dock-to-dock water leg.")
+            .defineInRange("maximumWaterRouteDistance", 1000, 1, 10000);
+        airshipCruisingClearance = BUILDER.comment("Airship cruising height above the higher Mooring Bay or local colony-border terrain.")
+            .defineInRange("airshipCruisingClearance", 16, 1, 128);
+        mooringBayGasCapacity = BUILDER.comment("Lifting Gas capacity of a Mooring Bay.").defineInRange("mooringBayGasCapacity", 240000, 1000, 10000000);
+        gasifierGasCapacity = BUILDER.comment("Lifting Gas capacity of a Gasifier.").defineInRange("gasifierGasCapacity", 16000, 1000, 10000000);
+        gasifierTransferRate = BUILDER.comment("Maximum Lifting Gas pushed per adjacent face per tick.").defineInRange("gasifierTransferRate", 250, 1, 100000);
+        airshipBaseGasCost = BUILDER.comment("Base Lifting Gas cost per air shipment.").defineInRange("airshipBaseGasCost", 1000, 0, 1000000);
+        airshipBlocksPerGasUnit = BUILDER.comment("Air-route blocks traveled per Lifting Gas unit.").defineInRange("airshipBlocksPerGasUnit", 1, 1, 100000);
+        gasComplaintAttempts = BUILDER.comment("Ready shipment attempts blocked by gas before the Station Master complains.").defineInRange("gasComplaintAttempts", 3, 1, 100);
 
         importsPerLevel = BUILDER.comment("Number of imports allowed per Station level.").define("importsPerLevel", 5);
 
@@ -173,6 +221,22 @@ public class MCTPConfig
         SPEC = BUILDER.build(); // Last
 
         // MCTradePostMod.LOGGER.info("Static initialization of MCTPConfig complete.");
+    }
+
+    /** 
+     * Returns the configured shipment-speed factor for a route segment without affecting route selection distance. 
+     */
+    public static double getTradeSpeedMultiplier(TrackRoute.SegmentType type)
+    {
+        return switch (type)
+        {
+            case RAIL -> railTradeSpeedMultiplier.get();
+            case ROAD -> roadTradeSpeedMultiplier.get();
+            case WATER -> waterTradeSpeedMultiplier.get();
+            case AIR -> visibleAirTradeSpeedMultiplier.get();
+            case AIR_TRANSIT -> airTradeSpeedMultiplier.get();
+            default -> 1.0D;
+        };
     }
 
     /**

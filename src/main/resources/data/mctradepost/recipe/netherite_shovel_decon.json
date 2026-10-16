@@ -1,8 +1,6 @@
 {
   "type": "mctradepost:deconstruction",
-  "input": {
-    "item": "minecraft:netherite_shovel"
-  },
+  "input": "minecraft:netherite_shovel",
   "results": [
     {
       "item": {

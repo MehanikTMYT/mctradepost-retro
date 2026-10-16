@@ -7,12 +7,10 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
@@ -35,7 +33,7 @@ public record ItemValueSyncPacket(long generation, int chunkIndex, int chunkCoun
 
     @SuppressWarnings("null")
     public static final Type<ItemValueSyncPacket> TYPE = new Type<>(
-        ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "sync_item_values"));
+        Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "sync_item_values"));
 
     public static final StreamCodec<ByteBuf, ItemValueSyncPacket> STREAM_CODEC = StreamCodec.of(
         ItemValueSyncPacket::encode,
@@ -44,7 +42,7 @@ public record ItemValueSyncPacket(long generation, int chunkIndex, int chunkCoun
     private static long pendingGeneration = Long.MIN_VALUE;
     private static int pendingChunkCount;
     private static BitSet pendingChunks = new BitSet();
-    private static Map<ResourceLocation, Integer> pendingValues = new HashMap<>();
+    private static Map<Identifier, Integer> pendingValues = new HashMap<>();
 
     @Override
     public Type<ItemValueSyncPacket> type()
@@ -86,13 +84,10 @@ public record ItemValueSyncPacket(long generation, int chunkIndex, int chunkCoun
     }
 
     /** Collects this chunk and atomically publishes the snapshot once all chunks arrive. */
-    @OnlyIn(Dist.CLIENT)
     public void handleDataInClientOnMain(IPayloadContext context)
     {
         context.enqueueWork(() -> acceptClientChunk(this));
     }
-
-    @OnlyIn(Dist.CLIENT)
     private static synchronized void acceptClientChunk(ItemValueSyncPacket packet)
     {
         if (packet.generation != pendingGeneration)
@@ -156,7 +151,7 @@ public record ItemValueSyncPacket(long generation, int chunkIndex, int chunkCoun
         ItemValueManager.getBaseValues().forEach((key, value) -> {
             if (key != null && BuiltInRegistries.ITEM.containsKey(key))
             {
-                result.add(new ValueEntry(BuiltInRegistries.ITEM.getId(BuiltInRegistries.ITEM.get(key)), value));
+                result.add(new ValueEntry(BuiltInRegistries.ITEM.getId(BuiltInRegistries.ITEM.getValue(key)), value));
             }
         });
         return result;

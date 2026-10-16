@@ -12,8 +12,8 @@ import com.minecolonies.core.entity.ai.workers.crafting.AbstractEntityAICrafting
 
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.animal.Animal;
-import net.minecraft.world.entity.animal.Cow;
-import net.minecraft.world.entity.animal.MushroomCow;
+import net.minecraft.world.entity.animal.cow.Cow;
+import net.minecraft.world.entity.animal.cow.MushroomCow;
 
 import static com.minecolonies.api.entity.ai.statemachine.states.AIWorkerState.IDLE;
 

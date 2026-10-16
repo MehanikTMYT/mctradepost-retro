@@ -15,11 +15,9 @@ import com.minecolonies.api.colony.buildings.views.IBuildingView;
 import com.minecolonies.api.crafting.ItemStorage;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
 import com.minecolonies.api.util.Utils;
 import com.mojang.logging.LogUtils;
 
@@ -93,10 +91,8 @@ public class MarketplaceItemListModuleView extends ItemListModuleViewExt
         itemOptionSet.clear();
         marketplaceValues.clear();
     }
-
-    @OnlyIn(Dist.CLIENT)
     public BOWindow getWindow()
     {
-        return new WindowMarketplaceItemListModule(this, ResourceLocation.fromNamespaceAndPath(MCTradePostMod.MODID, "gui/layouthuts/layoutmarketplacelistmodule.xml"));
+        return new WindowMarketplaceItemListModule(this, Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "gui/layouthuts/layoutmarketplacelistmodule.xml"));
     }
 }

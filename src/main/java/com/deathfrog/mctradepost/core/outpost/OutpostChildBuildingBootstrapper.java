@@ -23,7 +23,7 @@ import com.mojang.logging.LogUtils;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -40,8 +40,8 @@ import net.minecraft.world.level.block.state.BlockState;
 public final class OutpostChildBuildingBootstrapper
 {
     private static final Logger LOGGER = LogUtils.getLogger();
-    private static final ResourceLocation BUILDER_HUT_BLOCK_ID = ResourceLocation.fromNamespaceAndPath("minecolonies", "blockhutbuilder");
-    private static final ResourceLocation BUILDER_BUILDING_TYPE_ID = ResourceLocation.fromNamespaceAndPath("minecolonies", "builder");
+    private static final Identifier BUILDER_HUT_BLOCK_ID = Identifier.fromNamespaceAndPath("minecolonies", "blockhutbuilder");
+    private static final Identifier BUILDER_BUILDING_TYPE_ID = Identifier.fromNamespaceAndPath("minecolonies", "builder");
     private static final String TAG_BUILDING_TYPE = "type";
 
     /**
@@ -61,7 +61,7 @@ public final class OutpostChildBuildingBootstrapper
     public static BootstrapResult initExisting(final BuildingOutpost outpost, @Nullable final ServerPlayer actor)
     {
         final Level world = outpost.getColony().getWorld();
-        if (world == null || world.isClientSide)
+        if (world == null || world.isClientSide())
         {
             return BootstrapResult.failed("Outpost world is not available.");
         }
@@ -103,7 +103,7 @@ public final class OutpostChildBuildingBootstrapper
         @Nullable final ServerPlayer actor)
     {
         final Level world = outpost.getColony().getWorld();
-        if (world == null || world.isClientSide)
+        if (world == null || world.isClientSide())
         {
             return BootstrapResult.failed("Outpost world is not available.");
         }
@@ -239,7 +239,7 @@ public final class OutpostChildBuildingBootstrapper
 
         if (childBlock == null) return false;
 
-        final ResourceLocation blockId = BuiltInRegistries.BLOCK.getKey(childBlock);
+        final Identifier blockId = BuiltInRegistries.BLOCK.getKey(childBlock);
         if (BUILDER_HUT_BLOCK_ID.equals(blockId))
         {
             return true;
@@ -251,8 +251,8 @@ public final class OutpostChildBuildingBootstrapper
             return false;
         }
 
-        final CompoundTag blueprintData = tileEntityData.getCompound(IBlueprintDataProviderBE.TAG_BLUEPRINTDATA);
-        final ResourceLocation buildingType = ResourceLocation.tryParse(blueprintData.getString(TAG_BUILDING_TYPE) + "");
+        final CompoundTag blueprintData = tileEntityData.getCompoundOrEmpty(IBlueprintDataProviderBE.TAG_BLUEPRINTDATA);
+        final Identifier buildingType = Identifier.tryParse(blueprintData.getStringOr(TAG_BUILDING_TYPE, "") + "");
         return BUILDER_BUILDING_TYPE_ID.equals(buildingType);
     }
 

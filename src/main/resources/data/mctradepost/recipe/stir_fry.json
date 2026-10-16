@@ -2,21 +2,11 @@
   "type": "minecraft:crafting_shapeless",
   "category": "misc",
   "ingredients": [
-    {
-      "item": "minecolonies:bell_pepper"
-    },
-    {
-      "tag": "mctradepost:seasoning"
-    },
-    {
-      "tag": "mctradepost:vegetable"
-    },
-    {
-      "item": "minecolonies:butter"
-    },
-    {
-      "tag": "mctradepost:meat"
-    }
+    "minecolonies:bell_pepper",
+    "#mctradepost:seasoning",
+    "#mctradepost:vegetable",
+    "minecolonies:butter",
+    "#mctradepost:meat"
   ],
   "result": {
     "count": 4,
