@@ -1050,5 +1050,6 @@
     "com.minecolonies.coremod.gui.townhall.stats.economic_expense_details.rare_find_reroll": "Rerolls: %d‡ for %s",
     "com.minecolonies.coremod.gui.townhall.stats.economic_expense_details.animal_acquisition": "Animal Acquisitions: %d‡ for %s",
     "com.minecolonies.coremod.gui.townhall.stats.economic_expense_details.pet_rescue": "Pet Rescues: %d‡ for %s",
-    "com.minecolonies.coremod.gui.townhall.stats.economic_expense_details.citizen_incentive": "Citizen Incentives: %d‡ for %s"
+    "com.minecolonies.coremod.gui.townhall.stats.economic_expense_details.citizen_incentive": "Citizen Incentives: %d‡ for %s",
+    "mctradepost.thriftshop.disabled": "Rare Finds have been disabled by the server operator."
 }
