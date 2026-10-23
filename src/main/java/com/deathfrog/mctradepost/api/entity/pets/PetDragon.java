@@ -1,6 +1,8 @@
 package com.deathfrog.mctradepost.api.entity.pets;
 
+import net.minecraft.core.UUIDUtil;
 import java.util.List;
+import java.util.UUID;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -8,14 +10,16 @@ import javax.annotation.Nullable;
 import org.slf4j.Logger;
 
 import com.deathfrog.mctradepost.api.entity.pets.navigation.IPetNavResult;
+import com.deathfrog.mctradepost.api.entity.pets.goals.CompanionFollowGoal;
 import com.deathfrog.mctradepost.api.entity.pets.navigation.MinecoloniesNavResultProxy;
 import com.deathfrog.mctradepost.api.entity.pets.navigation.VanillaNavResult;
-import com.deathfrog.mctradepost.api.util.ItemStackHandlerContainerWrapper;
 import com.deathfrog.mctradepost.api.util.NullnessBridge;
 import com.deathfrog.mctradepost.api.util.PetAnimalManagerUtil;
 import com.deathfrog.mctradepost.api.util.PetRegistryUtil;
 import com.deathfrog.mctradepost.api.util.TraceUtils;
 import com.deathfrog.mctradepost.core.colony.buildings.workerbuildings.BuildingPetshop;
+import com.deathfrog.mctradepost.core.entity.pets.companion.CompanionManager;
+import com.deathfrog.mctradepost.item.CompanionStaffItem;
 import com.minecolonies.api.colony.IAnimalData;
 import com.minecolonies.api.colony.buildings.IBuilding;
 import com.minecolonies.api.colony.managers.interfaces.IAnimalDataView;
@@ -38,7 +42,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.AgeableMob;
 import net.minecraft.world.entity.Entity;
@@ -83,6 +86,8 @@ public class PetDragon extends Animal implements ITradePostPet, IHerdingPet, IMa
     protected IAnimalData animalData = null;
     protected IAnimalDataView animalDataView = null;
     protected boolean goalsInitialized = false;
+    @Nullable protected UUID companionBindingId;
+    @Nullable protected UUID companionController;
 
     // After how many nudges without moving do we give the pet a pathfinding command to unstick itself?
     public static final int STUCK_STEPS = 10;
@@ -203,6 +208,12 @@ public class PetDragon extends Animal implements ITradePostPet, IHerdingPet, IMa
             return;
         }
         petData.assignPetGoals();
+
+        if (isCompanion())
+        {
+            this.goalSelector.addGoal(7, new CompanionFollowGoal(this));
+        }
+
     }
 
     @Override
@@ -225,6 +236,14 @@ public class PetDragon extends Animal implements ITradePostPet, IHerdingPet, IMa
         if (getManagedAnimalId() != 0)
         {
             compound.putInt(NbtTagConstants.TAG_MANAGED_ANIMALID, getManagedAnimalId());
+        }
+        if (companionBindingId != null)
+        {
+            compound.store("mctradepost_companion_binding", net.minecraft.core.UUIDUtil.CODEC, companionBindingId);
+        }
+        if (companionController != null)
+        {
+            compound.store("mctradepost_companion_controller", net.minecraft.core.UUIDUtil.CODEC, companionController);
         }
 
         output.store(compound);
@@ -252,6 +271,9 @@ public class PetDragon extends Animal implements ITradePostPet, IHerdingPet, IMa
 
         petData = new PetData<>(this, compound);
 
+        companionBindingId = compound.read("mctradepost_companion_binding", UUIDUtil.CODEC).orElse(null);
+        companionController = compound.read("mctradepost_companion_controller", UUIDUtil.CODEC).orElse(null);
+
         if (compound.contains(NbtTagConstants.TAG_COLONY_ID))
         {
             setColonyId(compound.getIntOr(NbtTagConstants.TAG_COLONY_ID, 0));
@@ -274,7 +296,7 @@ public class PetDragon extends Animal implements ITradePostPet, IHerdingPet, IMa
         }
 
         boolean registered = PetRegistryUtil.isRegistered(this);
-        if (!registered && this.isAlive() && this.getTrainerBuilding() != null)
+        if (!isCompanion() && !registered && this.isAlive() && this.getTrainerBuilding() != null)
         {
             PetRegistryUtil.register(this);
             PetAnimalManagerUtil.ensureManaged(this);
@@ -309,12 +331,22 @@ public class PetDragon extends Animal implements ITradePostPet, IHerdingPet, IMa
         return super.hurtServer(level, damageSource, damage);
     }
 
+    /**
+     * Applies normal or researched rescue behavior and clears companion state when death is final.
+     *
+     * @param damageSource source of fatal damage
+     */
     @Override
     public void die(@Nonnull DamageSource damageSource)
     {
         if (petData != null && petData.tryRescueFromDeath(damageSource))
         {
             return;
+        }
+
+        if (isCompanion())
+        {
+            CompanionManager.onDeath(this);
         }
 
         super.die(damageSource);
@@ -355,12 +387,13 @@ public class PetDragon extends Animal implements ITradePostPet, IHerdingPet, IMa
         }
     }
 
+    /** Advances normal dragon behavior and periodically snapshots Companion Staff state. */
     @Override
     public void tick()
     {
         super.tick();
 
-        if (petData != null && PetAnimalManagerUtil.recoverRegistration(this))
+        if (!isCompanion() && petData != null && PetAnimalManagerUtil.recoverRegistration(this))
         {
             resetGoals();
         }
@@ -375,6 +408,10 @@ public class PetDragon extends Animal implements ITradePostPet, IHerdingPet, IMa
             petData.tick(this.level());
             petData.aiWatchdogTick();
             petData.logActiveGoals();
+            if (isCompanion() && !level().isClientSide() && tickCount % 20 == 0)
+            {
+                CompanionManager.synchronize(this);
+            }
         }
         else
         {
@@ -421,13 +458,17 @@ public class PetDragon extends Animal implements ITradePostPet, IHerdingPet, IMa
     @Override
     public void remove(@Nonnull RemovalReason reason)
     {
-        if (petData != null)
+        if (petData != null && !isCompanion())
         {
             petData.onRemoval(reason);
         }
 
         switch (reason) {
             case KILLED, DISCARDED -> {
+                if (isCompanion())
+                {
+                    break;
+                }
                 if (getTrainerBuilding() instanceof BuildingPetshop petshop)
                 {
                     petshop.forgetPetData(this.getUUID());
@@ -640,25 +681,116 @@ public class PetDragon extends Animal implements ITradePostPet, IHerdingPet, IMa
      * @return the result of the interaction, which is InteractionResult.CONSUME if the menu is opened,
      *         otherwise the result of the superclass's mobInteract method
      */
+    @SuppressWarnings("null")
     @Override
     public InteractionResult mobInteract(@Nonnull Player player, @Nonnull InteractionHand hand)
     {
+        ItemStack held = player.getItemInHand(hand);
+        if (held.getItem() instanceof CompanionStaffItem)
+        {
+            if (!level().isClientSide() && player instanceof net.minecraft.server.level.ServerPlayer serverPlayer)
+            {
+                return CompanionManager.dismiss(serverPlayer, held, this) ? InteractionResult.CONSUME : InteractionResult.FAIL;
+            }
+            return InteractionResult.SUCCESS;
+        }
+        if (isCompanion() && !playerHasMatchingStaff(player))
+        {
+            if (!level().isClientSide())
+            {
+                player.sendOverlayMessage(Component.translatable("item.mctradepost.companion_staff.wrong_staff"));
+            }
+            return InteractionResult.FAIL;
+        }
         if (!level().isClientSide() && hand == InteractionHand.MAIN_HAND)
         {
-            ItemStackHandlerContainerWrapper inventoryWrapper = new ItemStackHandlerContainerWrapper(this.getInventory());
-
-            Component displayName = this.getDisplayName();
-
-            player.openMenu(new SimpleMenuProvider((windowId, playerInventory, p) -> new ChestMenu(NullnessBridge.assumeNonnull(MenuType.GENERIC_9x1), // 1-row menu
-                windowId,
-                playerInventory,
-                inventoryWrapper,
-                1 // number of rows
-            ), displayName == null ? NullnessBridge.assumeNonnull(Component.translatable("entity.mctradepost.pet_inventory")) : displayName));
+            petData.openInventory(player);
             return InteractionResult.CONSUME;
         }
 
         return super.mobInteract(player, hand);
+    }
+
+    /** Returns whether this dragon is controlled by a Companion Staff. */
+    public boolean isCompanion()
+    {
+        return companionBindingId != null;
+    }
+
+    /**
+     * Prevents staff companions from entering portals independently; staff recall and rescue use controlled dimension transfers.
+     *
+     * @param allowPassengers whether the portal operation permits passenger stacks
+     * @return true for normal dragons when the superclass permits portal use, false for companions
+     */
+    @Override
+    public boolean canUsePortal(boolean allowPassengers)
+    {
+        return !isCompanion() && super.canUsePortal(allowPassengers);
+    }
+
+    /** Returns the binding UUID of this companion, or {@code null} for a normal pet dragon. */
+    public @Nullable UUID getCompanionBindingId()
+    {
+        return companionBindingId;
+    }
+
+    /**
+     * Assigns the Companion Staff binding UUID.
+     *
+     * @param bindingId authoritative staff binding ID
+     */
+    public void setCompanionBindingId(@Nonnull UUID bindingId)
+    {
+        companionBindingId = bindingId;
+        resetGoals();
+    }
+
+    /** Returns the player UUID this companion currently follows. */
+    public @Nullable UUID getCompanionController()
+    {
+        return companionController;
+    }
+
+    /**
+     * Changes the player this companion follows.
+     *
+     * @param controller player UUID selected by the latest summon or recall
+     */
+    public void setCompanionController(@Nonnull UUID controller)
+    {
+        companionController = controller;
+    }
+
+    /** Removes this entity as an intentional staff dismissal without normal pet retirement cleanup. */
+    public void discardForCompanionDismissal()
+    {
+        discard();
+    }
+
+    private boolean playerHasMatchingStaff(Player player)
+    {
+        for (ItemStack stack : player.getInventory().getNonEquipmentItems())
+        {
+            if (stack == null) continue;
+
+            UUID binding = CompanionManager.bindingId(stack);
+            if (companionBindingId != null && companionBindingId.equals(binding))
+            {
+                return true;
+            }
+        }
+        for (ItemStack stack : java.util.List.of(player.getInventory().getItem(net.minecraft.world.entity.player.Inventory.SLOT_OFFHAND)))
+        {
+            if (stack == null) continue;
+
+            UUID binding = CompanionManager.bindingId(stack);
+            if (companionBindingId != null && companionBindingId.equals(binding))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

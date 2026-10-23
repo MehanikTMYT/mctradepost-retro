@@ -26,6 +26,7 @@ public class MCTPResearchConstants {
     public static final Identifier MARITIME_TRADE             = getResearchEffectID("maritime_trade");
     public static final Identifier AIR_TRADE                  = getResearchEffectID("air_trade");
     public static final Identifier INCENTIVE_PLANS            = getResearchEffectID("incentive_plans");
+    public static final Identifier PET_INVENTORY_CAPACITY     = getResearchEffectID("pet_inventory_capacity");
 
     public static Identifier getResearchEffectID(String researchName) {
         return Identifier.fromNamespaceAndPath(MCTradePostMod.MODID, "effects/" + researchName);
