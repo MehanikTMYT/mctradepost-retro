@@ -181,6 +181,14 @@ public class StewpotBlock extends AbstractCauldronBlock
             return InteractionResult.TRY_WITH_EMPTY_HAND;
         }
 
+        // Broth has physical volume but cannot be portioned until it qualifies as Basic stew.
+        // (upstream: ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION — в порту 26.1.2
+        // useItemOn возвращает InteractionResult, см. AbstractBlockPetWorkingLocation)
+        if (module.getServableStewQuantityBowlsWorth() <= 0)
+        {
+            return InteractionResult.TRY_WITH_EMPTY_HAND;
+        }
+
         // Create the filled stew item
         final ItemStack filledStew = new ItemStack(NullnessBridge.assumeNonnull(module.getActualStewTier().getItem()));
 

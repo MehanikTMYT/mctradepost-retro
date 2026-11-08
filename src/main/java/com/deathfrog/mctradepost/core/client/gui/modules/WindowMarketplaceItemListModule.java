@@ -98,6 +98,7 @@ public class WindowMarketplaceItemListModule extends ItemListModuleWindow
              * @param index the index of the row/list element.
              * @param rowPane the parent Pane for the row, containing the elements to update.
              */
+            @SuppressWarnings("null")
             @Override
             public void updateElement(final int index, @NotNull final Pane rowPane)
             {
